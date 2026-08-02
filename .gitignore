@@ -1,0 +1,16 @@
+# Source ZIPs and all pipeline outputs -- regenerate locally by running the
+# pipeline against your own copy of the raw ZIPs (fully deterministic, so
+# results are byte-identical). Too large for git (raw ~9GB, processed ~53GB).
+historical_data_*/
+data/
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Claude Code local session state
+.claude/
+
+# Logs / scratch
+*.log

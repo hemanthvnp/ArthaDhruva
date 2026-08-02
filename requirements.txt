@@ -1,0 +1,2 @@
+polars>=1.9
+pyarrow>=17.0
