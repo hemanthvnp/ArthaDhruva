@@ -1,0 +1,28 @@
+services:
+  pipeline:
+    build: .
+    volumes:
+      - ./historical_data_2020:/app/historical_data_2020:ro
+      - ./historical_data_2021:/app/historical_data_2021:ro
+      - ./historical_data_2022:/app/historical_data_2022:ro
+      - ./historical_data_2023:/app/historical_data_2023:ro
+      - ./historical_data_2024:/app/historical_data_2024:ro
+      - ./historical_data_2025:/app/historical_data_2025:ro
+      - ./data:/app/data
+      - ./notebooks:/app/notebooks
+    command: python -m pipeline.run
+
+  jupyter:
+    build: .
+    volumes:
+      - ./historical_data_2020:/app/historical_data_2020:ro
+      - ./historical_data_2021:/app/historical_data_2021:ro
+      - ./historical_data_2022:/app/historical_data_2022:ro
+      - ./historical_data_2023:/app/historical_data_2023:ro
+      - ./historical_data_2024:/app/historical_data_2024:ro
+      - ./historical_data_2025:/app/historical_data_2025:ro
+      - ./data:/app/data
+      - ./notebooks:/app/notebooks
+    ports:
+      - "8888:8888"
+    command: jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token=''

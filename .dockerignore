@@ -1,0 +1,8 @@
+data/
+historical_data_*/
+.git/
+.claude/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+*.log
