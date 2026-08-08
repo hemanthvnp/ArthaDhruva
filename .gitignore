@@ -14,3 +14,7 @@ __pycache__/
 
 # Logs / scratch
 *.log
+
+# Internal planning/reference docs and pitch decks -- not for the public repo
+ARTHADHRUVA_PROJECT_SPEC.md
+docs/
