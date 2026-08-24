@@ -1,5 +1,7 @@
 package com.arthadhruva.riskengine.score;
 
+import java.time.Instant;
+
 /**
  * @param rawProbability         the LightGBM model's raw output -- NOT a trustworthy probability
  *                                (see default_risk_model.ipynb's calibration check: raw output
@@ -12,4 +14,8 @@ public record ScoreResponse(
         double rawProbability,
         double calibratedProbability
 ) {
+
+    /** A {@link ScoreResponse} as read back from the cache, with the time it was computed. */
+    public record CachedScore(ScoreResponse score, Instant computedAt) {
+    }
 }
