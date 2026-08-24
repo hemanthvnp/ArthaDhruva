@@ -84,9 +84,9 @@ nbstripout --install
 The exported artifacts (`model.onnx`, `calibration.json`, `category_mappings.json`, `feature_order.json`, `hmm_regime.json`) are small and already committed under `backend/risk-engine/src/main/resources/`, so a teammate normally doesn't need to regenerate them — just start Postgres and run the service:
 
 ```bash
-docker compose up -d postgres redis   # audit-trail storage + the online score/forecast cache
+docker compose up -d postgres redis neo4j   # audit trail + score/forecast cache + segment-correlation graph
 cd backend/risk-engine
-./mvnw spring-boot:run                # mvnw.cmd on Windows
+./mvnw spring-boot:run                      # mvnw.cmd on Windows
 ```
 
 Requires JDK 17 (the wrapper downloads Maven itself, no separate Maven install needed). The app connects to `jdbc:postgresql://localhost:5432/arthadhruva` and `redis://localhost:6379` by default (matching the Docker Compose services); override with the `DB_HOST`/`DB_PORT`/`DB_NAME`/`DB_USER`/`DB_PASSWORD` and `REDIS_HOST`/`REDIS_PORT` env vars if you're pointing it at different instances.
@@ -94,6 +94,8 @@ Requires JDK 17 (the wrapper downloads Maven itself, no separate Maven install n
 `POST /score` accepts an optional `loanId` field; when present, the result is cached in Redis and can be read back without recomputing via `GET /score/{loanId}` (404 if nothing's cached yet for that ID). `GET /regime-forecast` is cached by `monthsAhead` for 1 hour.
 
 `POST /cvar` runs a Monte Carlo bootstrap CVaR simulation: send `{"loans": [{"pd": 0.02, "lgd": 0.4, "ead": 250000}, ...], "confidenceLevel": 0.95, "numScenarios": 50000}` (`confidenceLevel`/`numScenarios` are optional) and get back `valueAtRisk`/`conditionalValueAtRisk` plus a bootstrap confidence interval on each — a genuine interval reflecting simulation uncertainty, not a single point estimate. This endpoint is stochastic by design (results vary slightly call to call) and isn't cached.
+
+`GET /segments` lists the 15 states loaded into the segment-correlation graph, and `GET /segments/{state}/neighbors?maxHops=2` runs the actual multi-hop traversal query (which states' delinquency risk has historically moved together with this one, within N hops) — the real justification for using Neo4j here rather than a plain table, per `segment_correlation_graph.ipynb`. The graph is loaded from `segment_correlation_graph.json` (already committed, like the other model artifacts); regenerate it with `python backend/export_segment_correlation.py` if the underlying data changes.
 
 Every call to `/score` and `/regime-forecast` is persisted immutably to `model_invocation_events` (request, response, latency, success/failure) via a Spring AOP aspect — inspect it directly:
 

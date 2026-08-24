@@ -1,0 +1,226 @@
+{
+  "nodes": [
+    "CA",
+    "FL",
+    "GA",
+    "IL",
+    "IN",
+    "MA",
+    "MD",
+    "MI",
+    "MN",
+    "NC",
+    "NY",
+    "OH",
+    "PA",
+    "TN",
+    "TX"
+  ],
+  "edges": [
+    {
+      "source": "CA",
+      "target": "MD",
+      "weight": 0.9626
+    },
+    {
+      "source": "CA",
+      "target": "NY",
+      "weight": 0.9642
+    },
+    {
+      "source": "FL",
+      "target": "GA",
+      "weight": 0.9619
+    },
+    {
+      "source": "FL",
+      "target": "MD",
+      "weight": 0.9502
+    },
+    {
+      "source": "FL",
+      "target": "NC",
+      "weight": 0.9564
+    },
+    {
+      "source": "FL",
+      "target": "TX",
+      "weight": 0.9595
+    },
+    {
+      "source": "GA",
+      "target": "IL",
+      "weight": 0.977
+    },
+    {
+      "source": "GA",
+      "target": "MA",
+      "weight": 0.9678
+    },
+    {
+      "source": "GA",
+      "target": "NC",
+      "weight": 0.9856
+    },
+    {
+      "source": "GA",
+      "target": "PA",
+      "weight": 0.9732
+    },
+    {
+      "source": "GA",
+      "target": "TN",
+      "weight": 0.9686
+    },
+    {
+      "source": "GA",
+      "target": "TX",
+      "weight": 0.9888
+    },
+    {
+      "source": "IL",
+      "target": "MA",
+      "weight": 0.9626
+    },
+    {
+      "source": "IL",
+      "target": "MI",
+      "weight": 0.9667
+    },
+    {
+      "source": "IL",
+      "target": "MN",
+      "weight": 0.9645
+    },
+    {
+      "source": "IL",
+      "target": "NC",
+      "weight": 0.9752
+    },
+    {
+      "source": "IL",
+      "target": "OH",
+      "weight": 0.9673
+    },
+    {
+      "source": "IL",
+      "target": "PA",
+      "weight": 0.9827
+    },
+    {
+      "source": "IL",
+      "target": "TN",
+      "weight": 0.9792
+    },
+    {
+      "source": "IL",
+      "target": "TX",
+      "weight": 0.9684
+    },
+    {
+      "source": "IN",
+      "target": "MI",
+      "weight": 0.9609
+    },
+    {
+      "source": "IN",
+      "target": "OH",
+      "weight": 0.9658
+    },
+    {
+      "source": "MA",
+      "target": "MD",
+      "weight": 0.9685
+    },
+    {
+      "source": "MA",
+      "target": "PA",
+      "weight": 0.9707
+    },
+    {
+      "source": "MA",
+      "target": "TX",
+      "weight": 0.9733
+    },
+    {
+      "source": "MD",
+      "target": "TX",
+      "weight": 0.9593
+    },
+    {
+      "source": "MI",
+      "target": "MN",
+      "weight": 0.9706
+    },
+    {
+      "source": "MI",
+      "target": "OH",
+      "weight": 0.9915
+    },
+    {
+      "source": "MI",
+      "target": "PA",
+      "weight": 0.9675
+    },
+    {
+      "source": "MI",
+      "target": "TN",
+      "weight": 0.9686
+    },
+    {
+      "source": "MN",
+      "target": "OH",
+      "weight": 0.9695
+    },
+    {
+      "source": "MN",
+      "target": "PA",
+      "weight": 0.9646
+    },
+    {
+      "source": "MN",
+      "target": "TN",
+      "weight": 0.9654
+    },
+    {
+      "source": "NC",
+      "target": "PA",
+      "weight": 0.9612
+    },
+    {
+      "source": "NC",
+      "target": "TN",
+      "weight": 0.9624
+    },
+    {
+      "source": "NC",
+      "target": "TX",
+      "weight": 0.9761
+    },
+    {
+      "source": "OH",
+      "target": "PA",
+      "weight": 0.9602
+    },
+    {
+      "source": "OH",
+      "target": "TN",
+      "weight": 0.9736
+    },
+    {
+      "source": "PA",
+      "target": "TN",
+      "weight": 0.9711
+    },
+    {
+      "source": "PA",
+      "target": "TX",
+      "weight": 0.9654
+    },
+    {
+      "source": "TN",
+      "target": "TX",
+      "weight": 0.952
+    }
+  ]
+}
