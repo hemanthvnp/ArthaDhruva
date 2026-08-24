@@ -4,8 +4,6 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
 
@@ -17,8 +15,9 @@ import java.util.Map;
  * SR 11-7-style audit trail: wraps every model-serving controller method (pointcut matches any
  * class ending in "Controller" under this package, so new endpoints are covered automatically)
  * and persists one immutable {@link ModelInvocationEvent} row per call -- request, response,
- * timing, and outcome. Persistence failures are logged and swallowed: the audit trail must never
- * become a way to break the actual scoring/forecast response (a deliberate fail-open choice).
+ * timing, and outcome, via {@link AuditEventWriter} (which owns the circuit-breaker/retry/
+ * fail-open behavior so a Postgres outage can never become a way to break the actual
+ * scoring/forecast response).
  *
  * Bean-validation ({@code @Valid}) rejections happen before the controller method -- and
  * therefore this proxy's advice -- is ever invoked, so those are captured separately by
@@ -28,13 +27,11 @@ import java.util.Map;
 @Component
 public class AuditAspect {
 
-    private static final Logger log = LoggerFactory.getLogger(AuditAspect.class);
-
-    private final ModelInvocationEventRepository repository;
+    private final AuditEventWriter auditEventWriter;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public AuditAspect(ModelInvocationEventRepository repository) {
-        this.repository = repository;
+    public AuditAspect(AuditEventWriter auditEventWriter) {
+        this.auditEventWriter = auditEventWriter;
     }
 
     @Around("execution(* com.arthadhruva.riskengine..*Controller.*(..))")
@@ -71,12 +68,8 @@ public class AuditAspect {
 
     private void persist(String endpoint, String requestJson, String responseJson,
                           boolean success, String errorMessage, long latencyMs) {
-        try {
-            repository.save(new ModelInvocationEvent(
-                    endpoint, requestJson, responseJson, success, errorMessage, Instant.now(), latencyMs));
-        } catch (Exception persistFailure) {
-            log.warn("Failed to persist audit event for {}", endpoint, persistFailure);
-        }
+        auditEventWriter.write(new ModelInvocationEvent(
+                endpoint, requestJson, responseJson, success, errorMessage, Instant.now(), latencyMs));
     }
 
     private String safeWrite(Object value) {
