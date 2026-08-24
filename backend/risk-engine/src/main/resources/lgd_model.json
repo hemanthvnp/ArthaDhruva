@@ -1,0 +1,17 @@
+{
+  "feature_names": [
+    "credit_score",
+    "original_dti",
+    "original_upb",
+    "original_cltv",
+    "original_interest_rate"
+  ],
+  "const": -5.069336036755564,
+  "coefficients": {
+    "credit_score": 0.00016418956986902805,
+    "original_dti": 8.776663482919677e-05,
+    "original_upb": 9.48319949377483e-09,
+    "original_cltv": 0.0024164574888752097,
+    "original_interest_rate": 0.002171192786830951
+  }
+}

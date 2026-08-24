@@ -97,6 +97,8 @@ Requires JDK 17 (the wrapper downloads Maven itself, no separate Maven install n
 
 `GET /segments` lists the 15 states loaded into the segment-correlation graph, and `GET /segments/{state}/neighbors?maxHops=2` runs the actual multi-hop traversal query (which states' delinquency risk has historically moved together with this one, within N hops) — the real justification for using Neo4j here rather than a plain table, per `segment_correlation_graph.ipynb`. The graph is loaded from `segment_correlation_graph.json` (already committed, like the other model artifacts); regenerate it with `python backend/export_segment_correlation.py` if the underlying data changes.
 
+`POST /expected-loss` takes the same body as `/score` and returns `{pd, lgd, ead, expectedLoss}` — PD from the existing model, LGD from a Beta regression (`lgd_ead_expected_loss.ipynb`, exported via `python backend/export_lgd_model.py`), and EAD as `original_upb` (a stated simplification — EAD isn't a fitted model anywhere in the analysis; see the code comment on `ExpectedLossController` for why).
+
 Every call to `/score` and `/regime-forecast` is persisted immutably to `model_invocation_events` (request, response, latency, success/failure) via a Spring AOP aspect — inspect it directly:
 
 ```bash
