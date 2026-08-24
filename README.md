@@ -91,6 +91,16 @@ cd backend/risk-engine
 
 Requires JDK 17 (the wrapper downloads Maven itself, no separate Maven install needed). The app connects to `jdbc:postgresql://localhost:5432/arthadhruva` and `redis://localhost:6379` by default (matching the Docker Compose services); override with the `DB_HOST`/`DB_PORT`/`DB_NAME`/`DB_USER`/`DB_PASSWORD` and `REDIS_HOST`/`REDIS_PORT` env vars if you're pointing it at different instances.
 
+**Authentication.** Every endpoint except `/login` and `/actuator/health` requires a JWT (`Authorization: Bearer <token>`, obtained from `POST /login`). On first run against an empty database, a bootstrap `ADMIN` account is created automatically — **watch the startup logs** for a one-time banner with the generated username/password (set `ADMIN_USERNAME`/`ADMIN_PASSWORD` to skip the random generation, e.g. for CI). `JWT_SECRET` should be set explicitly for anything beyond local dev — if unset, a random signing key is generated per run, so restarting invalidates every outstanding token. There's no user-management UI yet (deliberately out of scope so far); add a second, `ANALYST`-role user directly via `psql` if you need to test role-gating:
+
+```sql
+-- password hash below is bcrypt("analyst123") -- for local testing only
+INSERT INTO app_user (username, password_hash, role, created_at)
+VALUES ('analyst', '$2b$12$hL//kw7T5yfQ3UWzw8qDb.rHUsVby0K5KC5qGtmIxcXBzzc0.T0Eq', 'ANALYST', now());
+```
+
+`GET /admin/audit-log?limit=50` (ADMIN only) exposes the `model_invocation_events` audit trail through the API instead of only via direct Postgres access.
+
 `POST /score` accepts an optional `loanId` field; when present, the result is cached in Redis and can be read back without recomputing via `GET /score/{loanId}` (404 if nothing's cached yet for that ID). `GET /regime-forecast` is cached by `monthsAhead` for 1 hour.
 
 `POST /cvar` runs a Monte Carlo bootstrap CVaR simulation: send `{"loans": [{"pd": 0.02, "lgd": 0.4, "ead": 250000}, ...], "confidenceLevel": 0.95, "numScenarios": 50000}` (`confidenceLevel`/`numScenarios` are optional) and get back `valueAtRisk`/`conditionalValueAtRisk` plus a bootstrap confidence interval on each — a genuine interval reflecting simulation uncertainty, not a single point estimate. This endpoint is stochastic by design (results vary slightly call to call) and isn't cached.
@@ -124,3 +134,15 @@ python export_hmm.py     # refits the regime HMM, writes hmm_regime.json
 ```
 
 Both are deterministic given the same `data/` contents. `trained_checkpoint.joblib` is a local cache of the trained model (regenerable, ~127MB) and is gitignored — don't commit it.
+
+### 7. Frontend
+
+`frontend/` is a React + Vite + TypeScript dashboard covering every `risk-engine` endpoint above (score, expected loss, regime forecast, CVaR simulation, trajectory score, and an interactive segment-correlation graph view). It's a separate app talking to `risk-engine` over HTTP, not server-rendered.
+
+```bash
+cd frontend
+npm install
+npm run dev          # http://localhost:5173
+```
+
+Expects `risk-engine` running on `http://localhost:8080`; override via `frontend/.env.local` (copy `.env.example`) if it's running elsewhere. `risk-engine`'s `CorsConfig` already allows the default Vite dev origin (`localhost:5173`) — if you change the frontend's port, update that too.

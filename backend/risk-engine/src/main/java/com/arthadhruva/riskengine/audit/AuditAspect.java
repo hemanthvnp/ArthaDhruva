@@ -19,6 +19,13 @@ import java.util.Map;
  * fail-open behavior so a Postgres outage can never become a way to break the actual
  * scoring/forecast response).
  *
+ * {@code AuthController} is deliberately excluded: its request carries a raw password and its
+ * response carries a live JWT, and this aspect serializes whatever it's given verbatim -- logging
+ * either into Postgres would mean anyone with audit-trail read access could read plaintext
+ * credentials or hijack a session via a logged token. Login attempts still need their own
+ * accountability trail, just not a copy of the secret material; that's out of scope for this
+ * round (see AuthController's own class doc).
+ *
  * Bean-validation ({@code @Valid}) rejections happen before the controller method -- and
  * therefore this proxy's advice -- is ever invoked, so those are captured separately by
  * {@link ValidationAuditAdvice}.
@@ -34,7 +41,8 @@ public class AuditAspect {
         this.auditEventWriter = auditEventWriter;
     }
 
-    @Around("execution(* com.arthadhruva.riskengine..*Controller.*(..))")
+    @Around("execution(* com.arthadhruva.riskengine..*Controller.*(..)) "
+            + "&& !within(com.arthadhruva.riskengine.security.AuthController)")
     public Object audit(ProceedingJoinPoint joinPoint) throws Throwable {
         String endpoint = joinPoint.getSignature().getDeclaringType().getSimpleName()
                 + "." + joinPoint.getSignature().getName();
