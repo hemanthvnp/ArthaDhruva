@@ -81,14 +81,21 @@ nbstripout --install
 
 `backend/` holds the deployable side: a Java/Spring Boot scoring service (`backend/risk-engine/`) plus the Python scripts that train the models and export the artifacts it serves (`export_model.py`, `export_hmm.py`, `reexport_onnx.py`).
 
-The exported artifacts (`model.onnx`, `calibration.json`, `category_mappings.json`, `feature_order.json`, `hmm_regime.json`) are small and already committed under `backend/risk-engine/src/main/resources/`, so a teammate normally doesn't need to regenerate them — just build and run the service:
+The exported artifacts (`model.onnx`, `calibration.json`, `category_mappings.json`, `feature_order.json`, `hmm_regime.json`) are small and already committed under `backend/risk-engine/src/main/resources/`, so a teammate normally doesn't need to regenerate them — just start Postgres and run the service:
 
 ```bash
+docker compose up -d postgres   # SR 11-7-style audit trail storage (model_invocation_events table, auto-created on first boot)
 cd backend/risk-engine
-./mvnw spring-boot:run       # mvnw.cmd on Windows
+./mvnw spring-boot:run          # mvnw.cmd on Windows
 ```
 
-Requires JDK 17 (the wrapper downloads Maven itself, no separate Maven install needed).
+Requires JDK 17 (the wrapper downloads Maven itself, no separate Maven install needed). The app connects to `jdbc:postgresql://localhost:5432/arthadhruva` by default (matching the Docker Compose service); override with the `DB_HOST`/`DB_PORT`/`DB_NAME`/`DB_USER`/`DB_PASSWORD` env vars if you're pointing it at a different Postgres instance.
+
+Every call to `/score` and `/regime-forecast` is persisted immutably to `model_invocation_events` (request, response, latency, success/failure) via a Spring AOP aspect — inspect it directly:
+
+```bash
+docker compose exec postgres psql -U arthadhruva -d arthadhruva -c "select endpoint, success, latency_ms, occurred_at from model_invocation_events order by occurred_at desc limit 5;"
+```
 
 **Regenerating the artifacts** (only if you change the model/training code) requires `data/processed/...` to be populated first (step 3) and the notebook dependencies installed (step 1):
 
