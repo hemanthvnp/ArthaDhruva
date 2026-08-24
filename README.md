@@ -97,6 +97,14 @@ Requires JDK 17 (the wrapper downloads Maven itself, no separate Maven install n
 
 `GET /segments` lists the 15 states loaded into the segment-correlation graph, and `GET /segments/{state}/neighbors?maxHops=2` runs the actual multi-hop traversal query (which states' delinquency risk has historically moved together with this one, within N hops) — the real justification for using Neo4j here rather than a plain table, per `segment_correlation_graph.ipynb`. The graph is loaded from `segment_correlation_graph.json` (already committed, like the other model artifacts); regenerate it with `python backend/export_segment_correlation.py` if the underlying data changes.
 
+**Batch layer.** `backend/batch_refresh_segment_correlation.py` is the project's batch/nightly-recompute layer (reusing the same bounded-chunk/Polars pattern as the rest of the pipeline, not Apache Spark — see the script's own docstring for why). Unlike `export_segment_correlation.py`, it connects directly to a *running* Neo4j and replaces the graph in place — no app restart needed:
+
+```bash
+python backend/batch_refresh_segment_correlation.py                    # run once
+python backend/batch_refresh_segment_correlation.py --threshold 0.9    # override the correlation threshold
+python backend/batch_refresh_segment_correlation.py --loop --interval-hours 24   # repeating cadence, no external scheduler needed
+```
+
 `POST /expected-loss` takes the same body as `/score` and returns `{pd, lgd, ead, expectedLoss}` — PD from the existing model, LGD from a Beta regression (`lgd_ead_expected_loss.ipynb`, exported via `python backend/export_lgd_model.py`), and EAD as `original_upb` (a stated simplification — EAD isn't a fitted model anywhere in the analysis; see the code comment on `ExpectedLossController` for why).
 
 `POST /trajectory-score` runs the LSTM trajectory model (`lstm_trajectory_model.ipynb`, exported via `python backend/export_lstm_model.py`): send `{"originalUpb": 250000, "months": [{"currentLoanDelinquencyStatus": "0", "currentActualUpb": 248000, "modificationFlag": "N"}, ...]}` (1-12 months, ordered from origination) and get back `{"probability": ...}` — near-term default probability from the loan's *actual* trajectory so far, not a static origination-time snapshot. Unlike `/score`, this needs real performance history, not just origination features. **Uncalibrated** (see `TrajectoryScoreResponse`'s Javadoc): useful for ranking trajectories relative to each other, not as a dollar-valued probability — the source notebook never fits a calibration step for this model the way the PD model has one.

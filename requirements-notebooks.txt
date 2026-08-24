@@ -12,5 +12,6 @@ pomegranate
 torch
 joblib
 onnxmltools
+neo4j
 jupyter
 nbconvert
