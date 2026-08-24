@@ -1,0 +1,40 @@
+{
+  "numeric_features": [
+    "credit_score",
+    "original_dti",
+    "original_upb",
+    "original_cltv",
+    "original_ltv",
+    "original_interest_rate",
+    "original_loan_term",
+    "number_of_borrowers",
+    "number_of_units",
+    "mi_percent"
+  ],
+  "categorical_features": [
+    "occupancy_status",
+    "property_type",
+    "loan_purpose",
+    "channel",
+    "first_time_homebuyer_flag",
+    "property_state"
+  ],
+  "all_features_in_order": [
+    "credit_score",
+    "original_dti",
+    "original_upb",
+    "original_cltv",
+    "original_ltv",
+    "original_interest_rate",
+    "original_loan_term",
+    "number_of_borrowers",
+    "number_of_units",
+    "mi_percent",
+    "occupancy_status",
+    "property_type",
+    "loan_purpose",
+    "channel",
+    "first_time_homebuyer_flag",
+    "property_state"
+  ]
+}

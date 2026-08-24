@@ -1,0 +1,16 @@
+# Extra dependencies for notebooks/ analysis and backend/ model export scripts.
+# Not needed for the core pipeline (pipeline/ only needs requirements.txt).
+pandas
+matplotlib
+seaborn
+scikit-learn
+lightgbm
+networkx
+statsmodels
+dowhy
+pomegranate
+torch
+joblib
+onnxmltools
+jupyter
+nbconvert

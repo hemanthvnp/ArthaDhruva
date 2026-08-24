@@ -12,7 +12,7 @@ The raw and processed data is **not in this repo** (raw ~9GB, processed ~53GB �
 git clone https://github.com/hemanthvnp/ArthaDhruva.git
 cd ArthaDhruva
 pip install -r requirements.txt
-pip install pandas matplotlib scikit-learn lightgbm jupyter nbconvert  # used by the notebooks, not the core pipeline
+pip install -r requirements-notebooks.txt  # used by the notebooks and backend/ export scripts, not the core pipeline
 ```
 
 Requires Python 3.10+ and roughly 16GB RAM (the pipeline is chunked specifically to stay within that; see the docstring in `pipeline/chunked.py`).
@@ -76,3 +76,26 @@ Everything in `notebooks/` is tracked in git and reads from `../data/...` relati
 pip install nbstripout
 nbstripout --install
 ```
+
+### 6. Backend (risk-engine)
+
+`backend/` holds the deployable side: a Java/Spring Boot scoring service (`backend/risk-engine/`) plus the Python scripts that train the models and export the artifacts it serves (`export_model.py`, `export_hmm.py`, `reexport_onnx.py`).
+
+The exported artifacts (`model.onnx`, `calibration.json`, `category_mappings.json`, `feature_order.json`, `hmm_regime.json`) are small and already committed under `backend/risk-engine/src/main/resources/`, so a teammate normally doesn't need to regenerate them — just build and run the service:
+
+```bash
+cd backend/risk-engine
+./mvnw spring-boot:run       # mvnw.cmd on Windows
+```
+
+Requires JDK 17 (the wrapper downloads Maven itself, no separate Maven install needed).
+
+**Regenerating the artifacts** (only if you change the model/training code) requires `data/processed/...` to be populated first (step 3) and the notebook dependencies installed (step 1):
+
+```bash
+cd backend
+python export_model.py   # retrains the LightGBM PD model, writes model.onnx + calibration.json + category_mappings.json + feature_order.json
+python export_hmm.py     # refits the regime HMM, writes hmm_regime.json
+```
+
+Both are deterministic given the same `data/` contents. `trained_checkpoint.joblib` is a local cache of the trained model (regenerable, ~127MB) and is gitignored — don't commit it.

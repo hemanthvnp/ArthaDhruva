@@ -18,3 +18,13 @@ __pycache__/
 # Internal planning/reference docs and pitch decks -- not for the public repo
 ARTHADHRUVA_PROJECT_SPEC.md
 docs/
+
+# Backend: Maven build output, build logs, and the cached training checkpoint (127MB,
+# regenerable by re-running export_model.py against ../data -- the ONNX model itself IS
+# committed, since it's a small, deployable artifact the running service actually needs).
+backend/risk-engine/target/
+backend/trained_checkpoint.joblib
+backend/run_log.txt
+
+# Exploratory scratch scripts (not part of the reproducible pipeline/notebooks)
+notebooks/_scratch_*
