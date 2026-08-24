@@ -1,0 +1,17 @@
+{
+  "feature_names": [
+    "status_numeric",
+    "upb_ratio",
+    "is_modified"
+  ],
+  "standardized_feature_count": 2,
+  "feat_mean": [
+    0.004346888046711683,
+    0.9824649095535278
+  ],
+  "feat_std": [
+    0.07038980722427368,
+    0.07116546481847763
+  ],
+  "max_seq_len": 12
+}

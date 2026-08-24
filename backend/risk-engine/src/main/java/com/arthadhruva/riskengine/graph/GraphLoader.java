@@ -18,6 +18,13 @@ import java.util.Map;
  * recomputes segment_correlation_graph.ipynb's methodology directly from data/) into Neo4j on
  * startup. Uses MERGE for both nodes and relationships, so restarting the app never duplicates
  * the graph.
+ *
+ * Failures here are logged and swallowed, not rethrown: an {@link ApplicationRunner} exception
+ * is fatal to {@code SpringApplication.run()} by default, which would take down PD/CVaR/LGD/LSTM
+ * serving too if Neo4j merely happens to be slow or unavailable at boot -- a Neo4j outage should
+ * only degrade {@code /segments}/{@code /segments/{state}/neighbors} (which will then fail
+ * per-request against a driver with nothing loaded), the same fail-open philosophy already
+ * applied to Postgres/Redis elsewhere in this service.
  */
 @Component
 public class GraphLoader implements ApplicationRunner {
@@ -32,7 +39,16 @@ public class GraphLoader implements ApplicationRunner {
     }
 
     @Override
-    public void run(ApplicationArguments args) throws IOException {
+    public void run(ApplicationArguments args) {
+        try {
+            loadGraph();
+        } catch (Exception e) {
+            log.warn("Failed to load segment-correlation graph into Neo4j -- "
+                    + "/segments endpoints will not work until this succeeds on a future restart", e);
+        }
+    }
+
+    private void loadGraph() throws IOException {
         GraphExport export;
         try (InputStream is = getClass().getClassLoader().getResourceAsStream("segment_correlation_graph.json")) {
             if (is == null) {

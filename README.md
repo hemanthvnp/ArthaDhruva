@@ -99,6 +99,8 @@ Requires JDK 17 (the wrapper downloads Maven itself, no separate Maven install n
 
 `POST /expected-loss` takes the same body as `/score` and returns `{pd, lgd, ead, expectedLoss}` — PD from the existing model, LGD from a Beta regression (`lgd_ead_expected_loss.ipynb`, exported via `python backend/export_lgd_model.py`), and EAD as `original_upb` (a stated simplification — EAD isn't a fitted model anywhere in the analysis; see the code comment on `ExpectedLossController` for why).
 
+`POST /trajectory-score` runs the LSTM trajectory model (`lstm_trajectory_model.ipynb`, exported via `python backend/export_lstm_model.py`): send `{"originalUpb": 250000, "months": [{"currentLoanDelinquencyStatus": "0", "currentActualUpb": 248000, "modificationFlag": "N"}, ...]}` (1-12 months, ordered from origination) and get back `{"probability": ...}` — near-term default probability from the loan's *actual* trajectory so far, not a static origination-time snapshot. Unlike `/score`, this needs real performance history, not just origination features. **Uncalibrated** (see `TrajectoryScoreResponse`'s Javadoc): useful for ranking trajectories relative to each other, not as a dollar-valued probability — the source notebook never fits a calibration step for this model the way the PD model has one.
+
 Every call to `/score` and `/regime-forecast` is persisted immutably to `model_invocation_events` (request, response, latency, success/failure) via a Spring AOP aspect — inspect it directly:
 
 ```bash
