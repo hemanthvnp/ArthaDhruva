@@ -93,6 +93,8 @@ Requires JDK 17 (the wrapper downloads Maven itself, no separate Maven install n
 
 `POST /score` accepts an optional `loanId` field; when present, the result is cached in Redis and can be read back without recomputing via `GET /score/{loanId}` (404 if nothing's cached yet for that ID). `GET /regime-forecast` is cached by `monthsAhead` for 1 hour.
 
+`POST /cvar` runs a Monte Carlo bootstrap CVaR simulation: send `{"loans": [{"pd": 0.02, "lgd": 0.4, "ead": 250000}, ...], "confidenceLevel": 0.95, "numScenarios": 50000}` (`confidenceLevel`/`numScenarios` are optional) and get back `valueAtRisk`/`conditionalValueAtRisk` plus a bootstrap confidence interval on each — a genuine interval reflecting simulation uncertainty, not a single point estimate. This endpoint is stochastic by design (results vary slightly call to call) and isn't cached.
+
 Every call to `/score` and `/regime-forecast` is persisted immutably to `model_invocation_events` (request, response, latency, success/failure) via a Spring AOP aspect — inspect it directly:
 
 ```bash
