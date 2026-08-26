@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -22,9 +23,10 @@ import java.util.Map;
  * into the generic audit trail. {@link LoginAttempt} is the credential-free record of every call
  * here instead (username + outcome only), written directly, not through the generic aspect.
  *
- * Lockout is enforced by Spring Security itself (see SecurityConfig's userDetailsService) --
- * this class only maintains the counters and translates the resulting exceptions into distinct
- * responses. {@code @RateLimiter} adds a separate, global volume cap on top (see
+ * Lockout and deactivation are both enforced by Spring Security itself (see SecurityConfig's
+ * userDetailsService) -- this class only maintains the lockout counters and translates the
+ * resulting exceptions (LockedException, DisabledException, BadCredentialsException) into
+ * distinct responses. {@code @RateLimiter} adds a separate, global volume cap on top (see
  * ValidationAuditAdvice for how its rejection becomes a 429, not a 500).
  */
 @RestController
@@ -59,6 +61,10 @@ public class AuthController {
             logAttempt(request.username(), false);
             return ResponseEntity.status(HttpStatus.LOCKED)
                     .body(Map.of("error", "Account locked due to too many failed login attempts. Try again later."));
+        } catch (DisabledException e) {
+            logAttempt(request.username(), false);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Account disabled. Contact your administrator."));
         } catch (BadCredentialsException e) {
             recordFailure(request.username());
             logAttempt(request.username(), false);

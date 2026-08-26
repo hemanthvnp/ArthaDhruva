@@ -22,7 +22,8 @@ import jakarta.servlet.http.HttpServletResponse;
  * cookie-based session for a cross-site request to ride along on -- the standard justification
  * for disabling CSRF protection on a stateless token API). {@code /login} and the actuator
  * health check are public; {@code /admin/**} requires the ADMIN role; {@code /my/**} (a CLIENT's
- * own-loan view) just requires being logged in, any role; everything else -- the scoring/
+ * own-loan view) and {@code /account/**} (self-service actions like changing your own password)
+ * just require being logged in, any role; everything else -- the scoring/
  * analysis tools -- requires ANALYST or ADMIN specifically, excluding CLIENT: a borrower can see
  * their own loan's score, but can't submit new applications or run any analysis tool.
  *
@@ -53,11 +54,12 @@ public class SecurityConfig {
     }
 
     /**
-     * {@code .accountLocked(...)} here is what makes lockout real: DaoAuthenticationProvider
-     * (used internally by AuthenticationManager) checks account-locked status *before* comparing
-     * the password, throwing LockedException instead of BadCredentialsException -- so a locked
-     * account is rejected without the submitted password ever being verified, and AuthController
-     * can distinguish "locked" from "wrong credentials" cleanly.
+     * {@code .accountLocked(...)} / {@code .disabled(...)} here is what makes lockout and
+     * deactivation real: DaoAuthenticationProvider (used internally by AuthenticationManager)
+     * checks account-locked, then enabled, *before* comparing the password, throwing
+     * LockedException / DisabledException instead of BadCredentialsException -- so a locked or
+     * deactivated account is rejected without the submitted password ever being verified, and
+     * AuthController can distinguish all three cases cleanly.
      */
     @Bean
     public UserDetailsService userDetailsService(UserRepository userRepository) {
@@ -67,6 +69,7 @@ public class SecurityConfig {
                         .password(u.getPasswordHash())
                         .authorities("ROLE_" + u.getRole().name())
                         .accountLocked(u.isCurrentlyLocked())
+                        .disabled(!u.isEnabled())
                         .build())
                 .orElseThrow(() -> new UsernameNotFoundException("Unknown user: " + username));
     }
@@ -91,6 +94,7 @@ public class SecurityConfig {
                         .requestMatchers("/login", "/actuator/health", "/error").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .requestMatchers("/my/**").authenticated()
+                        .requestMatchers("/account/**").authenticated()
                         .anyRequest().hasAnyRole("ANALYST", "ADMIN"))
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();

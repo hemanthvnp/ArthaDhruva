@@ -10,12 +10,14 @@ import type {
   LoanFeatures,
   LoginAttemptEntry,
   LoginResponse,
+  MessageResponse,
   MyLoanView,
   RegimeForecast,
   ScoreResponse,
   SegmentNeighbor,
   TrajectoryRequest,
   TrajectoryScoreResponse,
+  UserStatusResponse,
 } from './types';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
@@ -129,4 +131,23 @@ export function addLoanToUser(username: string, loanId: string): Promise<CreateU
 
 export function loginAttempts(limit = 50): Promise<LoginAttemptEntry[]> {
   return request(`/admin/login-attempts?limit=${limit}`);
+}
+
+export function changePassword(currentPassword: string, newPassword: string): Promise<MessageResponse> {
+  return request('/account/password', { method: 'POST', body: JSON.stringify({ currentPassword, newPassword }) });
+}
+
+export function resetUserPassword(username: string, newPassword: string): Promise<MessageResponse> {
+  return request(`/admin/users/${encodeURIComponent(username)}/reset-password`, {
+    method: 'POST',
+    body: JSON.stringify({ newPassword }),
+  });
+}
+
+export function deactivateUser(username: string): Promise<UserStatusResponse> {
+  return request(`/admin/users/${encodeURIComponent(username)}/deactivate`, { method: 'POST' });
+}
+
+export function activateUser(username: string): Promise<UserStatusResponse> {
+  return request(`/admin/users/${encodeURIComponent(username)}/activate`, { method: 'POST' });
 }

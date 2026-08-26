@@ -108,7 +108,11 @@ curl -X POST localhost:8080/admin/users -H "Authorization: Bearer <admin token>"
 
 **Login hardening.** Two independent layers: a global rate limit on `/login` (`AUTH_MAX_FAILED_ATTEMPTS`-independent — a blunt volume cap, `resilience4j.ratelimiter.instances.login.*`, 20 req/s by default, rejected requests get a 429), and per-account lockout — `AUTH_MAX_FAILED_ATTEMPTS` (default 5) wrong passwords in a row locks the account for `AUTH_LOCKOUT_MINUTES` (default 15), enforced by Spring Security itself (the account is rejected as locked *before* the password is even checked, once triggered). Every login attempt, successful or not, is recorded credential-free (username + outcome, never the password) and viewable by an admin at `GET /admin/login-attempts` or the "Login Attempts" page in the frontend.
 
-**If you have a database that predates a schema change**, `ddl-auto=update` (this project has no migration tool yet) only ever adds new tables/columns — it never retroactively widens an existing check constraint or adds a `NOT NULL` column to a table that already has rows, so upgrading an existing database (rather than starting from a fresh one) can fail on startup. Two known cases so far, both one-time manual fixes:
+**Account self-service.** Passwords must be at least `AUTH_PASSWORD_MIN_LENGTH` characters (default 10) and contain a letter and a digit, enforced everywhere a password is set (user creation, self-service change, admin reset) via a shared `@StrongPassword` bean-validation constraint. Any logged-in user can change their own password at `POST /account/password` (body: `{"currentPassword": "...", "newPassword": "..."}`, requires the correct current password) or the "Change Password" page in the frontend. An admin can reset any user's password without knowing the old one at `POST /admin/users/{username}/reset-password` (body: `{"newPassword": "..."}`) — this also clears any lockout, since a reset is implicitly vouching the account is good again. An admin can also deactivate/reactivate an account at `POST /admin/users/{username}/deactivate` / `.../activate` (an admin can't deactivate their own account); a deactivated account gets a distinct "Account disabled" message at login. All three actions are on the "Manage Users" page in the frontend, which — since there's no user-listing endpoint yet — works by typing the exact username rather than picking from a list.
+
+Deactivation and lockout take effect **immediately**, not just on the account's next login attempt: `JwtAuthenticationFilter` looks the user up on every authenticated request (not just at login) and only accepts the token if the account is still enabled and unlocked. Without this, a JWT issued before a deactivation would otherwise keep working for its full remaining lifetime (`JWT_EXPIRATION_HOURS`, default 8) purely because a signature check alone can't reflect account state that changed after the token was issued.
+
+**If you have a database that predates a schema change**, `ddl-auto=update` (this project has no migration tool yet) only ever adds new tables/columns — it never retroactively widens an existing check constraint or adds a `NOT NULL` column to a table that already has rows, so upgrading an existing database (rather than starting from a fresh one) can fail on startup. Known cases so far, all one-time manual fixes:
 
 - **Adding the `CLIENT` role** to an existing database — creating a `CLIENT` user fails with a Postgres `app_user_role_check` constraint violation, because Hibernate generated that check constraint from the `Role` enum's values back when the table was first created:
   ```sql
@@ -119,6 +123,10 @@ curl -X POST localhost:8080/admin/users -H "Authorization: Bearer <admin token>"
   ```sql
   ALTER TABLE app_user ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER NOT NULL DEFAULT 0;
   ALTER TABLE app_user ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;
+  ```
+- **Adding account deactivation** to an existing database — same failure mode, this time on `enabled`:
+  ```sql
+  ALTER TABLE app_user ADD COLUMN IF NOT EXISTS enabled BOOLEAN NOT NULL DEFAULT true;
   ```
 
 Expect the same class of issue for any future column added with a `NOT NULL` constraint or enum value added to a checked column, on a non-fresh database — apply the same pattern (`ALTER TABLE ... ADD COLUMN IF NOT EXISTS ... DEFAULT ...`, or drop/recreate the check constraint).

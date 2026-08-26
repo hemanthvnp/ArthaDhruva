@@ -15,6 +15,7 @@ import java.lang.reflect.Method;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Converts validation-rejection exceptions into a proper 400 response. Spring MVC validates two
@@ -38,9 +39,20 @@ import java.util.Map;
  * <p>Also handles {@link RequestNotPermitted} (Resilience4j's rate-limiter rejection, e.g. on
  * {@code /login}) -- without a handler here it would fall through to Spring's default 500, which
  * is the wrong signal for "you're being rate-limited," not "the server is broken."
+ *
+ * <p>{@link #handleValidationFailure} redacts the request body for the same credential-carrying
+ * controllers {@code AuditAspect} excludes: a rejected {@code @StrongPassword} field (too short,
+ * no digit, etc.) is still a real, non-blank password the caller typed, and it must never end up
+ * in the audit trail just because it failed the strength check.
  */
 @RestControllerAdvice
 public class ValidationAuditAdvice {
+
+    /** Same three controllers AuditAspect excludes -- their request DTOs can carry a raw
+     * password, so a validation failure on one of them must never serialize the target object
+     * into the audit trail (field-level messages like "newPassword: too short" are still fine). */
+    private static final Set<String> CREDENTIAL_CARRYING_CONTROLLERS =
+            Set.of("AuthController", "AdminUserController", "AccountController");
 
     private final AuditEventWriter auditEventWriter;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -61,9 +73,13 @@ public class ValidationAuditAdvice {
             fieldErrors.put(fieldError.getField(), fieldError.getDefaultMessage());
         }
 
+        String requestJson = method != null && CREDENTIAL_CARRYING_CONTROLLERS.contains(method.getDeclaringClass().getSimpleName())
+                ? null
+                : safeWrite(ex.getBindingResult().getTarget());
+
         auditEventWriter.write(new ModelInvocationEvent(
                 endpoint,
-                safeWrite(ex.getBindingResult().getTarget()),
+                requestJson,
                 null,
                 false,
                 fieldErrors.toString(),

@@ -44,6 +44,9 @@ public class User {
     @Column(name = "locked_until")
     private Instant lockedUntil;
 
+    @Column(name = "enabled", nullable = false)
+    private boolean enabled = true;
+
     /**
      * Loans a CLIENT account may view via GET /my/loans. Only meaningful for CLIENT, but not
      * enforced as such -- harmless if present on another role, simpler than a role-conditional
@@ -117,6 +120,25 @@ public class User {
     }
 
     public void recordSuccessfulLogin() {
+        this.failedLoginAttempts = 0;
+        this.lockedUntil = null;
+    }
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
+    /** Clears lockout state -- used when an admin resets a password or reactivates an account,
+     * both of which are implicitly vouching the account is good again. */
+    public void clearLockout() {
         this.failedLoginAttempts = 0;
         this.lockedUntil = null;
     }

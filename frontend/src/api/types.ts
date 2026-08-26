@@ -141,3 +141,12 @@ export interface CreateUserResponse {
   role: Role;
   loanIds: string[];
 }
+
+export interface MessageResponse {
+  message: string;
+}
+
+export interface UserStatusResponse {
+  username: string;
+  enabled: boolean;
+}

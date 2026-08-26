@@ -19,13 +19,14 @@ import java.util.Map;
  * fail-open behavior so a Postgres outage can never become a way to break the actual
  * scoring/forecast response).
  *
- * {@code AuthController} and {@code AdminUserController} are deliberately excluded: the former's
- * request carries a raw password and its response carries a live JWT; the latter's request
- * carries a *new* user's raw password. This aspect serializes whatever it's given verbatim --
- * logging either into Postgres would mean anyone with audit-trail read access could read
- * plaintext credentials or hijack a session via a logged token. Login attempts and user
- * provisioning still need their own accountability trail, just not a copy of the secret
- * material; that's out of scope for this round (see each excluded controller's own class doc).
+ * {@code AuthController}, {@code AdminUserController}, and {@code AccountController} are
+ * deliberately excluded: the first's request carries a raw password and its response carries a
+ * live JWT; the other two carry a raw password on several endpoints (creation, admin reset,
+ * self-service change). This aspect serializes whatever it's given verbatim -- logging any of
+ * these into Postgres would mean anyone with audit-trail read access could read plaintext
+ * credentials or hijack a session via a logged token. Login attempts and user provisioning still
+ * need their own accountability trail, just not a copy of the secret material; that's out of
+ * scope for this round (see each excluded controller's own class doc).
  *
  * Bean-validation ({@code @Valid}) rejections happen before the controller method -- and
  * therefore this proxy's advice -- is ever invoked, so those are captured separately by
@@ -44,7 +45,8 @@ public class AuditAspect {
 
     @Around("execution(* com.arthadhruva.riskengine..*Controller.*(..)) "
             + "&& !within(com.arthadhruva.riskengine.security.AuthController) "
-            + "&& !within(com.arthadhruva.riskengine.security.AdminUserController)")
+            + "&& !within(com.arthadhruva.riskengine.security.AdminUserController) "
+            + "&& !within(com.arthadhruva.riskengine.security.AccountController)")
     public Object audit(ProceedingJoinPoint joinPoint) throws Throwable {
         String endpoint = joinPoint.getSignature().getDeclaringType().getSimpleName()
                 + "." + joinPoint.getSignature().getName();

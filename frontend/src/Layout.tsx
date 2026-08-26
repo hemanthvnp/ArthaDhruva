@@ -14,9 +14,12 @@ const ADMIN_LINKS = [
   { to: '/admin/audit-log', label: 'Audit Log' },
   { to: '/admin/login-attempts', label: 'Login Attempts' },
   { to: '/admin/create-user', label: 'Create User' },
+  { to: '/admin/manage-users', label: 'Manage Users' },
 ];
 
 const CLIENT_LINKS = [{ to: '/my-loan', label: 'My Loan' }];
+
+const SELF_SERVICE_LINKS = [{ to: '/account/password', label: 'Change Password' }];
 
 export default function Layout() {
   const { auth, logout } = useAuth();
@@ -27,12 +30,13 @@ export default function Layout() {
     navigate('/login', { replace: true });
   };
 
-  const links =
+  const roleLinks =
     auth?.role === 'CLIENT'
       ? CLIENT_LINKS
       : auth?.role === 'ADMIN'
         ? [...ANALYST_LINKS, ...ADMIN_LINKS]
         : ANALYST_LINKS;
+  const links = [...roleLinks, ...SELF_SERVICE_LINKS];
 
   return (
     <div className="app-shell">

@@ -14,6 +14,8 @@ import AuditLogPage from './pages/AuditLogPage';
 import LoginAttemptsPage from './pages/LoginAttemptsPage';
 import MyLoanPage from './pages/MyLoanPage';
 import AdminCreateUserPage from './pages/AdminCreateUserPage';
+import ManageUsersPage from './pages/ManageUsersPage';
+import ChangePasswordPage from './pages/ChangePasswordPage';
 
 function ProtectedRoute({ children }: { children: ReactElement }) {
   const { auth } = useAuth();
@@ -122,6 +124,15 @@ function AppRoutes() {
             </RoleRoute>
           }
         />
+        <Route
+          path="/admin/manage-users"
+          element={
+            <RoleRoute allow={['ADMIN']}>
+              <ManageUsersPage />
+            </RoleRoute>
+          }
+        />
+        <Route path="/account/password" element={<ChangePasswordPage />} />
         <Route path="/my-loan" element={<MyLoanPage />} />
       </Route>
     </Routes>
