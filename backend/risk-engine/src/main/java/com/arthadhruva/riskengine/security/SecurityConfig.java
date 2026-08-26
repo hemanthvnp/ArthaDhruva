@@ -21,8 +21,10 @@ import jakarta.servlet.http.HttpServletResponse;
  * Stateless JWT bearer-token auth: no sessions, no cookies, CSRF disabled (there's no
  * cookie-based session for a cross-site request to ride along on -- the standard justification
  * for disabling CSRF protection on a stateless token API). {@code /login} and the actuator
- * health check are public; {@code /admin/**} requires the ADMIN role; everything else just
- * requires being logged in.
+ * health check are public; {@code /admin/**} requires the ADMIN role; {@code /my/**} (a CLIENT's
+ * own-loan view) just requires being logged in, any role; everything else -- the scoring/
+ * analysis tools -- requires ANALYST or ADMIN specifically, excluding CLIENT: a borrower can see
+ * their own loan's score, but can't submit new applications or run any analysis tool.
  *
  * Explicit exception handling below matters: without it, Spring Security's default entry point
  * for an API with neither httpBasic() nor formLogin() configured returns 403 for *every* auth
@@ -50,6 +52,13 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
+    /**
+     * {@code .accountLocked(...)} here is what makes lockout real: DaoAuthenticationProvider
+     * (used internally by AuthenticationManager) checks account-locked status *before* comparing
+     * the password, throwing LockedException instead of BadCredentialsException -- so a locked
+     * account is rejected without the submitted password ever being verified, and AuthController
+     * can distinguish "locked" from "wrong credentials" cleanly.
+     */
     @Bean
     public UserDetailsService userDetailsService(UserRepository userRepository) {
         return username -> userRepository.findByUsername(username)
@@ -57,6 +66,7 @@ public class SecurityConfig {
                         .withUsername(u.getUsername())
                         .password(u.getPasswordHash())
                         .authorities("ROLE_" + u.getRole().name())
+                        .accountLocked(u.isCurrentlyLocked())
                         .build())
                 .orElseThrow(() -> new UsernameNotFoundException("Unknown user: " + username));
     }
@@ -80,7 +90,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/login", "/actuator/health", "/error").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
-                        .anyRequest().authenticated())
+                        .requestMatchers("/my/**").authenticated()
+                        .anyRequest().hasAnyRole("ANALYST", "ADMIN"))
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

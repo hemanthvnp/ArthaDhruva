@@ -1,5 +1,6 @@
 package com.arthadhruva.riskengine.audit;
 
+import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
@@ -33,6 +34,10 @@ import java.util.Map;
  * richer detail -- the actual request args -- than this handler could reconstruct). This handler
  * therefore only shapes the HTTP response for that case and does not write a second, redundant
  * audit event.
+ *
+ * <p>Also handles {@link RequestNotPermitted} (Resilience4j's rate-limiter rejection, e.g. on
+ * {@code /login}) -- without a handler here it would fall through to Spring's default 500, which
+ * is the wrong signal for "you're being rate-limited," not "the server is broken."
  */
 @RestControllerAdvice
 public class ValidationAuditAdvice {
@@ -82,6 +87,13 @@ public class ValidationAuditAdvice {
         body.put("error", "Validation failed");
         body.put("fields", fieldErrors);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    @ExceptionHandler(RequestNotPermitted.class)
+    public ResponseEntity<Map<String, Object>> handleRateLimited(RequestNotPermitted ex) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("error", "Too many requests -- please slow down.");
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(body);
     }
 
     private String safeWrite(Object value) {

@@ -19,7 +19,7 @@ export default function LoginPage() {
     try {
       const result = await loginRequest(username, password);
       login({ token: result.token, username: result.username, role: result.role });
-      navigate('/score', { replace: true });
+      navigate(result.role === 'CLIENT' ? '/my-loan' : '/score', { replace: true });
     } catch (e) {
       setError(e);
     } finally {

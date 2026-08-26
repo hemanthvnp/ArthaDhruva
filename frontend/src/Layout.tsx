@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
 
-const LINKS = [
+const ANALYST_LINKS = [
   { to: '/score', label: 'Default Risk Score' },
   { to: '/expected-loss', label: 'Expected Loss' },
   { to: '/regime-forecast', label: 'Regime Forecast' },
@@ -9,6 +9,14 @@ const LINKS = [
   { to: '/trajectory', label: 'Trajectory Score' },
   { to: '/segments', label: 'Segment Graph' },
 ];
+
+const ADMIN_LINKS = [
+  { to: '/admin/audit-log', label: 'Audit Log' },
+  { to: '/admin/login-attempts', label: 'Login Attempts' },
+  { to: '/admin/create-user', label: 'Create User' },
+];
+
+const CLIENT_LINKS = [{ to: '/my-loan', label: 'My Loan' }];
 
 export default function Layout() {
   const { auth, logout } = useAuth();
@@ -19,21 +27,23 @@ export default function Layout() {
     navigate('/login', { replace: true });
   };
 
+  const links =
+    auth?.role === 'CLIENT'
+      ? CLIENT_LINKS
+      : auth?.role === 'ADMIN'
+        ? [...ANALYST_LINKS, ...ADMIN_LINKS]
+        : ANALYST_LINKS;
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
         <h1>ArthaDhruva Risk Console</h1>
         <nav>
-          {LINKS.map((link) => (
+          {links.map((link) => (
             <NavLink key={link.to} to={link.to} className={({ isActive }) => (isActive ? 'active' : '')}>
               {link.label}
             </NavLink>
           ))}
-          {auth?.role === 'ADMIN' && (
-            <NavLink to="/admin/audit-log" className={({ isActive }) => (isActive ? 'active' : '')}>
-              Audit Log
-            </NavLink>
-          )}
         </nav>
         {auth && (
           <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #2a3650' }}>

@@ -91,17 +91,41 @@ cd backend/risk-engine
 
 Requires JDK 17 (the wrapper downloads Maven itself, no separate Maven install needed). The app connects to `jdbc:postgresql://localhost:5432/arthadhruva` and `redis://localhost:6379` by default (matching the Docker Compose services); override with the `DB_HOST`/`DB_PORT`/`DB_NAME`/`DB_USER`/`DB_PASSWORD` and `REDIS_HOST`/`REDIS_PORT` env vars if you're pointing it at different instances.
 
-**Authentication.** Every endpoint except `/login` and `/actuator/health` requires a JWT (`Authorization: Bearer <token>`, obtained from `POST /login`). On first run against an empty database, a bootstrap `ADMIN` account is created automatically — **watch the startup logs** for a one-time banner with the generated username/password (set `ADMIN_USERNAME`/`ADMIN_PASSWORD` to skip the random generation, e.g. for CI). `JWT_SECRET` should be set explicitly for anything beyond local dev — if unset, a random signing key is generated per run, so restarting invalidates every outstanding token. There's no user-management UI yet (deliberately out of scope so far); add a second, `ANALYST`-role user directly via `psql` if you need to test role-gating:
+**Authentication.** Every endpoint except `/login` and `/actuator/health` requires a JWT (`Authorization: Bearer <token>`, obtained from `POST /login`). On first run against an empty database, a bootstrap `ADMIN` account is created automatically — **watch the startup logs** for a one-time banner with the generated username/password (set `ADMIN_USERNAME`/`ADMIN_PASSWORD` to skip the random generation, e.g. for CI). `JWT_SECRET` should be set explicitly for anything beyond local dev — if unset, a random signing key is generated per run, so restarting invalidates every outstanding token.
 
-```sql
--- password hash below is bcrypt("analyst123") -- for local testing only
-INSERT INTO app_user (username, password_hash, role, created_at)
-VALUES ('analyst', '$2b$12$hL//kw7T5yfQ3UWzw8qDb.rHUsVby0K5KC5qGtmIxcXBzzc0.T0Eq', 'ANALYST', now());
+**Three roles**, all server-enforced (not just hidden in the UI):
+- `ANALYST` / `ADMIN` — internal staff, full access to every scoring/analysis endpoint (`/score`, `/expected-loss`, `/regime-forecast`, `/cvar`, `/trajectory-score`, `/segments/**`).
+- `ADMIN` additionally reaches everything under `/admin/**` — the audit log and user provisioning below.
+- `CLIENT` — an external borrower. Can only reach `/my/loans` (their own linked loan(s)); every other scoring/analysis endpoint returns 403 for this role, even though the request would otherwise be well-formed.
+
+There's still no self-registration (deliberate, for a financial platform) — every account, of any role, is created by an admin:
+
+```bash
+curl -X POST localhost:8080/admin/users -H "Authorization: Bearer <admin token>" -H "Content-Type: application/json" \
+  -d '{"username":"jane.borrower","password":"...","role":"CLIENT","loanIds":["L-10293"]}'
 ```
+`POST /admin/users/{username}/loans` (body: `{"loanId": "..."}`) attaches an additional loan to an existing client later (e.g. a refinance). The same "Create User" page exists in the frontend for admins.
+
+**Login hardening.** Two independent layers: a global rate limit on `/login` (`AUTH_MAX_FAILED_ATTEMPTS`-independent — a blunt volume cap, `resilience4j.ratelimiter.instances.login.*`, 20 req/s by default, rejected requests get a 429), and per-account lockout — `AUTH_MAX_FAILED_ATTEMPTS` (default 5) wrong passwords in a row locks the account for `AUTH_LOCKOUT_MINUTES` (default 15), enforced by Spring Security itself (the account is rejected as locked *before* the password is even checked, once triggered). Every login attempt, successful or not, is recorded credential-free (username + outcome, never the password) and viewable by an admin at `GET /admin/login-attempts` or the "Login Attempts" page in the frontend.
+
+**If you have a database that predates a schema change**, `ddl-auto=update` (this project has no migration tool yet) only ever adds new tables/columns — it never retroactively widens an existing check constraint or adds a `NOT NULL` column to a table that already has rows, so upgrading an existing database (rather than starting from a fresh one) can fail on startup. Two known cases so far, both one-time manual fixes:
+
+- **Adding the `CLIENT` role** to an existing database — creating a `CLIENT` user fails with a Postgres `app_user_role_check` constraint violation, because Hibernate generated that check constraint from the `Role` enum's values back when the table was first created:
+  ```sql
+  ALTER TABLE app_user DROP CONSTRAINT app_user_role_check;
+  ALTER TABLE app_user ADD CONSTRAINT app_user_role_check CHECK (role::text = ANY (ARRAY['ANALYST','ADMIN','CLIENT']::text[]));
+  ```
+- **Adding login lockout tracking** to an existing database — the backend fails to start with `column "failed_login_attempts" ... contains null values`, because Postgres won't add a `NOT NULL` column to a table with existing rows without a default:
+  ```sql
+  ALTER TABLE app_user ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE app_user ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;
+  ```
+
+Expect the same class of issue for any future column added with a `NOT NULL` constraint or enum value added to a checked column, on a non-fresh database — apply the same pattern (`ALTER TABLE ... ADD COLUMN IF NOT EXISTS ... DEFAULT ...`, or drop/recreate the check constraint).
 
 `GET /admin/audit-log?limit=50` (ADMIN only) exposes the `model_invocation_events` audit trail through the API instead of only via direct Postgres access.
 
-`POST /score` accepts an optional `loanId` field; when present, the result is cached in Redis and can be read back without recomputing via `GET /score/{loanId}` (404 if nothing's cached yet for that ID). `GET /regime-forecast` is cached by `monthsAhead` for 1 hour.
+`POST /score` accepts an optional `loanId` field; when present, the result is cached in Redis (fast repeat-reads via `GET /score/{loanId}`, analyst/admin only, 24h TTL) **and** upserted into a durable `loan_score` Postgres table — the record `GET /my/loans` (any authenticated role, but really for `CLIENT`) reads from, since a borrower might check their loan status long after Redis's cache window has expired. `GET /regime-forecast` is cached by `monthsAhead` for 1 hour.
 
 `POST /cvar` runs a Monte Carlo bootstrap CVaR simulation: send `{"loans": [{"pd": 0.02, "lgd": 0.4, "ead": 250000}, ...], "confidenceLevel": 0.95, "numScenarios": 50000}` (`confidenceLevel`/`numScenarios` are optional) and get back `valueAtRisk`/`conditionalValueAtRisk` plus a bootstrap confidence interval on each — a genuine interval reflecting simulation uncertainty, not a single point estimate. This endpoint is stochastic by design (results vary slightly call to call) and isn't cached.
 

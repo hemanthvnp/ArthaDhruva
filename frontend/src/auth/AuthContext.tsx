@@ -1,9 +1,10 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import type { Role } from '../api/types';
 
 export interface AuthState {
   token: string;
   username: string;
-  role: 'ANALYST' | 'ADMIN';
+  role: Role;
 }
 
 interface AuthContextValue {

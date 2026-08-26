@@ -2,6 +2,8 @@
 // since Jackson already serializes the record component names as camelCase (verified against
 // live responses during backend development, e.g. calibratedProbability, valueAtRiskConfidenceInterval).
 
+export type Role = 'ANALYST' | 'ADMIN' | 'CLIENT';
+
 export interface LoanFeatures {
   loanId?: string;
   creditScore: number;
@@ -99,7 +101,7 @@ export interface ValidationErrorBody {
 export interface LoginResponse {
   token: string;
   username: string;
-  role: 'ANALYST' | 'ADMIN';
+  role: Role;
   expiresAt: string;
 }
 
@@ -112,4 +114,30 @@ export interface AuditLogEntry {
   errorMessage: string | null;
   occurredAt: string;
   latencyMs: number;
+}
+
+export interface LoginAttemptEntry {
+  id: number;
+  username: string;
+  success: boolean;
+  occurredAt: string;
+}
+
+export interface MyLoanView {
+  loanId: string;
+  calibratedProbability: number | null;
+  computedAt: string | null;
+}
+
+export interface CreateUserRequest {
+  username: string;
+  password: string;
+  role: Role;
+  loanIds?: string[];
+}
+
+export interface CreateUserResponse {
+  username: string;
+  role: Role;
+  loanIds: string[];
 }

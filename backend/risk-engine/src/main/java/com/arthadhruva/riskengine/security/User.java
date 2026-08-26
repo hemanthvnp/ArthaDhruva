@@ -1,15 +1,21 @@
 package com.arthadhruva.riskengine.security;
 
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "app_user")
@@ -31,6 +37,22 @@ public class User {
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
+
+    @Column(name = "failed_login_attempts", nullable = false)
+    private int failedLoginAttempts = 0;
+
+    @Column(name = "locked_until")
+    private Instant lockedUntil;
+
+    /**
+     * Loans a CLIENT account may view via GET /my/loans. Only meaningful for CLIENT, but not
+     * enforced as such -- harmless if present on another role, simpler than a role-conditional
+     * constraint for what's still a small, single-purpose field.
+     */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "user_loan_id", joinColumns = @JoinColumn(name = "user_id"))
+    @Column(name = "loan_id")
+    private Set<String> loanIds = new HashSet<>();
 
     protected User() {
         // required by JPA
@@ -61,5 +83,41 @@ public class User {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public Set<String> getLoanIds() {
+        return loanIds;
+    }
+
+    public void setLoanIds(Set<String> loanIds) {
+        this.loanIds = loanIds != null ? loanIds : new HashSet<>();
+    }
+
+    public void addLoanId(String loanId) {
+        this.loanIds.add(loanId);
+    }
+
+    public int getFailedLoginAttempts() {
+        return failedLoginAttempts;
+    }
+
+    public Instant getLockedUntil() {
+        return lockedUntil;
+    }
+
+    public boolean isCurrentlyLocked() {
+        return lockedUntil != null && lockedUntil.isAfter(Instant.now());
+    }
+
+    public void recordFailedLogin(int maxAttempts, Instant lockUntilIfExceeded) {
+        this.failedLoginAttempts++;
+        if (this.failedLoginAttempts >= maxAttempts) {
+            this.lockedUntil = lockUntilIfExceeded;
+        }
+    }
+
+    public void recordSuccessfulLogin() {
+        this.failedLoginAttempts = 0;
+        this.lockedUntil = null;
     }
 }

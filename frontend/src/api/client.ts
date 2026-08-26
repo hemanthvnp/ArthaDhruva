@@ -2,11 +2,15 @@ import { clearStoredAuth, getStoredToken } from '../auth/AuthContext';
 import type {
   AuditLogEntry,
   CachedScore,
+  CreateUserRequest,
+  CreateUserResponse,
   CvarRequest,
   CvarResult,
   ExpectedLossResponse,
   LoanFeatures,
+  LoginAttemptEntry,
   LoginResponse,
+  MyLoanView,
   RegimeForecast,
   ScoreResponse,
   SegmentNeighbor,
@@ -106,4 +110,23 @@ export function segmentNeighbors(state: string, maxHops: number): Promise<Segmen
 
 export function auditLog(limit = 50): Promise<AuditLogEntry[]> {
   return request(`/admin/audit-log?limit=${limit}`);
+}
+
+export function myLoans(): Promise<MyLoanView[]> {
+  return request('/my/loans');
+}
+
+export function createUser(req: CreateUserRequest): Promise<CreateUserResponse> {
+  return request('/admin/users', { method: 'POST', body: JSON.stringify(req) });
+}
+
+export function addLoanToUser(username: string, loanId: string): Promise<CreateUserResponse> {
+  return request(`/admin/users/${encodeURIComponent(username)}/loans`, {
+    method: 'POST',
+    body: JSON.stringify({ loanId }),
+  });
+}
+
+export function loginAttempts(limit = 50): Promise<LoginAttemptEntry[]> {
+  return request(`/admin/login-attempts?limit=${limit}`);
 }
