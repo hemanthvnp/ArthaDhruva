@@ -28,7 +28,7 @@ def _raw_column_count(path) -> int:
 
 
 def _apply_schema(raw_path, columns: list[schema.ColumnSpec]) -> pl.LazyFrame:
-    expected = config.EXPECTED_COLUMN_COUNT
+    expected = len(columns)
     actual = _raw_column_count(raw_path)
     if actual != expected:
         raise ReadabilityError(
@@ -86,10 +86,10 @@ def convert_quarter(q: config.Quarter, force: bool = False) -> bool:
     q.readable_origination_path.parent.mkdir(parents=True, exist_ok=True)
     q.readable_performance_path.parent.mkdir(parents=True, exist_ok=True)
 
-    orig_lf = _apply_schema(q.raw_origination_path, schema.ORIGINATION_COLUMNS)
+    orig_lf = _apply_schema(q.raw_origination_path, schema.origination_columns_for(q))
     orig_lf.sink_parquet(q.readable_origination_path)
 
-    perf_lf = _apply_schema(q.raw_performance_path, schema.PERFORMANCE_COLUMNS)
+    perf_lf = _apply_schema(q.raw_performance_path, schema.performance_columns_for(q))
     perf_lf.sink_parquet(q.readable_performance_path)
 
     raw_orig_lines = _count_lines(q.raw_origination_path)

@@ -5,21 +5,36 @@ from __future__ import annotations
 import argparse
 import zipfile
 
-from pipeline import config
+from pipeline import config, schema
 
 
 class ExtractionError(RuntimeError):
     pass
 
 
-def _validate_column_count(path, expected: int = config.EXPECTED_COLUMN_COUNT) -> None:
-    with open(path, "r", encoding="utf-8", errors="strict") as f:
-        first_line = f.readline().rstrip("\n").rstrip("\r")
-    actual = first_line.count("|") + 1
-    if actual != expected:
-        raise ExtractionError(
-            f"{path}: expected {expected} pipe-delimited columns, found {actual}"
-        )
+def _validate_schema_version(q: config.Quarter) -> None:
+    """Confirms this quarter's raw column counts match a known schema layout -- selecting
+    the layout IS the validation (schema.origination_columns_for/performance_columns_for
+    raise SchemaVersionError for anything unrecognized)."""
+    try:
+        schema.origination_columns_for(q)
+        schema.performance_columns_for(q)
+    except schema.SchemaVersionError as e:
+        raise ExtractionError(str(e)) from e
+
+
+def _resolve_member(zip_path, names: set[str], canonical: str, alt: str) -> str:
+    """Freddie Mac changed its internal filename convention at some point (orig_<label>.txt/
+    perf_<label>.txt instead of historical_data_<label>.txt/historical_data_time_<label>.txt).
+    Like the column-layout change (see schema.py's module docstring), this turned out to be
+    a property of download time, not origination vintage -- freshly-downloaded archives use
+    the new names regardless of quarter, older ones on disk still use the old names -- so
+    accept either and normalize below, rather than branching on the quarter."""
+    if canonical in names:
+        return canonical
+    if alt in names:
+        return alt
+    raise ExtractionError(f"{zip_path}: expected member '{canonical}' (or '{alt}') not found in archive")
 
 
 def extract_quarter(q: config.Quarter, force: bool = False) -> bool:
@@ -38,14 +53,20 @@ def extract_quarter(q: config.Quarter, force: bool = False) -> bool:
 
     with zipfile.ZipFile(q.zip_path) as zf:
         names = set(zf.namelist())
-        for member in (q.origination_member, q.performance_member):
-            if member not in names:
-                raise ExtractionError(f"{q.zip_path}: expected member '{member}' not found in archive")
-        zf.extract(q.origination_member, path=out_dir)
-        zf.extract(q.performance_member, path=out_dir)
+        origination_member = _resolve_member(q.zip_path, names, q.origination_member, f"orig_{q.label}.txt")
+        performance_member = _resolve_member(q.zip_path, names, q.performance_member, f"perf_{q.label}.txt")
+        zf.extract(origination_member, path=out_dir)
+        zf.extract(performance_member, path=out_dir)
 
-    _validate_column_count(q.raw_origination_path)
-    _validate_column_count(q.raw_performance_path)
+    # Normalize to the canonical filename if this quarter's ZIP used the alternate naming --
+    # raw_origination_path/raw_performance_path (what every later stage reads) are fixed
+    # regardless of which convention this particular archive used.
+    if origination_member != q.origination_member:
+        (out_dir / origination_member).replace(q.raw_origination_path)
+    if performance_member != q.performance_member:
+        (out_dir / performance_member).replace(q.raw_performance_path)
+
+    _validate_schema_version(q)
 
     print(f"[ok]   {q.label}: extracted to {out_dir}")
     return True

@@ -178,14 +178,14 @@ def clean_quarter(q: config.Quarter, force: bool = False) -> bool:
     q.clean_origination_path.parent.mkdir(parents=True, exist_ok=True)
 
     orig_summary = clean_origination_to_parquet(
-        q.readable_origination_path, q.clean_origination_path, schema.ORIGINATION_COLUMNS
+        q.readable_origination_path, q.clean_origination_path, schema.origination_columns_for(q)
     )
     orig_summary.update(quarter=q.label, table="origination")
     _append_summary(orig_summary)
     print(f"[ok]   {q.label}: origination {orig_summary}")
 
     perf_summary = clean_performance_to_parts(
-        q.readable_performance_path, q.clean_performance_dir, schema.PERFORMANCE_COLUMNS
+        q.readable_performance_path, q.clean_performance_dir, schema.performance_columns_for(q)
     )
     perf_summary.update(quarter=q.label, table="performance")
     _append_summary(perf_summary)

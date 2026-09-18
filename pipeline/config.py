@@ -22,17 +22,20 @@ LOAN_LEVEL_DIR = PROCESSED_DIR / "loan_level"
 MONTHLY_PANEL_DIR = PROCESSED_DIR / "monthly_panel"
 DOCS_DIR = DATA_DIR / "docs"
 
-EXPECTED_COLUMN_COUNT = 32
-
 # Years present under historical_data_<year>/ and the quarters available for each,
-# per the ZIP files found in the repository. 2025 only has Q1-Q3 published so far.
+# per the ZIP files found in the repository. 2025 only has Q1-Q3 published so far;
+# 2026 only has Q1 so far.
 YEAR_QUARTERS: dict[int, list[str]] = {
+    2017: ["Q1", "Q2", "Q3", "Q4"],
+    2018: ["Q1", "Q2", "Q3", "Q4"],
+    2019: ["Q1", "Q2", "Q3", "Q4"],
     2020: ["Q1", "Q2", "Q3", "Q4"],
     2021: ["Q1", "Q2", "Q3", "Q4"],
     2022: ["Q1", "Q2", "Q3", "Q4"],
     2023: ["Q1", "Q2", "Q3", "Q4"],
     2024: ["Q1", "Q2", "Q3", "Q4"],
     2025: ["Q1", "Q2", "Q3"],
+    2026: ["Q1"],
 }
 
 

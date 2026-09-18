@@ -14,20 +14,29 @@ MONTHLY_PANEL_GLOB = "../data/processed/monthly_panel/orig_year=*/orig_quarter=*
 
 print("Rebuilding the portfolio series...")
 lf = pl.scan_parquet(MONTHLY_PANEL_GLOB).select(
-    "monthly_reporting_period", "current_loan_delinquency_status", "current_interest_rate"
+    "monthly_reporting_period", "current_loan_delinquency_status", "current_interest_rate", "loan_age"
 )
 numeric_status = pl.col("current_loan_delinquency_status").cast(pl.Int32, strict=False)
 agg = (
     lf.group_by("monthly_reporting_period")
     .agg(n_active=pl.len(), n_delinquent_90=(numeric_status >= 3).sum(),
-         avg_interest_rate=pl.col("current_interest_rate").mean())
+         avg_interest_rate=pl.col("current_interest_rate").mean(),
+         max_loan_age=pl.col("loan_age").max())
     .sort("monthly_reporting_period")
     .collect()
     .with_columns(delinquency_rate_90=pl.col("n_delinquent_90") / pl.col("n_active"))
 )
 pdf_full = agg.to_pandas().set_index("monthly_reporting_period")
 pdf_full.index = pd.to_datetime(pdf_full.index).to_period("M").to_timestamp()
-pdf = pdf_full.loc["2020-06-01":]  # exclude the ramp-up months, same fix as the notebook
+
+# Exclude the ramp-up window objectively (same fix as hmm_regime_detector.ipynb): a hardcoded
+# cutoff date breaks silently as earlier vintages get added to the panel, so this is detected
+# from the data instead -- the first month where the oldest active loan has reached 6 months of age.
+MATURE_LOAN_AGE_THRESHOLD = 6
+first_mature_month = pdf_full.index[pdf_full["max_loan_age"] >= MATURE_LOAN_AGE_THRESHOLD].min()
+pdf = pdf_full.loc[first_mature_month:]
+print(f"Ramp-up window ends at {first_mature_month.date()}; training on {len(pdf)} months "
+      f"({pdf.index.min().date()} to {pdf.index.max().date()})")
 
 print("Fitting the 2-state HMM...")
 raw = pdf[["delinquency_rate_90", "avg_interest_rate"]].to_numpy()
