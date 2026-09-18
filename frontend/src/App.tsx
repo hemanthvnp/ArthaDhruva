@@ -5,10 +5,14 @@ import type { Role } from './api/types';
 import Layout from './Layout';
 import LoginPage from './pages/LoginPage';
 import ScorePage from './pages/ScorePage';
+import LoanPortfolioPage from './pages/LoanPortfolioPage';
+import LoanDetailPage from './pages/LoanDetailPage';
+import CasesPage from './pages/CasesPage';
 import ExpectedLossPage from './pages/ExpectedLossPage';
 import RegimeForecastPage from './pages/RegimeForecastPage';
 import CvarPage from './pages/CvarPage';
 import TrajectoryPage from './pages/TrajectoryPage';
+import EarlyWarningPage from './pages/EarlyWarningPage';
 import SegmentGraphPage from './pages/SegmentGraphPage';
 import AuditLogPage from './pages/AuditLogPage';
 import LoginAttemptsPage from './pages/LoginAttemptsPage';
@@ -54,6 +58,30 @@ function AppRoutes() {
       >
         <Route index element={<Navigate to={auth ? landingPathFor(auth.role) : '/login'} replace />} />
         <Route
+          path="/loans"
+          element={
+            <RoleRoute allow={['ANALYST', 'ADMIN']}>
+              <LoanPortfolioPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/loans/:loanId"
+          element={
+            <RoleRoute allow={['ANALYST', 'ADMIN']}>
+              <LoanDetailPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/cases"
+          element={
+            <RoleRoute allow={['ANALYST', 'ADMIN']}>
+              <CasesPage />
+            </RoleRoute>
+          }
+        />
+        <Route
           path="/score"
           element={
             <RoleRoute allow={['ANALYST', 'ADMIN']}>
@@ -90,6 +118,14 @@ function AppRoutes() {
           element={
             <RoleRoute allow={['ANALYST', 'ADMIN']}>
               <TrajectoryPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/early-warning"
+          element={
+            <RoleRoute allow={['ANALYST', 'ADMIN']}>
+              <EarlyWarningPage />
             </RoleRoute>
           }
         />

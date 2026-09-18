@@ -6,19 +6,28 @@ import type {
   CreateUserResponse,
   CvarRequest,
   CvarResult,
+  EarlyWarningCatalogEntry,
+  EarlyWarningFeatures,
+  EarlyWarningResponse,
   ExpectedLossResponse,
+  LoanCaseStatus,
+  LoanCaseSummary,
+  LoanCaseView,
   LoanFeatures,
+  LoanScoreSummary,
   LoginAttemptEntry,
   LoginOutcome,
   LoginResponse,
   MessageResponse,
   MyLoanView,
+  RecentNoteView,
   RegimeForecast,
   ScoreResponse,
   SegmentNeighbor,
   TotpConfirmOutcome,
   TotpSetupResponse,
   TotpStatusResponse,
+  TrajectoryCatalogEntry,
   TrajectoryRequest,
   TrajectoryScoreResponse,
   UserStatusResponse,
@@ -158,6 +167,32 @@ export function trajectoryScore(req: TrajectoryRequest): Promise<TrajectoryScore
   return request('/trajectory-score', { method: 'POST', body: JSON.stringify(req) });
 }
 
+/** The real-loan catalog (backend/export_loan_catalog.py) -- lets an analyst pick an actual loan
+ * to score instead of typing feature values by hand. Small enough to fetch in full. */
+export function listLoanCatalog(): Promise<LoanFeatures[]> {
+  return request('/loans');
+}
+
+/** Every loan anyone has scored so far, most recent first -- the portfolio view. */
+export function listLoanScores(): Promise<LoanScoreSummary[]> {
+  return request('/loan-scores');
+}
+
+export function earlyWarningScore(loan: EarlyWarningFeatures): Promise<EarlyWarningResponse> {
+  return request('/early-warning-score', { method: 'POST', body: JSON.stringify(loan) });
+}
+
+/** Real currently-current-loan snapshots (backend/export_early_warning_catalog.py), each with the
+ * real, later-observed outcome attached for comparison against the prediction. */
+export function listEarlyWarningCatalog(): Promise<EarlyWarningCatalogEntry[]> {
+  return request('/early-warning-loans');
+}
+
+/** Real loans' actual observed first-up-to-12-months trajectories (backend/export_trajectory_catalog.py). */
+export function listTrajectoryCatalog(): Promise<TrajectoryCatalogEntry[]> {
+  return request('/trajectory-loans');
+}
+
 export function listSegments(): Promise<string[]> {
   return request('/segments');
 }
@@ -211,6 +246,41 @@ export function activateUser(username: string): Promise<UserStatusResponse> {
 /** The user directory -- every account, admin-only. */
 export function listUsers(): Promise<UserSummary[]> {
   return request('/admin/users');
+}
+
+export function getLoanCase(loanId: string): Promise<LoanCaseView> {
+  return request(`/loans/${encodeURIComponent(loanId)}/case`);
+}
+
+export function updateLoanCase(
+  loanId: string,
+  status: LoanCaseStatus,
+  assignedTo: string | null,
+  flagged: boolean,
+): Promise<LoanCaseView> {
+  return request(`/loans/${encodeURIComponent(loanId)}/case`, {
+    method: 'POST',
+    body: JSON.stringify({ status, assignedTo, flagged }),
+  });
+}
+
+export function addLoanNote(loanId: string, text: string): Promise<LoanCaseView> {
+  return request(`/loans/${encodeURIComponent(loanId)}/notes`, { method: 'POST', body: JSON.stringify({ text }) });
+}
+
+/** Every loan case across the system -- backs the "My Cases" view. */
+export function listLoanCases(): Promise<LoanCaseSummary[]> {
+  return request('/loan-cases');
+}
+
+/** The cross-loan activity feed (most recent notes, newest first). */
+export function listRecentNotes(): Promise<RecentNoteView[]> {
+  return request('/loan-notes/recent');
+}
+
+/** Client account(s) (if any) this loan is linked to. */
+export function getLoanClients(loanId: string): Promise<string[]> {
+  return request(`/loans/${encodeURIComponent(loanId)}/clients`);
 }
 
 /** Completes a CLIENT invite (ActivatePage) -- fully public, no stored session exists yet, so

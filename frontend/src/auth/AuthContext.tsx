@@ -61,5 +61,5 @@ export function clearStoredAuth(): void {
 /** Single source of truth for "where does this role land after login" -- shared by LoginPage
  * (post-login redirect) and App's index-route redirect, so they can't drift out of sync again. */
 export function landingPathFor(role: Role): string {
-  return role === 'CLIENT' ? '/my-loan' : '/score';
+  return role === 'CLIENT' ? '/my-loan' : '/loans';
 }

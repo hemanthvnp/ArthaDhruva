@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Comparator;
+import java.util.List;
 
 @RestController
 public class ScoreController {
@@ -73,5 +75,22 @@ public class ScoreController {
 
     private String cacheKey(String loanId) {
         return "score:" + loanId;
+    }
+
+    /**
+     * Every loan anyone has scored so far (durable {@code loan_score} rows), most recent first --
+     * the analyst-facing portfolio view: browse what's already been scored instead of re-typing
+     * feature values to see it again. Same data {@code GET /my/loans} draws from per-client, just
+     * unfiltered and role-open to ANALYST/ADMIN (the default access rule for this endpoint).
+     */
+    @GetMapping("/loan-scores")
+    public List<LoanScoreSummary> loanScores() {
+        return loanScoreRecordRepository.findAll().stream()
+                .sorted(Comparator.comparing(LoanScoreRecord::getComputedAt).reversed())
+                .map(r -> new LoanScoreSummary(r.getLoanId(), r.getRawProbability(), r.getCalibratedProbability(), r.getComputedAt()))
+                .toList();
+    }
+
+    public record LoanScoreSummary(String loanId, double rawProbability, double calibratedProbability, Instant computedAt) {
     }
 }

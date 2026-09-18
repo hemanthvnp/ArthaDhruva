@@ -2,11 +2,14 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
 
 const ANALYST_LINKS = [
-  { to: '/score', label: 'Default Risk Score' },
+  { to: '/loans', label: 'Loan Portfolio' },
+  { to: '/cases', label: 'Cases' },
+  { to: '/score', label: 'Default Risk Score (manual)' },
   { to: '/expected-loss', label: 'Expected Loss' },
   { to: '/regime-forecast', label: 'Regime Forecast' },
   { to: '/cvar', label: 'CVaR Simulation' },
   { to: '/trajectory', label: 'Trajectory Score' },
+  { to: '/early-warning', label: 'Early-Warning Delinquency' },
   { to: '/segments', label: 'Segment Graph' },
 ];
 

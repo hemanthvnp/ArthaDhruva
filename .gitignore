@@ -24,7 +24,12 @@ docs/
 # committed, since it's a small, deployable artifact the running service actually needs).
 backend/risk-engine/target/
 backend/trained_checkpoint.joblib
+backend/early_warning_trained_checkpoint.joblib
 backend/run_log.txt
 
 # Exploratory scratch scripts (not part of the reproducible pipeline/notebooks)
 notebooks/_scratch_*
+
+# Machine-local docker-compose port remaps (e.g. when another project already holds 6379) --
+# not something to share, everyone's local port conflicts differ.
+docker-compose.override.yml

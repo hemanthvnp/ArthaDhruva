@@ -29,6 +29,14 @@ export interface ScoreResponse {
   calibratedProbability: number;
 }
 
+/** One row of GET /loan-scores -- every loan anyone has scored so far, most recent first. */
+export interface LoanScoreSummary {
+  loanId: string;
+  rawProbability: number;
+  calibratedProbability: number;
+  computedAt: string;
+}
+
 export interface CachedScore {
   score: ScoreResponse;
   computedAt: string;
@@ -87,9 +95,71 @@ export interface TrajectoryScoreResponse {
   probability: number;
 }
 
+/** One entry in the real-trajectory catalog (GET /trajectory-loans). */
+export interface TrajectoryCatalogEntry {
+  label: string;
+  request: TrajectoryRequest;
+}
+
 export interface SegmentNeighbor {
   state: string;
   hops: number;
+}
+
+/** A currently-current loan's monthly snapshot (early_warning_delinquency.ipynb v3 features).
+ * The trend/regime fields (eltv, upbPaydownRatio, rateLockSeverity and their 3m/6m changes,
+ * hmmRegime) are not derived here -- they're the caller's responsibility, same simplification as
+ * EAD in ExpectedLossController: real feature engineering lives in the batch snapshot job, not
+ * reimplemented in this form. */
+export interface EarlyWarningFeatures {
+  creditScore: number;
+  originalDti: number;
+  originalUpb: number;
+  originalCltv: number;
+  originalLtv: number;
+  originalInterestRate: number;
+  originalLoanTerm: number;
+  numberOfBorrowers: number;
+  numberOfUnits: number;
+  miPercent: number;
+  loanAge: number;
+  eltv: number;
+  currentInterestRate: number;
+  upbPaydownRatio: number;
+  rateLockSeverity: number;
+  eltvChange3m: number;
+  upbPaydownChange3m: number;
+  rateLockSeverityChange3m: number;
+  eltvChange6m: number;
+  upbPaydownChange6m: number;
+  rateLockSeverityChange6m: number;
+  occupancyStatus: string;
+  propertyType: string;
+  loanPurpose: string;
+  channel: string;
+  firstTimeHomebuyerFlag: string;
+  propertyState: string;
+  hmmRegime: string;
+  priorAssistance: boolean;
+  priorModification: boolean;
+  priorDisaster: boolean;
+  upbStalled: boolean;
+}
+
+/** rawRisk is full-resolution and what to sort by when ranking multiple loans; calibratedRisk is
+ * the number meaningful against the true population rate and what to display. See
+ * EarlyWarningResponse's Javadoc for why the two are kept separate. */
+export interface EarlyWarningResponse {
+  rawRisk: number;
+  calibratedRisk: number;
+}
+
+/** One entry in the real-snapshot catalog (GET /early-warning-loans) -- actuallyWentDelinquent is
+ * the real, later-observed outcome, shown purely for comparison against the prediction. */
+export interface EarlyWarningCatalogEntry {
+  label: string;
+  actuallyWentDelinquent: boolean;
+  features: EarlyWarningFeatures;
 }
 
 /** Shape of the {field: message} validation-error body every endpoint returns on 400. */
@@ -192,4 +262,38 @@ export interface UserSummary {
   locked: boolean;
   createdAt: string;
   loanIds: string[];
+}
+
+export type LoanCaseStatus = 'NEW' | 'REVIEWED' | 'ESCALATED' | 'CLEARED';
+
+export interface LoanNoteView {
+  author: string;
+  text: string;
+  createdAt: string;
+}
+
+export interface LoanCaseView {
+  loanId: string;
+  status: LoanCaseStatus;
+  assignedTo: string | null;
+  flagged: boolean;
+  updatedAt: string;
+  notes: LoanNoteView[];
+}
+
+/** One row of GET /loan-cases -- every loan case across the system. */
+export interface LoanCaseSummary {
+  loanId: string;
+  status: LoanCaseStatus;
+  assignedTo: string | null;
+  flagged: boolean;
+  updatedAt: string;
+}
+
+/** One row of GET /loan-notes/recent -- the cross-loan activity feed. */
+export interface RecentNoteView {
+  loanId: string;
+  author: string;
+  text: string;
+  createdAt: string;
 }
