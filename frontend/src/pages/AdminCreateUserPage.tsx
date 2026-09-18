@@ -25,7 +25,7 @@ export default function AdminCreateUserPage() {
       const cleanLoanIds = loanIds.map((l) => l.trim()).filter(Boolean);
       const created = await createUser({
         username,
-        password,
+        password: role === 'CLIENT' ? undefined : password,
         role,
         loanIds: role === 'CLIENT' ? cleanLoanIds : undefined,
       });
@@ -45,8 +45,9 @@ export default function AdminCreateUserPage() {
       <h2>Create User</h2>
       <p className="page-subtitle">
         There's no self-registration on this platform -- every account is provisioned here by an
-        admin. For a CLIENT account, attach the loanId(s) they should be able to view on their
-        "My Loan" page.
+        admin. Staff (ANALYST/ADMIN) get a password set directly. A CLIENT account is created
+        pending activation -- attach the loanId(s) they should see on their "My Loan" page, then
+        share the activation link this page gives you; the client sets their own password there.
       </p>
 
       <div className="card">
@@ -55,15 +56,17 @@ export default function AdminCreateUserPage() {
             <label htmlFor="new-username">Username</label>
             <input id="new-username" value={username} onChange={(e) => setUsername(e.target.value)} />
           </div>
-          <div className="field">
-            <label htmlFor="new-password">Password</label>
-            <input
-              id="new-password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
+          {role !== 'CLIENT' && (
+            <div className="field">
+              <label htmlFor="new-password">Password</label>
+              <input
+                id="new-password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+          )}
           <div className="field">
             <label htmlFor="new-role">Role</label>
             <select id="new-role" value={role} onChange={(e) => setRole(e.target.value as Role)}>
@@ -96,16 +99,29 @@ export default function AdminCreateUserPage() {
         )}
 
         <div className="actions">
-          <button onClick={submit} disabled={loading || !username || !password}>
+          <button onClick={submit} disabled={loading || !username || (role !== 'CLIENT' && !password)}>
             {loading ? 'Creating...' : 'Create user'}
           </button>
         </div>
         <ErrorBanner error={error} />
         {result && (
-          <p className="page-subtitle" style={{ color: 'var(--ok)', marginTop: '0.8rem' }}>
-            Created "{result.username}" as {result.role}
-            {result.loanIds.length > 0 ? ` with loans: ${result.loanIds.join(', ')}` : ''}.
-          </p>
+          <div style={{ marginTop: '0.8rem' }}>
+            <p className="page-subtitle" style={{ color: 'var(--ok)' }}>
+              Created "{result.username}" as {result.role}
+              {result.loanIds.length > 0 ? ` with loans: ${result.loanIds.join(', ')}` : ''}.
+            </p>
+            {result.activationLink && (
+              <>
+                <p className="page-subtitle">
+                  Share this activation link with the client -- there's no email delivery, so copy
+                  it and send it however you normally would.
+                </p>
+                <div className="field">
+                  <input readOnly value={result.activationLink} onFocus={(e) => e.target.select()} />
+                </div>
+              </>
+            )}
+          </div>
         )}
       </div>
     </div>

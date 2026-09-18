@@ -25,7 +25,12 @@ import java.util.List;
  * A failed check here just leaves the request unauthenticated, which the existing
  * anyRequest().authenticated() chain already turns into a 401 -- identical to an expired or
  * invalid token, so the frontend's existing "401 -> session expired" handling covers this case
- * with no extra code. */
+ * with no extra code.
+ *
+ * A setup-purpose token (see JwtService#issueSetupToken) gets a distinct ROLE_TOTP_SETUP
+ * authority instead of the user's real role -- SecurityConfig only permits that authority on the
+ * two TOTP enrollment endpoints, so a token minted to bootstrap 2FA enrollment can't be used for
+ * anything else even though it's technically a valid, authenticated credential. */
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
@@ -50,7 +55,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         .filter(User::isEnabled)
                         .filter(user -> !user.isCurrentlyLocked())
                         .ifPresent(user -> {
-                            var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + parsed.role().name()));
+                            String authority = parsed.isSetupOnly() ? "ROLE_TOTP_SETUP" : "ROLE_" + parsed.role().name();
+                            var authorities = List.of(new SimpleGrantedAuthority(authority));
                             var authentication = new UsernamePasswordAuthenticationToken(parsed.username(), null, authorities);
                             SecurityContextHolder.getContext().setAuthentication(authentication);
                         });

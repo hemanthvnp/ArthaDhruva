@@ -3,10 +3,12 @@ package com.arthadhruva.riskengine.security;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -15,6 +17,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 /**
  * User provisioning and lifecycle management (ADMIN only, enforced by SecurityConfig's
@@ -23,6 +27,12 @@ import java.util.Map;
  * client to their loan(s), reset a forgotten/compromised password, and deactivate or reactivate
  * an account (JwtAuthenticationFilter checks {@code enabled} on every request, so deactivation
  * takes effect immediately -- not just on the account's next login attempt).
+ *
+ * <p>ADMIN/ANALYST creation still takes a password directly, set by the admin -- that matches
+ * real staff onboarding. CLIENT creation does not: an admin choosing a customer's password and
+ * handing it over out-of-band isn't realistic, so a CLIENT is created in a pending, unusable
+ * state and completes their own activation via ActivationController -- see
+ * {@link #createInvitedClient}.
  *
  * Deliberately NOT covered by AuditAspect (see that class's doc, and AuthController's identical
  * reasoning): several endpoints here carry a raw password, which must never be written into the
@@ -33,17 +43,41 @@ public class AdminUserController {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final StrongPasswordValidator strongPasswordValidator;
+    private final JwtService jwtService;
+    private final String frontendUrl;
 
-    public AdminUserController(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public AdminUserController(UserRepository userRepository, PasswordEncoder passwordEncoder,
+                                StrongPasswordValidator strongPasswordValidator, JwtService jwtService,
+                                @Value("${app.frontend-url}") String frontendUrl) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.strongPasswordValidator = strongPasswordValidator;
+        this.jwtService = jwtService;
+        this.frontendUrl = frontendUrl;
     }
 
+    /**
+     * CLIENT accounts are the one case where {@code password} must be *absent*: they're invited,
+     * not admin-provisioned with a password an admin then has to hand over out-of-band (see
+     * ActivationController). ADMIN/ANALYST creation is unchanged -- a password is still required
+     * there. Bean Validation can't express "required only for these roles" cleanly at the record
+     * level, so both branches are validated manually here instead of via {@code @Valid}.
+     */
     @PostMapping("/admin/users")
     public ResponseEntity<?> createUser(@Valid @RequestBody CreateUserRequest request) {
         if (userRepository.findByUsername(request.username()).isPresent()) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body(Map.of("error", "Username already exists: " + request.username()));
+        }
+
+        if (request.role() == Role.CLIENT) {
+            return createInvitedClient(request);
+        }
+
+        if (request.password() == null || !strongPasswordValidator.isStrong(request.password())) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "password " + strongPasswordValidator.policyMessage()));
         }
 
         User user = new User(request.username(), passwordEncoder.encode(request.password()), request.role());
@@ -54,6 +88,29 @@ public class AdminUserController {
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(Map.of("username", user.getUsername(), "role", user.getRole().name(), "loanIds", user.getLoanIds()));
+    }
+
+    private ResponseEntity<?> createInvitedClient(CreateUserRequest request) {
+        if (request.password() != null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "CLIENT accounts are activated via invite -- do not set a password directly."));
+        }
+
+        User user = new User(request.username(), passwordEncoder.encode(UUID.randomUUID().toString()), request.role());
+        user.setActivated(false);
+        if (request.loanIds() != null) {
+            user.setLoanIds(new HashSet<>(request.loanIds()));
+        }
+        userRepository.save(user);
+
+        JwtService.IssuedToken activation = jwtService.issueActivationToken(user.getUsername());
+        String activationLink = frontendUrl + "/activate?token=" + activation.token();
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                "username", user.getUsername(),
+                "role", user.getRole().name(),
+                "loanIds", user.getLoanIds(),
+                "activationLink", activationLink));
     }
 
     @PostMapping("/admin/users/{username}/loans")
@@ -116,9 +173,48 @@ public class AdminUserController {
                         .body(Map.of("error", "Unknown user: " + username)));
     }
 
+    /** Recovery path for a lost phone or an offboarded/compromised account -- clears enrollment
+     * entirely (no code/password needed, an explicit admin action). The account's next login
+     * naturally falls back into AuthController's "not yet enrolled" branch, so re-enrollment
+     * uses the exact same flow as first-time setup. */
+    @PostMapping("/admin/users/{username}/reset-2fa")
+    public ResponseEntity<?> resetTotp(@PathVariable String username) {
+        return userRepository.findByUsername(username)
+                .map(user -> {
+                    user.clearTotp();
+                    userRepository.save(user);
+                    return ResponseEntity.ok(Map.of("username", user.getUsername(), "message", "2FA reset."));
+                })
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("error", "Unknown user: " + username)));
+    }
+
+    /**
+     * The user directory ManageUsersPage's own doc comment used to note didn't exist -- every
+     * account, so an admin can act on one without already knowing its exact username. Deliberately
+     * omits {@code passwordHash}/{@code totpSecret}; everything else here is already visible
+     * piecemeal via other admin endpoints (create/reset/deactivate all echo it back).
+     */
+    @GetMapping("/admin/users")
+    public List<UserSummary> listUsers() {
+        return userRepository.findAll().stream()
+                .map(u -> new UserSummary(u.getUsername(), u.getRole(), u.isEnabled(), u.isActivated(),
+                        u.isTotpEnabled(), u.isCurrentlyLocked(), u.getCreatedAt(), u.getLoanIds()))
+                .toList();
+    }
+
+    public record UserSummary(
+            String username, Role role, boolean enabled, boolean activated,
+            boolean totpEnabled, boolean locked, java.time.Instant createdAt, Set<String> loanIds
+    ) {
+    }
+
+    /** {@code password} is intentionally unvalidated here (no {@code @NotBlank}/{@code @StrongPassword})
+     * -- it's required for ADMIN/ANALYST and forbidden for CLIENT, validated manually in
+     * {@link #createUser} since that's conditional on {@code role}. */
     public record CreateUserRequest(
             @NotBlank String username,
-            @NotBlank @StrongPassword String password,
+            String password,
             @NotNull Role role,
             List<String> loanIds
     ) {

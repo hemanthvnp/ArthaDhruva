@@ -47,6 +47,23 @@ public class User {
     @Column(name = "enabled", nullable = false)
     private boolean enabled = true;
 
+    /** False only for a CLIENT created via the invite flow, until they complete
+     * ActivationController#activate -- passwordHash holds a permanently-unguessable placeholder
+     * until then (see AdminUserController#createUser), so the account is unusable via the normal
+     * login path regardless of this flag, but AuthController checks it explicitly first to give
+     * a clear "not yet activated" message instead of a generic bad-credentials failure. */
+    @Column(name = "activated", nullable = false)
+    private boolean activated = true;
+
+    /** Encrypted at rest (see TotpSecretCipher) -- unlike a password this must be recoverable to
+     * verify future codes, so it can't be one-way hashed. Null until enrollment; may hold a
+     * pending (not-yet-confirmed) secret between /account/2fa/setup and /confirm. */
+    @Column(name = "totp_secret")
+    private String totpSecret;
+
+    @Column(name = "totp_enabled", nullable = false)
+    private boolean totpEnabled = false;
+
     /**
      * Loans a CLIENT account may view via GET /my/loans. Only meaningful for CLIENT, but not
      * enforced as such -- harmless if present on another role, simpler than a role-conditional
@@ -141,5 +158,36 @@ public class User {
     public void clearLockout() {
         this.failedLoginAttempts = 0;
         this.lockedUntil = null;
+    }
+
+    public String getTotpSecret() {
+        return totpSecret;
+    }
+
+    public void setTotpSecret(String totpSecret) {
+        this.totpSecret = totpSecret;
+    }
+
+    public boolean isTotpEnabled() {
+        return totpEnabled;
+    }
+
+    public void setTotpEnabled(boolean totpEnabled) {
+        this.totpEnabled = totpEnabled;
+    }
+
+    /** Used by admin reset-2fa and by confirm's activation path's inverse -- clears enrollment
+     * entirely, so the account's next login falls back into the "not yet enrolled" branch. */
+    public void clearTotp() {
+        this.totpSecret = null;
+        this.totpEnabled = false;
+    }
+
+    public boolean isActivated() {
+        return activated;
+    }
+
+    public void setActivated(boolean activated) {
+        this.activated = activated;
     }
 }

@@ -1,13 +1,30 @@
-import { useState } from 'react';
-import { activateUser, deactivateUser, resetUserPassword } from '../api/client';
+import { useEffect, useState } from 'react';
+import { activateUser, deactivateUser, listUsers, resetUserPassword, resetUserTotp } from '../api/client';
 import ErrorBanner from '../components/ErrorBanner';
+import type { UserSummary } from '../api/types';
 
 export default function ManageUsersPage() {
+  const [users, setUsers] = useState<UserSummary[]>([]);
+  const [listError, setListError] = useState<unknown>(null);
+  const [listLoading, setListLoading] = useState(true);
+  const [search, setSearch] = useState('');
+
   const [username, setUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [error, setError] = useState<unknown>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const loadUsers = () => {
+    setListLoading(true);
+    setListError(null);
+    listUsers()
+      .then(setUsers)
+      .catch(setListError)
+      .finally(() => setListLoading(false));
+  };
+
+  useEffect(loadUsers, []);
 
   const run = async (action: () => Promise<{ message?: string; enabled?: boolean }>) => {
     setError(null);
@@ -15,9 +32,8 @@ export default function ManageUsersPage() {
     setLoading(true);
     try {
       const result = await action();
-      setStatus(
-        result.message ?? `"${username}" is now ${result.enabled ? 'enabled' : 'disabled'}.`
-      );
+      setStatus(result.message ?? `"${username}" is now ${result.enabled ? 'enabled' : 'disabled'}.`);
+      loadUsers();
     } catch (e) {
       setError(e);
     } finally {
@@ -25,15 +41,64 @@ export default function ManageUsersPage() {
     }
   };
 
+  const filtered = users.filter((u) => u.username.toLowerCase().includes(search.toLowerCase()));
+
   return (
     <div>
       <h2>Manage Users</h2>
       <p className="page-subtitle">
-        There's no user directory yet -- type the exact username to act on. Deactivating an
-        account takes effect immediately, even for a token issued before the change.
+        Every account in the system. Click a row to select it below, then act on it -- deactivating
+        takes effect immediately, even for a token issued before the change.
       </p>
 
       <div className="card">
+        <div className="row-inline" style={{ justifyContent: 'space-between' }}>
+          <div className="field" style={{ minWidth: 260 }}>
+            <label htmlFor="userSearch">Search</label>
+            <input id="userSearch" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Filter by username..." />
+          </div>
+          <button className="secondary" onClick={loadUsers} disabled={listLoading}>
+            {listLoading ? 'Loading...' : 'Refresh'}
+          </button>
+        </div>
+        <ErrorBanner error={listError} />
+        {!listLoading && filtered.length > 0 && (
+          <table>
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>2FA</th>
+                <th>Loans</th>
+                <th>Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((u) => (
+                <tr
+                  key={u.username}
+                  onClick={() => setUsername(u.username)}
+                  style={{ cursor: 'pointer', background: username === u.username ? 'var(--row-selected, #eef2ff)' : undefined }}
+                >
+                  <td>{u.username}</td>
+                  <td>{u.role}</td>
+                  <td>
+                    {!u.enabled ? 'Disabled' : u.locked ? 'Locked' : !u.activated ? 'Pending activation' : 'Active'}
+                  </td>
+                  <td>{u.totpEnabled ? 'Enrolled' : '-'}</td>
+                  <td>{u.loanIds.length || '-'}</td>
+                  <td>{new Date(u.createdAt).toLocaleDateString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        {!listLoading && filtered.length === 0 && <p className="page-subtitle">No matching users.</p>}
+      </div>
+
+      <div className="card">
+        <h3>Act on a user</h3>
         <div className="field">
           <label htmlFor="manage-username">Username</label>
           <input id="manage-username" value={username} onChange={(e) => setUsername(e.target.value)} />
@@ -68,6 +133,9 @@ export default function ManageUsersPage() {
           </button>
           <button className="secondary" disabled={loading || !username} onClick={() => run(() => activateUser(username))}>
             Activate
+          </button>
+          <button className="secondary" disabled={loading || !username} onClick={() => run(() => resetUserTotp(username))}>
+            Reset 2FA
           </button>
         </div>
 

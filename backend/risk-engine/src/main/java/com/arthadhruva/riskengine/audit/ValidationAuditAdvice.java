@@ -48,11 +48,11 @@ import java.util.Set;
 @RestControllerAdvice
 public class ValidationAuditAdvice {
 
-    /** Same three controllers AuditAspect excludes -- their request DTOs can carry a raw
-     * password, so a validation failure on one of them must never serialize the target object
-     * into the audit trail (field-level messages like "newPassword: too short" are still fine). */
+    /** Same controllers AuditAspect excludes -- their request DTOs can carry a raw password, so
+     * a validation failure on one of them must never serialize the target object into the audit
+     * trail (field-level messages like "newPassword: too short" are still fine). */
     private static final Set<String> CREDENTIAL_CARRYING_CONTROLLERS =
-            Set.of("AuthController", "AdminUserController", "AccountController");
+            Set.of("AuthController", "AdminUserController", "AccountController", "ActivationController");
 
     private final AuditEventWriter auditEventWriter;
     private final ObjectMapper objectMapper = new ObjectMapper();

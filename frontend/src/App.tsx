@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './auth/AuthContext';
+import { AuthProvider, landingPathFor, useAuth } from './auth/AuthContext';
 import type { Role } from './api/types';
 import Layout from './Layout';
 import LoginPage from './pages/LoginPage';
@@ -16,6 +16,9 @@ import MyLoanPage from './pages/MyLoanPage';
 import AdminCreateUserPage from './pages/AdminCreateUserPage';
 import ManageUsersPage from './pages/ManageUsersPage';
 import ChangePasswordPage from './pages/ChangePasswordPage';
+import TwoFactorPage from './pages/TwoFactorPage';
+import Setup2faPage from './pages/Setup2faPage';
+import ActivatePage from './pages/ActivatePage';
 
 function ProtectedRoute({ children }: { children: ReactElement }) {
   const { auth } = useAuth();
@@ -34,16 +37,14 @@ function RoleRoute({ allow, children }: { allow: Role[]; children: ReactElement 
   return children;
 }
 
-function landingPathFor(role: Role): string {
-  return role === 'CLIENT' ? '/my-loan' : '/score';
-}
-
 function AppRoutes() {
   const { auth } = useAuth();
 
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/setup-2fa" element={<Setup2faPage />} />
+      <Route path="/activate" element={<ActivatePage />} />
       <Route
         element={
           <ProtectedRoute>
@@ -133,6 +134,7 @@ function AppRoutes() {
           }
         />
         <Route path="/account/password" element={<ChangePasswordPage />} />
+        <Route path="/account/2fa" element={<TwoFactorPage />} />
         <Route path="/my-loan" element={<MyLoanPage />} />
       </Route>
     </Routes>

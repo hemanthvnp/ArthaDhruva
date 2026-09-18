@@ -20,12 +20,22 @@ import jakarta.servlet.http.HttpServletResponse;
 /**
  * Stateless JWT bearer-token auth: no sessions, no cookies, CSRF disabled (there's no
  * cookie-based session for a cross-site request to ride along on -- the standard justification
- * for disabling CSRF protection on a stateless token API). {@code /login} and the actuator
+ * for disabling CSRF protection on a stateless token API). {@code /login}, {@code /activate}
+ * (a CLIENT completing an admin-issued invite -- see ActivationController), and the actuator
  * health check are public; {@code /admin/**} requires the ADMIN role; {@code /my/**} (a CLIENT's
  * own-loan view) and {@code /account/**} (self-service actions like changing your own password)
- * just require being logged in, any role; everything else -- the scoring/
+ * require being logged in as a real role (ANALYST/ADMIN/CLIENT); everything else -- the scoring/
  * analysis tools -- requires ANALYST or ADMIN specifically, excluding CLIENT: a borrower can see
  * their own loan's score, but can't submit new applications or run any analysis tool.
+ *
+ * The two TOTP enrollment endpoints are the one exception carved out of {@code /account/**}'s
+ * real-role requirement: they also accept {@code ROLE_TOTP_SETUP}, the narrow authority
+ * JwtAuthenticationFilter assigns to a short-lived setup token (see JwtService#issueSetupToken).
+ * That's deliberate and load-bearing -- {@code /my/**} and the rest of {@code /account/**} used
+ * to just require {@code authenticated()} (any authentication at all, regardless of role), which
+ * would have let a setup token -- meant to reach only these two endpoints -- pass those checks
+ * too, since it does carry a valid, authenticated principal. Requiring a real role everywhere
+ * else is what actually contains it.
  *
  * Explicit exception handling below matters: without it, Spring Security's default entry point
  * for an API with neither httpBasic() nor formLogin() configured returns 403 for *every* auth
@@ -91,10 +101,11 @@ public class SecurityConfig {
                         .accessDeniedHandler((request, response, accessDeniedException) ->
                                 response.sendError(HttpServletResponse.SC_FORBIDDEN, "Forbidden")))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/login", "/actuator/health", "/error").permitAll()
+                        .requestMatchers("/login", "/activate", "/actuator/health", "/error").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/my/**").authenticated()
-                        .requestMatchers("/account/**").authenticated()
+                        .requestMatchers("/account/2fa/setup", "/account/2fa/confirm")
+                                .hasAnyRole("TOTP_SETUP", "ANALYST", "ADMIN", "CLIENT")
+                        .requestMatchers("/my/**", "/account/**").hasAnyRole("ANALYST", "ADMIN", "CLIENT")
                         .anyRequest().hasAnyRole("ANALYST", "ADMIN"))
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();

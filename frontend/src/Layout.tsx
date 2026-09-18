@@ -19,7 +19,10 @@ const ADMIN_LINKS = [
 
 const CLIENT_LINKS = [{ to: '/my-loan', label: 'My Loan' }];
 
-const SELF_SERVICE_LINKS = [{ to: '/account/password', label: 'Change Password' }];
+const SELF_SERVICE_LINKS = [
+  { to: '/account/password', label: 'Change Password' },
+  { to: '/account/2fa', label: 'Two-Factor Auth' },
+];
 
 export default function Layout() {
   const { auth, logout } = useAuth();

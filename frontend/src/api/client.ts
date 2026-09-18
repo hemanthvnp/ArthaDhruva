@@ -9,15 +9,20 @@ import type {
   ExpectedLossResponse,
   LoanFeatures,
   LoginAttemptEntry,
+  LoginOutcome,
   LoginResponse,
   MessageResponse,
   MyLoanView,
   RegimeForecast,
   ScoreResponse,
   SegmentNeighbor,
+  TotpConfirmOutcome,
+  TotpSetupResponse,
+  TotpStatusResponse,
   TrajectoryRequest,
   TrajectoryScoreResponse,
   UserStatusResponse,
+  UserSummary,
 } from './types';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
@@ -71,8 +76,59 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export function login(username: string, password: string): Promise<LoginResponse> {
-  return request('/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+/** Bypasses stored auth entirely -- used only for the narrow setup-token flow (Setup2faPage),
+ * where the caller isn't fully logged in yet and a 401 (e.g. a wrong confirmation code) must
+ * just show an error, not trigger the normal "session expired -> redirect to /login" handling
+ * that `request()` applies to every other endpoint. */
+async function setupRequest<T>(token: string, path: string, options?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers: { ...headers, ...options?.headers } });
+  if (!res.ok) {
+    let message = `Request failed: ${res.status}`;
+    try {
+      const body = await res.json();
+      if (body.error) message = body.error;
+    } catch {
+      // response body wasn't JSON -- keep the generic message
+    }
+    throw new ApiError(res.status, message);
+  }
+  return res.json() as Promise<T>;
+}
+
+export function login(username: string, password: string, totpCode?: string): Promise<LoginOutcome> {
+  return request('/login', { method: 'POST', body: JSON.stringify({ username, password, totpCode }) });
+}
+
+export function totpStatus(): Promise<TotpStatusResponse> {
+  return request('/account/2fa/status');
+}
+
+export function totpSetup(): Promise<TotpSetupResponse> {
+  return request('/account/2fa/setup', { method: 'POST' });
+}
+
+export function totpConfirm(code: string): Promise<TotpConfirmOutcome> {
+  return request('/account/2fa/confirm', { method: 'POST', body: JSON.stringify({ code }) });
+}
+
+export function totpDisable(code: string): Promise<MessageResponse> {
+  return request('/account/2fa/disable', { method: 'POST', body: JSON.stringify({ code }) });
+}
+
+export function resetUserTotp(username: string): Promise<MessageResponse> {
+  return request(`/admin/users/${encodeURIComponent(username)}/reset-2fa`, { method: 'POST' });
+}
+
+/** Setup-scoped equivalents of totpSetup/totpConfirm -- used by Setup2faPage, which authenticates
+ * with the short-lived setupToken from a `setupRequired` login response rather than the normal
+ * stored session. */
+export function totpSetupWithToken(token: string): Promise<TotpSetupResponse> {
+  return setupRequest(token, '/account/2fa/setup', { method: 'POST' });
+}
+
+export function totpConfirmWithToken(token: string, code: string): Promise<TotpConfirmOutcome> {
+  return setupRequest(token, '/account/2fa/confirm', { method: 'POST', body: JSON.stringify({ code }) });
 }
 
 export function score(loan: LoanFeatures): Promise<ScoreResponse> {
@@ -150,4 +206,31 @@ export function deactivateUser(username: string): Promise<UserStatusResponse> {
 
 export function activateUser(username: string): Promise<UserStatusResponse> {
   return request(`/admin/users/${encodeURIComponent(username)}/activate`, { method: 'POST' });
+}
+
+/** The user directory -- every account, admin-only. */
+export function listUsers(): Promise<UserSummary[]> {
+  return request('/admin/users');
+}
+
+/** Completes a CLIENT invite (ActivatePage) -- fully public, no stored session exists yet, so
+ * this bypasses `request()`'s auth/401 handling entirely, same reasoning as `setupRequest`. */
+export function activateAccount(activationToken: string, password: string): Promise<LoginResponse> {
+  return fetch(`${BASE_URL}/activate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ activationToken, password }),
+  }).then(async (res) => {
+    if (!res.ok) {
+      let message = `Request failed: ${res.status}`;
+      try {
+        const body = await res.json();
+        if (body.error) message = body.error;
+      } catch {
+        // response body wasn't JSON -- keep the generic message
+      }
+      throw new ApiError(res.status, message);
+    }
+    return res.json() as Promise<LoginResponse>;
+  });
 }

@@ -105,6 +105,32 @@ export interface LoginResponse {
   expiresAt: string;
 }
 
+export interface MfaRequiredResponse {
+  mfaRequired: true;
+}
+
+export interface SetupRequiredResponse {
+  setupRequired: true;
+  setupToken: string;
+  setupTokenExpiresAt: string;
+}
+
+export type LoginOutcome = LoginResponse | MfaRequiredResponse | SetupRequiredResponse;
+
+/** /account/2fa/confirm returns a real session (bootstrap flow, via a setup token) or just a
+ * confirmation message (voluntary opt-in flow, caller already has a normal session). */
+export type TotpConfirmOutcome = LoginResponse | MessageResponse;
+
+export interface TotpStatusResponse {
+  enabled: boolean;
+  required: boolean;
+}
+
+export interface TotpSetupResponse {
+  qrCodeDataUri: string;
+  secret: string;
+}
+
 export interface AuditLogEntry {
   id: number;
   endpoint: string;
@@ -129,9 +155,11 @@ export interface MyLoanView {
   computedAt: string | null;
 }
 
+/** password is required for ANALYST/ADMIN and must be omitted for CLIENT -- CLIENT accounts are
+ * activated via invite instead (see ActivatePage). */
 export interface CreateUserRequest {
   username: string;
-  password: string;
+  password?: string;
   role: Role;
   loanIds?: string[];
 }
@@ -140,6 +168,9 @@ export interface CreateUserResponse {
   username: string;
   role: Role;
   loanIds: string[];
+  /** Present only when role was CLIENT -- a one-time link the admin shares with the client so
+   * they can set their own password (no email delivery in this app; share it manually). */
+  activationLink?: string;
 }
 
 export interface MessageResponse {
@@ -149,4 +180,16 @@ export interface MessageResponse {
 export interface UserStatusResponse {
   username: string;
   enabled: boolean;
+}
+
+/** One row of GET /admin/users -- the user directory. */
+export interface UserSummary {
+  username: string;
+  role: Role;
+  enabled: boolean;
+  activated: boolean;
+  totpEnabled: boolean;
+  locked: boolean;
+  createdAt: string;
+  loanIds: string[];
 }
