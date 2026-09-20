@@ -22,7 +22,8 @@ import jakarta.servlet.http.HttpServletResponse;
  * cookie-based session for a cross-site request to ride along on -- the standard justification
  * for disabling CSRF protection on a stateless token API). {@code /login}, {@code /activate}
  * (a CLIENT completing an admin-issued invite -- see ActivationController), and the actuator
- * health check are public; {@code /admin/**} requires the ADMIN role; {@code /my/**} (a CLIENT's
+ * health/prometheus endpoints (Prometheus itself carries no bearer token) are public; {@code
+ * /admin/**} requires the ADMIN role; {@code /my/**} (a CLIENT's
  * own-loan view) and {@code /account/**} (self-service actions like changing your own password)
  * require being logged in as a real role (ANALYST/ADMIN/CLIENT); everything else -- the scoring/
  * analysis tools -- requires ANALYST or ADMIN specifically, excluding CLIENT: a borrower can see
@@ -70,18 +71,33 @@ public class SecurityConfig {
      * LockedException / DisabledException instead of BadCredentialsException -- so a locked or
      * deactivated account is rejected without the submitted password ever being verified, and
      * AuthController can distinguish all three cases cleanly.
+     *
+     * <p>The {@code username} this bean receives is really {@code orgId::username} (see
+     * AuthController#compositePrincipal) -- Spring Security's {@code UserDetailsService} contract
+     * only carries a single string, and {@code username} alone is no longer enough to find a
+     * unique row once it's only unique per-tenant (see {@link User}'s class doc). The returned
+     * {@code UserDetails}' own username is set back to the real (non-composite) username, since
+     * that's what ends up in {@code Authentication#getName()} everywhere downstream.
      */
     @Bean
     public UserDetailsService userDetailsService(UserRepository userRepository) {
-        return username -> userRepository.findByUsername(username)
-                .map(u -> org.springframework.security.core.userdetails.User
-                        .withUsername(u.getUsername())
-                        .password(u.getPasswordHash())
-                        .authorities("ROLE_" + u.getRole().name())
-                        .accountLocked(u.isCurrentlyLocked())
-                        .disabled(!u.isEnabled())
-                        .build())
-                .orElseThrow(() -> new UsernameNotFoundException("Unknown user: " + username));
+        return compositePrincipal -> {
+            String[] parts = compositePrincipal.split("::", 2);
+            if (parts.length != 2) {
+                throw new UsernameNotFoundException("Malformed principal");
+            }
+            Long organizationId = Long.valueOf(parts[0]);
+            String username = parts[1];
+            return userRepository.findByOrganizationIdAndUsername(organizationId, username)
+                    .map(u -> org.springframework.security.core.userdetails.User
+                            .withUsername(u.getUsername())
+                            .password(u.getPasswordHash())
+                            .authorities("ROLE_" + u.getRole().name())
+                            .accountLocked(u.isCurrentlyLocked())
+                            .disabled(!u.isEnabled())
+                            .build())
+                    .orElseThrow(() -> new UsernameNotFoundException("Unknown user: " + username));
+        };
     }
 
     @Bean
@@ -90,7 +106,10 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtFilter) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtFilter,
+                                                   com.arthadhruva.riskengine.apikey.ApiKeyAuthenticationFilter apiKeyFilter,
+                                                   com.arthadhruva.riskengine.ratelimit.RateLimitFilter rateLimitFilter,
+                                                   com.arthadhruva.riskengine.idempotency.IdempotencyFilter idempotencyFilter) throws Exception {
         http
                 .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
@@ -101,13 +120,18 @@ public class SecurityConfig {
                         .accessDeniedHandler((request, response, accessDeniedException) ->
                                 response.sendError(HttpServletResponse.SC_FORBIDDEN, "Forbidden")))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/login", "/activate", "/actuator/health", "/error").permitAll()
-                        .requestMatchers("/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/account/2fa/setup", "/account/2fa/confirm")
+                        .requestMatchers("/v1/login", "/v1/signup", "/v1/sso/**", "/v1/password-reset/request", "/v1/password-reset/complete", "/v1/activate", "/actuator/health", "/actuator/prometheus", "/error").permitAll()
+                        .requestMatchers("/v1/ingest/**").hasRole("API_INGEST")
+                        .requestMatchers("/v1/platform/**").hasRole("PLATFORM_ADMIN")
+                        .requestMatchers("/v1/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/v1/account/2fa/setup", "/v1/account/2fa/confirm")
                                 .hasAnyRole("TOTP_SETUP", "ANALYST", "ADMIN", "CLIENT")
-                        .requestMatchers("/my/**", "/account/**").hasAnyRole("ANALYST", "ADMIN", "CLIENT")
+                        .requestMatchers("/v1/my/**", "/v1/account/**").hasAnyRole("ANALYST", "ADMIN", "CLIENT")
                         .anyRequest().hasAnyRole("ANALYST", "ADMIN"))
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(apiKeyFilter, JwtAuthenticationFilter.class)
+                .addFilterAfter(rateLimitFilter, com.arthadhruva.riskengine.apikey.ApiKeyAuthenticationFilter.class)
+                .addFilterAfter(idempotencyFilter, com.arthadhruva.riskengine.ratelimit.RateLimitFilter.class);
         return http.build();
     }
 }

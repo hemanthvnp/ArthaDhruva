@@ -1,5 +1,7 @@
 package com.arthadhruva.riskengine.security;
 
+import com.arthadhruva.riskengine.tenant.Organization;
+import com.arthadhruva.riskengine.tenant.TenantAware;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
@@ -11,21 +13,44 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.FilterDef;
+import org.hibernate.annotations.ParamDef;
 
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 
+/** {@code username} is unique only within a tenant (see the {@code uniqueConstraints} below) --
+ * two different organizations can each have their own "admin". Every lookup must therefore go
+ * through {@link com.arthadhruva.riskengine.security.UserRepository#findByOrganizationIdAndUsername}
+ * rather than a bare username lookup, which would be ambiguous across tenants.
+ *
+ * <p>The {@code tenantFilter} below is a defense-in-depth backstop, not the primary guard --
+ * explicit {@code tenantId} parameters on every repository method (as above) are what actually
+ * enforce isolation; the filter only helps if {@link com.arthadhruva.riskengine.tenant.TenantHibernateFilterInterceptor}
+ * has enabled it for the current session, which a native query or a missed interceptor path won't
+ * trigger. See {@code TenantContext}'s class doc for the full reasoning. */
 @Entity
-@Table(name = "app_user")
-public class User {
+@Table(name = "app_user", uniqueConstraints = @UniqueConstraint(columnNames = {"tenant_id", "username"}))
+@FilterDef(name = "tenantFilter", parameters = @ParamDef(name = "tenantId", type = Long.class))
+@Filter(name = "tenantFilter", condition = "tenant_id = :tenantId")
+public class User implements TenantAware {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    // EAGER: with open-in-view off (needed for per-transaction tenant tagging) a lazy proxy would blow up
+    // outside a transaction, and the organization row (sandbox flag, etc.) is tiny and always wanted.
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "tenant_id", nullable = false)
+    private Organization organization;
+
+    @Column(nullable = false)
     private String username;
 
     @Column(name = "password_hash", nullable = false)
@@ -61,6 +86,9 @@ public class User {
     @Column(name = "totp_secret")
     private String totpSecret;
 
+    @Column(name = "email")
+    private String email;
+
     @Column(name = "totp_enabled", nullable = false)
     private boolean totpEnabled = false;
 
@@ -69,6 +97,9 @@ public class User {
      * enforced as such -- harmless if present on another role, simpler than a role-conditional
      * constraint for what's still a small, single-purpose field.
      */
+    // SUBSELECT: loading N users initializes every one of their collections with ONE extra query
+    // (WHERE user_id IN (the original user query)) instead of one query per user (the N+1 this replaced).
+    @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "user_loan_id", joinColumns = @JoinColumn(name = "user_id"))
     @Column(name = "loan_id")
@@ -78,7 +109,8 @@ public class User {
         // required by JPA
     }
 
-    public User(String username, String passwordHash, Role role) {
+    public User(Organization organization, String username, String passwordHash, Role role) {
+        this.organization = organization;
         this.username = username;
         this.passwordHash = passwordHash;
         this.role = role;
@@ -87,6 +119,23 @@ public class User {
 
     public Long getId() {
         return id;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public Organization getOrganization() {
+        return organization;
+    }
+
+    @Override
+    public Long getTenantId() {
+        return organization.getId();
     }
 
     public String getUsername() {

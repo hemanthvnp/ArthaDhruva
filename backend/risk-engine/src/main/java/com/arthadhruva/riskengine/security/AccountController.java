@@ -1,5 +1,6 @@
 package com.arthadhruva.riskengine.security;
 
+import com.arthadhruva.riskengine.tenant.TenantContext;
 import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -32,15 +33,15 @@ import java.util.Map;
 @RestController
 public class AccountController {
 
-    private final UserRepository userRepository;
+    private final UserService userService;
     private final PasswordEncoder passwordEncoder;
     private final TotpService totpService;
     private final TotpSecretCipher totpSecretCipher;
     private final JwtService jwtService;
 
-    public AccountController(UserRepository userRepository, PasswordEncoder passwordEncoder,
+    public AccountController(UserService userService, PasswordEncoder passwordEncoder,
                               TotpService totpService, TotpSecretCipher totpSecretCipher, JwtService jwtService) {
-        this.userRepository = userRepository;
+        this.userService = userService;
         this.passwordEncoder = passwordEncoder;
         this.totpService = totpService;
         this.totpSecretCipher = totpSecretCipher;
@@ -49,20 +50,20 @@ public class AccountController {
 
     @PostMapping("/account/password")
     public ResponseEntity<?> changePassword(@Valid @RequestBody ChangePasswordRequest request, Authentication authentication) {
-        User user = userRepository.findByUsername(authentication.getName()).orElseThrow();
+        User user = userService.findByOrganizationAndUsername(TenantContext.get(), authentication.getName()).orElseThrow();
 
         if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Current password is incorrect"));
         }
 
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
-        userRepository.save(user);
+        userService.save(user);
         return ResponseEntity.ok(Map.of("message", "Password updated."));
     }
 
     @GetMapping("/account/2fa/status")
     public ResponseEntity<?> status(Authentication authentication) {
-        User user = userRepository.findByUsername(authentication.getName()).orElseThrow();
+        User user = userService.findByOrganizationAndUsername(TenantContext.get(), authentication.getName()).orElseThrow();
         return ResponseEntity.ok(new TotpStatusResponse(user.isTotpEnabled(), user.getRole().requiresTotp()));
     }
 
@@ -70,31 +71,31 @@ public class AccountController {
      * (not-yet-activated) secret. */
     @PostMapping("/account/2fa/setup")
     public ResponseEntity<?> setup(Authentication authentication) {
-        User user = userRepository.findByUsername(authentication.getName()).orElseThrow();
+        User user = userService.findByOrganizationAndUsername(TenantContext.get(), authentication.getName()).orElseThrow();
         String secret = totpService.generateSecret();
         user.setTotpSecret(totpSecretCipher.encrypt(secret));
-        userRepository.save(user);
+        userService.save(user);
         return ResponseEntity.ok(new TotpSetupResponse(totpService.buildQrCodeDataUri(user.getUsername(), secret), secret));
     }
 
     @RateLimiter(name = "login")
     @PostMapping("/account/2fa/confirm")
     public ResponseEntity<?> confirm(@Valid @RequestBody TotpCodeRequest request, Authentication authentication) {
-        User user = userRepository.findByUsername(authentication.getName()).orElseThrow();
+        User user = userService.findByOrganizationAndUsername(TenantContext.get(), authentication.getName()).orElseThrow();
         if (user.getTotpSecret() == null || !verifyStoredSecret(user, request.code())) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid authentication code"));
         }
 
         user.setTotpEnabled(true);
-        userRepository.save(user);
+        userService.save(user);
 
         boolean viaSetupToken = authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .anyMatch("ROLE_TOTP_SETUP"::equals);
         if (viaSetupToken) {
-            JwtService.IssuedToken issued = jwtService.issue(user.getUsername(), user.getRole());
+            JwtService.IssuedToken issued = jwtService.issue(user.getUsername(), user.getRole(), user.getTenantId());
             return ResponseEntity.ok(new AuthController.LoginResponse(
-                    issued.token(), user.getUsername(), user.getRole().name(), issued.expiresAt()));
+                    issued.token(), user.getUsername(), user.getRole().name(), issued.expiresAt(), user.getOrganization().isSandbox()));
         }
         return ResponseEntity.ok(Map.of("message", "2FA enabled."));
     }
@@ -105,7 +106,7 @@ public class AccountController {
     @RateLimiter(name = "login")
     @PostMapping("/account/2fa/disable")
     public ResponseEntity<?> disable(@Valid @RequestBody TotpCodeRequest request, Authentication authentication) {
-        User user = userRepository.findByUsername(authentication.getName()).orElseThrow();
+        User user = userService.findByOrganizationAndUsername(TenantContext.get(), authentication.getName()).orElseThrow();
         if (user.getRole().requiresTotp()) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("error", "2FA is required for your role and cannot be disabled here."));
@@ -115,7 +116,7 @@ public class AccountController {
         }
 
         user.clearTotp();
-        userRepository.save(user);
+        userService.save(user);
         return ResponseEntity.ok(Map.of("message", "2FA disabled."));
     }
 

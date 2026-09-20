@@ -1,5 +1,6 @@
 package com.arthadhruva.riskengine.security;
 
+import com.arthadhruva.riskengine.tenant.TenantContext;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -38,8 +39,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserRepository userRepository;
+    private final com.arthadhruva.riskengine.tenant.OrganizationService organizationService;
 
-    public JwtAuthenticationFilter(JwtService jwtService, UserRepository userRepository) {
+    public JwtAuthenticationFilter(JwtService jwtService, UserRepository userRepository,
+                                   com.arthadhruva.riskengine.tenant.OrganizationService organizationService) {
+        this.organizationService = organizationService;
         this.jwtService = jwtService;
         this.userRepository = userRepository;
     }
@@ -47,11 +51,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
+        // Tenant context must stay set for the *entire* downstream request (every controller and
+        // repository call this request makes), not just the user lookup below -- hence wrapping
+        // the filterChain.doFilter() call itself in the try/finally, not just this method's own
+        // work. A token with no org claim (malformed, or predating multi-tenancy) leaves the
+        // context unset entirely; the lookup below then finds nothing and the request proceeds
+        // unauthenticated, same as any other invalid token.
+        boolean tenantSet = false;
         String header = request.getHeader("Authorization");
         if (header != null && header.startsWith(BEARER_PREFIX)) {
             String token = header.substring(BEARER_PREFIX.length());
-            jwtService.parse(token).ifPresent(parsed -> {
-                userRepository.findByUsername(parsed.username())
+            var parsed = jwtService.parse(token).orElse(null);
+            // Activation and password-reset tokens are single-purpose links, never sessions: presenting one
+            // as a bearer token authenticates nothing.
+            if (parsed != null && parsed.organizationId() != null && !parsed.isActivationOnly() && !parsed.isResetOnly()) {
+                TenantContext.set(parsed.organizationId());
+                tenantSet = true;
+                // A suspended organization authenticates nobody, even with a still-unexpired token.
+                if (organizationService.isActive(parsed.organizationId())) {
+                userRepository.findByOrganizationIdAndUsername(parsed.organizationId(), parsed.username())
                         .filter(User::isEnabled)
                         .filter(user -> !user.isCurrentlyLocked())
                         .ifPresent(user -> {
@@ -60,8 +78,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             var authentication = new UsernamePasswordAuthenticationToken(parsed.username(), null, authorities);
                             SecurityContextHolder.getContext().setAuthentication(authentication);
                         });
-            });
+                }
+            }
         }
-        filterChain.doFilter(request, response);
+        try {
+            filterChain.doFilter(request, response);
+        } finally {
+            if (tenantSet) {
+                TenantContext.clear();
+            }
+        }
     }
 }

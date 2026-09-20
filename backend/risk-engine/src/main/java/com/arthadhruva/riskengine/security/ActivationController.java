@@ -1,5 +1,6 @@
 package com.arthadhruva.riskengine.security;
 
+import com.arthadhruva.riskengine.tenant.TenantContext;
 import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -26,12 +27,12 @@ import java.util.Map;
 @RestController
 public class ActivationController {
 
-    private final UserRepository userRepository;
+    private final UserService userService;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
-    public ActivationController(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
-        this.userRepository = userRepository;
+    public ActivationController(UserService userService, PasswordEncoder passwordEncoder, JwtService jwtService) {
+        this.userService = userService;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
     }
@@ -45,7 +46,19 @@ public class ActivationController {
                     .body(Map.of("error", "Invalid or expired activation link."));
         }
 
-        User user = userRepository.findByUsername(parsed.username()).orElse(null);
+        // /activate is fully public and never passes through JwtAuthenticationFilter, so tenant
+        // context isn't populated by anything upstream -- set it from the activation token's own
+        // org claim, the only place this request carries it.
+        try {
+            TenantContext.set(parsed.organizationId());
+            return activateWithinTenant(parsed, request);
+        } finally {
+            TenantContext.clear();
+        }
+    }
+
+    private ResponseEntity<?> activateWithinTenant(JwtService.ParsedToken parsed, ActivateRequest request) {
+        User user = userService.findByOrganizationAndUsername(parsed.organizationId(), parsed.username()).orElse(null);
         if (user == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", "Invalid or expired activation link."));
@@ -56,11 +69,11 @@ public class ActivationController {
 
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setActivated(true);
-        userRepository.save(user);
+        userService.save(user);
 
-        JwtService.IssuedToken issued = jwtService.issue(user.getUsername(), user.getRole());
+        JwtService.IssuedToken issued = jwtService.issue(user.getUsername(), user.getRole(), user.getTenantId());
         return ResponseEntity.ok(new AuthController.LoginResponse(
-                issued.token(), user.getUsername(), user.getRole().name(), issued.expiresAt()));
+                issued.token(), user.getUsername(), user.getRole().name(), issued.expiresAt(), user.getOrganization().isSandbox()));
     }
 
     public record ActivateRequest(
