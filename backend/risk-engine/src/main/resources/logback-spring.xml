@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Structured JSON console logs, one line per log event, with whatever's in the MDC (including
+    traceId/spanId once a request is inside an active span; Spring Boot wires that MDC
+    population up automatically once micrometer-tracing-bridge-otel is on the classpath) included
+    automatically. Promtail (see docker-compose.yml, observability profile) tails the container's
+    stdout and ships these lines to Loki already-structured, no log-scraping regex needed on
+    Loki's side.
+-->
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeMdcKeyName>traceId</includeMdcKeyName>
+            <includeMdcKeyName>spanId</includeMdcKeyName>
+            <customFields>{"application":"risk-engine"}</customFields>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+    </root>
+</configuration>
