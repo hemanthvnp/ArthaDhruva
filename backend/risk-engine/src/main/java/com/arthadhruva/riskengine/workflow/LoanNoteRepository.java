@@ -4,8 +4,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 
-public interface LoanNoteRepository extends JpaRepository<LoanNote, Long> {
-    List<LoanNote> findByLoanIdOrderByCreatedAtDesc(String loanId);
+public interface LoanNoteRepository extends JpaRepository<LoanNote, Long>,
+        org.springframework.data.jpa.repository.JpaSpecificationExecutor<LoanNote> {
+    List<LoanNote> findByTenantIdAndLoanIdOrderByCreatedAtDesc(Long tenantId, String loanId);
 
-    List<LoanNote> findTop50ByOrderByCreatedAtDesc();
+    List<LoanNote> findTop50ByTenantIdOrderByCreatedAtDesc(Long tenantId);
 }
