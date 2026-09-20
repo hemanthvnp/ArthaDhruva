@@ -1,0 +1,18 @@
+# Local-development overlay: publishes the data stores on localhost only, so a backend run from
+# the IDE / `mvnw spring-boot:run` on the host can reach them. NEVER use in a real deployment --
+# the base docker-compose.yml deliberately publishes no database ports.
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres redis neo4j
+services:
+  postgres:
+    networks: [data, default]
+    ports: ["127.0.0.1:5432:5432"]
+    volumes:
+      - ./postgres/pg_hba.dev.conf:/etc/postgresql/pg_hba.conf:ro
+    volumes:
+      - ./postgres/pg_hba.dev.conf:/etc/postgresql/pg_hba.conf:ro
+  redis:
+    networks: [data, default]
+    ports: ["127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"]
+  neo4j:
+    networks: [data, default]
+    ports: ["127.0.0.1:7474:7474", "127.0.0.1:7687:7687"]

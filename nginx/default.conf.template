@@ -1,0 +1,53 @@
+# Edge rate limit, per client IP -- a coarse flood guard in front of the app's own per-account
+# lockout and Resilience4j login limiter, not a replacement for them.
+limit_req_zone $binary_remote_addr zone=api:10m rate=20r/s;
+
+server {
+    listen 80;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    ssl_certificate     /etc/nginx/certs/tls.crt;
+    ssl_certificate_key /etc/nginx/certs/tls.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    server_tokens off;
+
+    gzip on;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+
+    root /usr/share/nginx/html;
+
+    # Built frontend served straight from disk; requests for these never reach the backend.
+    location / {
+        include /etc/nginx/security-headers.conf;
+        try_files $uri /index.html;
+    }
+
+    # Hashed build assets are immutable, so cache them hard.
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        include /etc/nginx/security-headers.conf;
+    }
+
+    location /v1/ {
+        include /etc/nginx/security-headers.conf;
+        limit_req zone=api burst=40 nodelay;
+        limit_req_status 429;
+        client_max_body_size 10m;
+        # Variable + resolver: nginx re-resolves the service name every few seconds, so scaling the
+        # backend (docker compose up --scale backend=N) load-balances round-robin across replicas
+        # without restarting the proxy. A literal hostname is resolved once at startup and pinned.
+        resolver 127.0.0.11 valid=5s ipv6=off;
+        set $backend_upstream http://${BACKEND_HOST}:${BACKEND_PORT};
+        proxy_pass $backend_upstream;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}

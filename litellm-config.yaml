@@ -1,0 +1,10 @@
+# Config for the litellm service in docker-compose.yml -- maps the one logical model name the
+# Java backend calls (litellm.model in application.properties, default "assistant-model") to a
+# real provider. Swapping providers/models later is a one-line change here, not a Java code
+# change -- that's the entire reason the backend talks to LiteLLM instead of a provider SDK
+# directly.
+model_list:
+  - model_name: assistant-model
+    litellm_params:
+      model: claude-sonnet-5
+      api_key: os.environ/ANTHROPIC_API_KEY

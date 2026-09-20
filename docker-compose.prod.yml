@@ -1,0 +1,35 @@
+# Production overlay: every credential comes from a Docker secret (a tmpfs-mounted file under
+# /run/secrets), never an env var or a default. Generate them with scripts/gen-secrets.sh.
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile app --profile edge up -d
+secrets:
+  DB_PASSWORD: { file: ./secrets/DB_PASSWORD }
+  DB_APP_PASSWORD: { file: ./secrets/DB_APP_PASSWORD }
+  DB_WORKER_PASSWORD: { file: ./secrets/DB_WORKER_PASSWORD }
+  NEO4J_PASSWORD: { file: ./secrets/NEO4J_PASSWORD }
+  JWT_SECRET: { file: ./secrets/JWT_SECRET }
+  TOTP_ENCRYPTION_KEY: { file: ./secrets/TOTP_ENCRYPTION_KEY }
+
+services:
+  postgres:
+    environment:
+      POSTGRES_PASSWORD: !reset null
+      POSTGRES_PASSWORD_FILE: /run/secrets/DB_PASSWORD
+    secrets: [DB_PASSWORD]
+
+  neo4j:
+    environment:
+      NEO4J_AUTH: !reset null
+    secrets: [NEO4J_PASSWORD]
+    entrypoint: ["/bin/sh", "-c", "export NEO4J_AUTH=neo4j/$$(cat /run/secrets/NEO4J_PASSWORD); exec tini -g -- /startup/docker-entrypoint.sh neo4j"]
+
+  backend:
+    environment:
+      SPRING_PROFILES_ACTIVE: production
+      SPRING_CONFIG_IMPORT: "configtree:/run/secrets/"
+      DB_PASSWORD: !reset null
+      DB_APP_PASSWORD: !reset null
+      DB_WORKER_PASSWORD: !reset null
+      NEO4J_PASSWORD: !reset null
+      JWT_SECRET: !reset null
+      TOTP_ENCRYPTION_KEY: !reset null
+    secrets: [DB_PASSWORD, DB_APP_PASSWORD, DB_WORKER_PASSWORD, NEO4J_PASSWORD, JWT_SECRET, TOTP_ENCRYPTION_KEY]

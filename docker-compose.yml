@@ -1,29 +1,170 @@
+# Networks (design: least exposure). `data` is internal: containers on it cannot be reached from
+# the host or the internet, only from services attached to the same network. Host-published
+# database ports for local development live in docker-compose.dev.yml, not here.
+networks:
+  edge: {}
+  data:
+    internal: true
+  observability: {}
+
+x-hardening: &hardening
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+
 services:
+  # One-shot CA + server cert for TLS to Postgres (see postgres/pki.sh).
+  pki:
+    image: alpine/openssl
+    network_mode: none
+    entrypoint: ["/bin/sh", "/pki.sh"]
+    cap_drop: [ALL]
+    cap_add: [CHOWN, FOWNER, DAC_OVERRIDE]
+    security_opt: ["no-new-privileges:true"]
+    volumes:
+      - ./postgres/pki.sh:/pki.sh:ro
+      - pki:/pki
+
   postgres:
+    <<: *hardening
     image: postgres:16-alpine
+    networks: [data]
     environment:
       POSTGRES_DB: arthadhruva
       POSTGRES_USER: arthadhruva
-      POSTGRES_PASSWORD: arthadhruva
-    ports:
-      - "5432:5432"
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-arthadhruva}
+    command: ["postgres", "-c", "ssl=on", "-c", "ssl_cert_file=/pki/server.crt", "-c", "ssl_key_file=/pki/server.key", "-c", "hba_file=/etc/postgresql/pg_hba.conf"]
+    cap_add: [CHOWN, SETUID, SETGID, FOWNER, DAC_OVERRIDE]
+    depends_on:
+      pki: { condition: service_completed_successfully }
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - pki:/pki:ro
+      - ./postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U arthadhruva -d arthadhruva"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: 512M }
 
   redis:
+    <<: *hardening
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    networks: [data]
+    user: redis
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    read_only: true
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 192M }
 
   neo4j:
+    <<: *hardening
     image: neo4j:5-community
+    networks: [data]
     environment:
-      NEO4J_AUTH: neo4j/arthadhruva
-    ports:
-      - "7474:7474"
-      - "7687:7687"
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-arthadhruva}
+      NEO4J_server_memory_heap_max__size: 256m
+      NEO4J_server_memory_pagecache_size: 128m
+    cap_add: [CHOWN, SETUID, SETGID, FOWNER, DAC_OVERRIDE]
     volumes:
       - neo4jdata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: 768M }
+
+  backend:
+    <<: *hardening
+    build: ./backend/risk-engine
+    profiles: ["app"]
+    networks: [edge, data, observability]
+    environment:
+      DB_HOST: postgres
+      DB_JDBC_PARAMS: "?sslmode=verify-full&sslrootcert=/pki/ca.crt"
+      CORS_ALLOWED_ORIGINS: ""
+      DB_USER: arthadhruva
+      DB_PASSWORD: ${DB_PASSWORD:-arthadhruva}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD:-arthadhruva_app}
+      DB_WORKER_PASSWORD: ${DB_WORKER_PASSWORD:-arthadhruva_worker}
+      WEBHOOK_ALLOW_PRIVATE_TARGETS: ${WEBHOOK_ALLOW_PRIVATE_TARGETS:-false}
+      REDIS_HOST: redis
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-arthadhruva}
+      OTLP_TRACING_ENDPOINT: http://jaeger:4318/v1/traces
+      LITELLM_BASE_URL: http://litellm:4000
+      JWT_SECRET: ${JWT_SECRET:-}
+      TOTP_ENCRYPTION_KEY: ${TOTP_ENCRYPTION_KEY:-}
+      SPRING_MAIL_HOST: "${SMTP_HOST:-}"
+      SPRING_MAIL_PORT: "${SMTP_PORT:-587}"
+      PLATFORM_ADMIN_PASSWORD: "${PLATFORM_ADMIN_PASSWORD:-}"
+      APP_BASE_DOMAIN: "${APP_BASE_DOMAIN:-}"
+      APP_PUBLIC_URL: "${APP_PUBLIC_URL:-http://localhost:8080}"
+      FRONTEND_URL: "${FRONTEND_URL:-http://localhost:5173}"
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "${TRACE_SAMPLING:-0.1}"
+      JAVA_TOOL_OPTIONS: "${JAVA_OPTS:--XX:MaxRAMPercentage=60 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k}"
+      AUTH_ORG_SLUG_LOGIN_ENABLED: "${AUTH_ORG_SLUG_LOGIN_ENABLED:-true}"
+      STRIPE_SECRET_KEY: "${STRIPE_SECRET_KEY:-}"
+      NOTIFICATIONS_DIGEST_CRON: "${NOTIFICATIONS_DIGEST_CRON:-0 0 8 * * *}"
+      RATELIMIT_TENANT_CAPACITY: ${RATELIMIT_TENANT_CAPACITY:-100}
+      RATELIMIT_TENANT_PER_SECOND: ${RATELIMIT_TENANT_PER_SECOND:-50}
+    read_only: true
+    tmpfs:
+      # exec: ONNX Runtime extracts its native library here and dlopen()s it; a default noexec tmpfs blocks that.
+      - /tmp:exec,mode=1777,size=128m
+    volumes:
+      - attachments:/data/attachments
+      - pki:/pki:ro
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      neo4j: { condition: service_healthy }
+    healthcheck:
+      # No curl/wget in the JRE image: speak HTTP over bash's /dev/tcp instead of adding tools to it.
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/8080 && printf \"GET /actuator/health HTTP/1.0\\r\\n\\r\\n\" >&3 && grep -q UP <&3'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    deploy:
+      resources:
+        limits: { cpus: "1.5", memory: 1G }
+
+  # Local SMTP sink with a web UI (http://localhost:8025): every email the app sends lands here, none leave
+  # the machine. `--profile mail`, then set SMTP_HOST=mailpit SMTP_PORT=1025 for the backend.
+  mailpit:
+    image: axllent/mailpit
+    profiles: ["mail"]
+    networks: [edge]
+    ports:
+      - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
+
+  litellm:
+    <<: *hardening
+    image: ghcr.io/berriai/litellm:main-stable
+    profiles: ["app"]
+    networks: [edge]
+    volumes:
+      - ./litellm-config.yaml:/app/config.yaml:ro
+    environment:
+      # Unset by default -- the assistant feature degrades to "unavailable" (see
+      # assistant.LlmClient) rather than the app failing to start. Set a real key to actually
+      # get answers back.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
 
   pipeline:
     build: .
@@ -37,6 +178,107 @@ services:
       - ./data:/app/data
       - ./notebooks:/app/notebooks
     command: python -m pipeline.run
+
+  # Observability stack (design decision 6) -- opt-in via `docker compose --profile observability
+  # up -d` so a plain `docker compose up` for local dev stays lightweight (four extra containers
+  # nobody wants running just to hit F5 on a feature). Every host port below is overridable via
+  # env var (sensible standard default, override for a machine where that port's already taken --
+  # same pattern as DB_HOST/REDIS_PORT/etc. elsewhere in this file) since the backend runs on the
+  # host today, not as its own compose service.
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    profiles: ["observability"]
+    networks: [observability]
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    profiles: ["observability"]
+    networks: [observability]
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+      - loki
+      - jaeger
+
+  loki:
+    image: grafana/loki:3.2.1
+    profiles: ["observability"]
+    networks: [observability]
+    ports:
+      - "127.0.0.1:${LOKI_PORT:-3100}:3100"
+    volumes:
+      - ./observability/loki-config.yml:/etc/loki/local-config.yaml:ro
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+
+  promtail:
+    image: grafana/promtail:3.2.1
+    profiles: ["observability"]
+    networks: [observability]
+    volumes:
+      - ./observability/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: ["-config.file=/etc/promtail/config.yml"]
+    depends_on:
+      - loki
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.65.0
+    profiles: ["observability"]
+    networks: [observability]
+    ports:
+      - "127.0.0.1:${JAEGER_UI_PORT:-16686}:16686"
+      - "127.0.0.1:${JAEGER_OTLP_GRPC_PORT:-4317}:4317"
+      - "127.0.0.1:${JAEGER_OTLP_HTTP_PORT:-4318}:4318"
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+
+  # Reverse proxy (design decision 7): serves the built frontend (build it with
+  # `VITE_API_BASE_URL= npm run build` so API calls are same-origin /v1), terminates TLS with a
+  # throwaway self-signed cert, gzips responses, and rate-limits /v1 at the edge before anything
+  # reaches the backend. Opt-in like the observability stack; ports overridable via env.
+  nginx:
+    <<: *hardening
+    image: nginx:1.27
+    profiles: ["edge"]
+    networks: [edge]
+    cap_add: [CHOWN, SETUID, SETGID, NET_BIND_SERVICE]
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+      - /tmp
+      - /etc/nginx/conf.d
+      - /etc/nginx/certs
+    depends_on:
+      backend: { condition: service_healthy }
+    ports:
+      - "127.0.0.1:${NGINX_HTTP_PORT:-80}:80"
+      - "127.0.0.1:${NGINX_HTTPS_PORT:-443}:443"
+    environment:
+      BACKEND_HOST: ${BACKEND_HOST:-backend}
+      BACKEND_PORT: ${BACKEND_PORT:-8080}
+      NGINX_ENVSUBST_FILTER: BACKEND_
+    volumes:
+      - ./nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./nginx/selfsigned-cert.sh:/opt/selfsigned-cert.sh:ro
+      - ./nginx/security-headers.conf:/etc/nginx/security-headers.conf:ro
+      - ./frontend/dist:/usr/share/nginx/html:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    entrypoint: ["/bin/sh", "-c", "sh /opt/selfsigned-cert.sh && exec /docker-entrypoint.sh nginx -g 'daemon off;'"]
 
   jupyter:
     build: .
@@ -55,4 +297,6 @@ services:
 
 volumes:
   pgdata:
+  pki:
   neo4jdata:
+  attachments:
