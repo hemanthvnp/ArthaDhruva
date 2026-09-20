@@ -5,31 +5,33 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Neo4jContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 /**
  * Base for tests needing a real Postgres/Redis rather than a live local instance -- containers are
- * shared (static) across the whole test run and torn down by the Testcontainers/Ryuk reaper, so
+ * started once per JVM (see static block) and torn down by the Testcontainers/Ryuk reaper, so
  * CI needs nothing pre-provisioned beyond a Docker daemon.
  */
-@Testcontainers
 public abstract class AbstractIntegrationTest {
 
-    @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(DockerImageName.parse("postgres:16-alpine"))
             .withDatabaseName("arthadhruva")
             .withUsername("arthadhruva")
             .withPassword("arthadhruva");
 
-    @Container
     static final GenericContainer<?> REDIS = new GenericContainer<>(DockerImageName.parse("redis:7-alpine"))
             .withExposedPorts(6379);
 
-    @Container
     static final Neo4jContainer<?> NEO4J = new Neo4jContainer<>(DockerImageName.parse("neo4j:5-community"))
             .withAdminPassword("arthadhruva-test");
+
+    // Singleton-container pattern: started once per JVM. With @Container on static fields, Testcontainers
+    // stops them after each test class while Spring keeps the cached context (pointing at dead ports).
+    static {
+        POSTGRES.start();
+        REDIS.start();
+        NEO4J.start();
+    }
 
     @DynamicPropertySource
     static void registerProperties(DynamicPropertyRegistry registry) {
