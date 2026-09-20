@@ -1,9 +1,14 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
+import NotificationBell from './components/NotificationBell';
 
 const ANALYST_LINKS = [
+  { to: '/dashboard', label: 'Dashboard' },
   { to: '/loans', label: 'Loan Portfolio' },
   { to: '/cases', label: 'Cases' },
+  { to: '/case-search', label: 'Case Search' },
+  { to: '/insights', label: 'ML Insights' },
+  { to: '/assistant', label: 'AI Assistant' },
   { to: '/score', label: 'Default Risk Score (manual)' },
   { to: '/expected-loss', label: 'Expected Loss' },
   { to: '/regime-forecast', label: 'Regime Forecast' },
@@ -18,6 +23,8 @@ const ADMIN_LINKS = [
   { to: '/admin/login-attempts', label: 'Login Attempts' },
   { to: '/admin/create-user', label: 'Create User' },
   { to: '/admin/manage-users', label: 'Manage Users' },
+  { to: '/admin/automation-rules', label: 'Automation Rules' },
+  { to: '/admin/integrations', label: 'Integrations & Plan' },
 ];
 
 const CLIENT_LINKS = [{ to: '/my-loan', label: 'My Loan' }];
@@ -25,6 +32,7 @@ const CLIENT_LINKS = [{ to: '/my-loan', label: 'My Loan' }];
 const SELF_SERVICE_LINKS = [
   { to: '/account/password', label: 'Change Password' },
   { to: '/account/2fa', label: 'Two-Factor Auth' },
+  { to: '/account/notifications', label: 'Notifications' },
 ];
 
 export default function Layout() {
@@ -46,8 +54,14 @@ export default function Layout() {
 
   return (
     <div className="app-shell">
+      {auth?.sandbox && (
+        <div role="status" style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000, background: '#b45309', color: '#fff', textAlign: 'center', padding: '0.3rem', fontWeight: 600 }}>
+          SANDBOX ORGANIZATION - demo data, not production
+        </div>
+      )}
       <aside className="sidebar">
         <h1>ArthaDhruva Risk Console</h1>
+        {(auth?.role === 'ANALYST' || auth?.role === 'ADMIN') && <NotificationBell />}
         <nav>
           {links.map((link) => (
             <NavLink key={link.to} to={link.to} className={({ isActive }) => (isActive ? 'active' : '')}>

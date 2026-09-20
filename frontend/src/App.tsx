@@ -1,28 +1,40 @@
-import type { ReactElement } from 'react';
+import { lazy, Suspense, type ReactElement } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, landingPathFor, useAuth } from './auth/AuthContext';
 import type { Role } from './api/types';
 import Layout from './Layout';
 import LoginPage from './pages/LoginPage';
-import ScorePage from './pages/ScorePage';
-import LoanPortfolioPage from './pages/LoanPortfolioPage';
-import LoanDetailPage from './pages/LoanDetailPage';
-import CasesPage from './pages/CasesPage';
-import ExpectedLossPage from './pages/ExpectedLossPage';
-import RegimeForecastPage from './pages/RegimeForecastPage';
-import CvarPage from './pages/CvarPage';
-import TrajectoryPage from './pages/TrajectoryPage';
-import EarlyWarningPage from './pages/EarlyWarningPage';
-import SegmentGraphPage from './pages/SegmentGraphPage';
-import AuditLogPage from './pages/AuditLogPage';
-import LoginAttemptsPage from './pages/LoginAttemptsPage';
-import MyLoanPage from './pages/MyLoanPage';
-import AdminCreateUserPage from './pages/AdminCreateUserPage';
-import ManageUsersPage from './pages/ManageUsersPage';
-import ChangePasswordPage from './pages/ChangePasswordPage';
-import TwoFactorPage from './pages/TwoFactorPage';
-import Setup2faPage from './pages/Setup2faPage';
-import ActivatePage from './pages/ActivatePage';
+const ScorePage = lazy(() => import('./pages/ScorePage'));
+const LoanPortfolioPage = lazy(() => import('./pages/LoanPortfolioPage'));
+const LoanDetailPage = lazy(() => import('./pages/LoanDetailPage'));
+const CasesPage = lazy(() => import('./pages/CasesPage'));
+const AssistantPage = lazy(() => import('./pages/AssistantPage'));
+const ExpectedLossPage = lazy(() => import('./pages/ExpectedLossPage'));
+const RegimeForecastPage = lazy(() => import('./pages/RegimeForecastPage'));
+const CvarPage = lazy(() => import('./pages/CvarPage'));
+const TrajectoryPage = lazy(() => import('./pages/TrajectoryPage'));
+const EarlyWarningPage = lazy(() => import('./pages/EarlyWarningPage'));
+const SegmentGraphPage = lazy(() => import('./pages/SegmentGraphPage'));
+const AuditLogPage = lazy(() => import('./pages/AuditLogPage'));
+const LoginAttemptsPage = lazy(() => import('./pages/LoginAttemptsPage'));
+const MyLoanPage = lazy(() => import('./pages/MyLoanPage'));
+const AdminCreateUserPage = lazy(() => import('./pages/AdminCreateUserPage'));
+const ManageUsersPage = lazy(() => import('./pages/ManageUsersPage'));
+const ChangePasswordPage = lazy(() => import('./pages/ChangePasswordPage'));
+const TwoFactorPage = lazy(() => import('./pages/TwoFactorPage'));
+const Setup2faPage = lazy(() => import('./pages/Setup2faPage'));
+const ActivatePage = lazy(() => import('./pages/ActivatePage'));
+
+const SsoCompletePage = lazy(() => import('./pages/SsoCompletePage'));
+const SignupPage = lazy(() => import('./pages/SignupPage'));
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const CaseSearchPage = lazy(() => import('./pages/CaseSearchPage'));
+const InsightsPage = lazy(() => import('./pages/InsightsPage'));
+const NotificationPrefsPage = lazy(() => import('./pages/NotificationPrefsPage'));
+const AutomationRulesPage = lazy(() => import('./pages/AutomationRulesPage'));
+const IntegrationsPage = lazy(() => import('./pages/IntegrationsPage'));
 
 function ProtectedRoute({ children }: { children: ReactElement }) {
   const { auth } = useAuth();
@@ -45,10 +57,15 @@ function AppRoutes() {
   const { auth } = useAuth();
 
   return (
-    <Routes>
+    <Suspense fallback={<p style={{ padding: '2rem' }}>Loading...</p>}>
+      <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/setup-2fa" element={<Setup2faPage />} />
       <Route path="/activate" element={<ActivatePage />} />
+      <Route path="/signup" element={<SignupPage />} />
+      <Route path="/sso-complete" element={<SsoCompletePage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route
         element={
           <ProtectedRoute>
@@ -78,6 +95,14 @@ function AppRoutes() {
           element={
             <RoleRoute allow={['ANALYST', 'ADMIN']}>
               <CasesPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/assistant"
+          element={
+            <RoleRoute allow={['ANALYST', 'ADMIN']}>
+              <AssistantPage />
             </RoleRoute>
           }
         />
@@ -169,11 +194,60 @@ function AppRoutes() {
             </RoleRoute>
           }
         />
+        <Route
+          path="/dashboard"
+          element={
+            <RoleRoute allow={['ANALYST', 'ADMIN']}>
+              <DashboardPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/case-search"
+          element={
+            <RoleRoute allow={['ANALYST', 'ADMIN']}>
+              <CaseSearchPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/insights"
+          element={
+            <RoleRoute allow={['ANALYST', 'ADMIN']}>
+              <InsightsPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/account/notifications"
+          element={
+            <RoleRoute allow={['ANALYST', 'ADMIN']}>
+              <NotificationPrefsPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/admin/automation-rules"
+          element={
+            <RoleRoute allow={['ADMIN']}>
+              <AutomationRulesPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/admin/integrations"
+          element={
+            <RoleRoute allow={['ADMIN']}>
+              <IntegrationsPage />
+            </RoleRoute>
+          }
+        />
         <Route path="/account/password" element={<ChangePasswordPage />} />
         <Route path="/account/2fa" element={<TwoFactorPage />} />
         <Route path="/my-loan" element={<MyLoanPage />} />
       </Route>
-    </Routes>
+      </Routes>
+    </Suspense>
   );
 }
 

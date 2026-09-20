@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   addLoanNote,
+  downloadAttachment,
   earlyWarningScore,
   expectedLoss,
   getLoanCase,
   getLoanClients,
+  listAttachments,
   listEarlyWarningCatalog,
   listLoanCatalog,
   listLoanScores,
@@ -14,10 +16,12 @@ import {
   score,
   trajectoryScore,
   updateLoanCase,
+  uploadAttachment,
 } from '../api/client';
 import { recordLoanVisit } from '../recentLoans';
 import ErrorBanner from '../components/ErrorBanner';
 import type {
+  AttachmentView,
   EarlyWarningCatalogEntry,
   EarlyWarningResponse,
   ExpectedLossResponse,
@@ -30,6 +34,12 @@ import type {
   TrajectoryCatalogEntry,
   TrajectoryScoreResponse,
 } from '../api/types';
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 const STATUS_OPTIONS: LoanCaseStatus[] = ['NEW', 'REVIEWED', 'ESCALATED', 'CLEARED'];
 
@@ -68,6 +78,11 @@ export default function LoanDetailPage() {
 
   const [clients, setClients] = useState<string[] | null>(null);
 
+  const [attachments, setAttachments] = useState<AttachmentView[]>([]);
+  const [attachmentError, setAttachmentError] = useState<unknown>(null);
+  const [uploading, setUploading] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
+
   useEffect(() => {
     if (!loanId) return;
     recordLoanVisit(loanId);
@@ -97,6 +112,8 @@ export default function LoanDetailPage() {
         setFlagged(c.flagged);
       })
       .catch(setCaseError);
+
+    listAttachments(loanId).then(setAttachments).catch(setAttachmentError);
   }, [loanId]);
 
   if (!loanId) return null;
@@ -163,6 +180,34 @@ export default function LoanDetailPage() {
       setCaseError(e);
     } finally {
       setCaseSaving(false);
+    }
+  };
+
+  const handleUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file later
+    if (!file) return;
+    setUploading(true);
+    setAttachmentError(null);
+    try {
+      const uploaded = await uploadAttachment(loanId, file);
+      setAttachments((prev) => [uploaded, ...prev]);
+    } catch (err) {
+      setAttachmentError(err);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDownload = async (a: AttachmentView) => {
+    setDownloadingId(a.id);
+    setAttachmentError(null);
+    try {
+      await downloadAttachment(loanId, a.id, a.filename);
+    } catch (err) {
+      setAttachmentError(err);
+    } finally {
+      setDownloadingId(null);
     }
   };
 
@@ -379,6 +424,43 @@ export default function LoanDetailPage() {
           </ul>
         )}
       </div>
+
+      <div className="card">
+        <h3>Attachments</h3>
+        <ErrorBanner error={attachmentError} />
+        <div className="row-inline">
+          <input type="file" onChange={handleUpload} disabled={uploading} />
+          {uploading && <span className="page-subtitle">Uploading...</span>}
+        </div>
+        {attachments.length === 0 ? (
+          <p className="page-subtitle" style={{ marginTop: '0.6rem' }}>
+            No files attached to this loan yet.
+          </p>
+        ) : (
+          <ul style={{ marginTop: '0.8rem', paddingLeft: '1.2rem' }}>
+            {attachments.map((a) => (
+              <li key={a.id} style={{ marginBottom: '0.4rem' }}>
+                <button
+                  className="secondary"
+                  style={{ padding: '0.1rem 0.5rem' }}
+                  onClick={() => handleDownload(a)}
+                  disabled={downloadingId === a.id}
+                >
+                  {downloadingId === a.id ? 'Downloading...' : a.filename}
+                </button>{' '}
+                <span className="page-subtitle">
+                  ({formatBytes(a.sizeBytes)}, uploaded by {a.uploadedBy} on{' '}
+                  {new Date(a.uploadedAt).toLocaleString()})
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <p className="page-subtitle">
+        <Link to={`/assistant?loanId=${encodeURIComponent(loanId)}`}>Ask the AI assistant about this loan &rarr;</Link>
+      </p>
     </div>
   );
 }

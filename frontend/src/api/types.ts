@@ -2,7 +2,7 @@
 // since Jackson already serializes the record component names as camelCase (verified against
 // live responses during backend development, e.g. calibratedProbability, valueAtRiskConfidenceInterval).
 
-export type Role = 'ANALYST' | 'ADMIN' | 'CLIENT';
+export type Role = 'ANALYST' | 'ADMIN' | 'CLIENT' | 'PLATFORM_ADMIN';
 
 export interface LoanFeatures {
   loanId?: string;
@@ -24,9 +24,15 @@ export interface LoanFeatures {
   propertyState: string;
 }
 
+export interface Attribution {
+  feature: string;
+  contribution: number;
+}
+
 export interface ScoreResponse {
   rawProbability: number;
   calibratedProbability: number;
+  explanation?: Attribution[];
 }
 
 /** One row of GET /loan-scores -- every loan anyone has scored so far, most recent first. */
@@ -173,6 +179,7 @@ export interface LoginResponse {
   username: string;
   role: Role;
   expiresAt: string;
+  sandbox?: boolean;
 }
 
 export interface MfaRequiredResponse {
@@ -296,4 +303,156 @@ export interface RecentNoteView {
   author: string;
   text: string;
   createdAt: string;
+}
+
+/** POST /assistant/chat -- loanId is optional; when given, the backend grounds the answer in
+ * that loan's known features/score/case/notes. */
+export interface AssistantChatRequest {
+  loanId?: string;
+  question: string;
+}
+
+export interface AssistantChatResponse {
+  answer: string;
+}
+
+/** One row of GET /notifications. */
+export interface NotificationView {
+  id: number;
+  message: string;
+  link: string | null;
+  read: boolean;
+  createdAt: string;
+}
+
+/** One row of GET /loans/{loanId}/attachments. */
+export interface AttachmentView {
+  id: number;
+  filename: string;
+  contentType: string;
+  sizeBytes: number;
+  uploadedBy: string;
+  uploadedAt: string;
+}
+
+export interface PageResult<T> {
+  items: T[];
+  total: number;
+  page: number;
+  size: number;
+  hasMore: boolean;
+}
+
+export interface CaseSearchParams {
+  status?: LoanCaseStatus;
+  flagged?: boolean;
+  assignedTo?: string;
+  state?: string;
+  page?: number;
+  size?: number;
+}
+
+export interface BulkItemResult {
+  loanId: string;
+  ok: boolean;
+  error: string | null;
+}
+
+export interface SignupRequest {
+  organizationName: string;
+  slug: string;
+  adminUsername: string;
+  email: string;
+  password: string;
+}
+
+export type NotificationType = 'CASE_ASSIGNED' | 'NOTE_ADDED' | 'AUTOMATION';
+export type DeliveryMode = 'INSTANT' | 'DIGEST' | 'OFF';
+export type NotificationPreferences = Record<NotificationType, DeliveryMode>;
+
+export interface DashboardConfig {
+  widgets: string[];
+  available: string[];
+}
+
+export type RuleTrigger = 'LOAN_SCORED' | 'LOAN_CASE_UPDATED';
+export type ConditionOp = 'GT' | 'GTE' | 'LT' | 'LTE' | 'EQ' | 'NE';
+export type ActionType = 'FLAG_CASE' | 'ASSIGN_CASE' | 'SEND_NOTIFICATION';
+
+export interface RuleAction {
+  type: ActionType;
+  param?: string | null;
+}
+
+export interface AutomationRule {
+  id: number;
+  name: string;
+  trigger: RuleTrigger;
+  field: string;
+  op: ConditionOp;
+  value: string;
+  actions: string;
+  position: number;
+  enabled: boolean;
+}
+
+export interface CreateRuleRequest {
+  name: string;
+  trigger: RuleTrigger;
+  field: string;
+  op: ConditionOp;
+  value: string;
+  actions: RuleAction[];
+  position?: number;
+}
+
+export interface ApiKeyView {
+  id: number;
+  name: string;
+  prefix: string;
+  createdBy: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+}
+
+export type WebhookEvent = 'LOAN_SCORED' | 'CASE_FLAGGED' | 'CASE_ASSIGNED';
+
+export interface WebhookView {
+  id: number;
+  url: string;
+  events: WebhookEvent[];
+  enabled: boolean;
+  secret?: string | null;
+}
+
+export interface WebhookDelivery {
+  id: number;
+  eventId: string;
+  eventType: string;
+  status: string;
+  attempts: number;
+  lastError: string | null;
+  createdAt: string;
+}
+
+export interface UsageView {
+  plan: string;
+  seatLimit: number;
+  seatsUsed: number;
+  period: string;
+  usage: Record<string, number>;
+  rateLimit: { capacity: number; perSecond: number };
+}
+
+export interface NoteTopic {
+  terms: string[];
+  examples: string[];
+  size: number;
+}
+
+export interface BorrowerSegment {
+  size: number;
+  definingTraits: { feature: string; direction: string; zScore: number }[];
+  averages: Record<string, number>;
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { listLoanCases, listRecentNotes } from '../api/client';
+import { downloadLoanCasesCsv, listLoanCases, listRecentNotes } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import ErrorBanner from '../components/ErrorBanner';
 import type { LoanCaseSummary, RecentNoteView } from '../api/types';
@@ -20,6 +20,12 @@ export default function CasesPage() {
   const [error, setError] = useState<unknown>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>('MINE');
+  const [exportError, setExportError] = useState<unknown>(null);
+
+  const exportCsv = () => {
+    setExportError(null);
+    downloadLoanCasesCsv().catch(setExportError);
+  };
 
   const load = () => {
     setLoading(true);
@@ -59,11 +65,17 @@ export default function CasesPage() {
               <option value="ALL">All cases</option>
             </select>
           </div>
-          <button className="secondary" onClick={load} disabled={loading}>
-            {loading ? 'Loading...' : 'Refresh'}
-          </button>
+          <div className="row-inline">
+            <button className="secondary" onClick={exportCsv}>
+              Export CSV
+            </button>
+            <button className="secondary" onClick={load} disabled={loading}>
+              {loading ? 'Loading...' : 'Refresh'}
+            </button>
+          </div>
         </div>
         <ErrorBanner error={error} />
+        <ErrorBanner error={exportError} />
         {filtered.length === 0 && !loading && (
           <p className="page-subtitle">
             {filter === 'MINE'

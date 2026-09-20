@@ -70,6 +70,28 @@ export default function ScorePage() {
             </div>
           </div>
         )}
+        {result && result.explanation && result.explanation.length > 0 && (
+          <div style={{ marginTop: '1rem' }}>
+            <h4>What moved this score</h4>
+            <p className="page-subtitle">
+              Each factor's effect on the calibrated probability versus a typical loan (positive raises risk). A
+              single-factor estimate; it does not capture interactions between factors.
+            </p>
+            <table>
+              <thead><tr><th>Factor</th><th>Effect</th></tr></thead>
+              <tbody>
+                {result.explanation.map((a) => (
+                  <tr key={a.feature}>
+                    <td>{a.feature}</td>
+                    <td style={{ color: a.contribution > 0 ? '#e57373' : '#81c784' }}>
+                      {a.contribution > 0 ? '+' : ''}{(a.contribution * 100).toFixed(3)} pts
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
         {result && (
           <p className="warn-banner">
             The raw LightGBM output overpredicts default probability by ~17.5x on average

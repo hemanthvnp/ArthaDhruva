@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { listLoanCatalog, listLoanScores, score } from '../api/client';
 import ErrorBanner from '../components/ErrorBanner';
+import VirtualList from '../components/VirtualList';
 import { getRecentLoans } from '../recentLoans';
 import type { LoanFeatures, LoanScoreSummary, ScoreResponse } from '../api/types';
 
@@ -44,6 +45,8 @@ function downloadCsv(csv: string, filename: string) {
  * real loan (from export_loan_catalog.py's sample of the actual dataset) to score by ID -- the
  * app fetches its real feature values and calls /score itself, no manual field entry.
  */
+const GRID = { display: 'grid', gridTemplateColumns: '2fr 1.2fr 1fr 1fr 2fr', gap: '0.5rem' } as const;
+
 export default function LoanPortfolioPage() {
   const [catalog, setCatalog] = useState<LoanFeatures[]>([]);
   const [scores, setScores] = useState<LoanScoreSummary[]>([]);
@@ -274,39 +277,33 @@ export default function LoanPortfolioPage() {
           <p className="page-subtitle">No loans match the current search/filter.</p>
         )}
         {filteredSorted.length > 0 && (
-          <table>
-            <thead>
-              <tr>
-                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('loanId')}>
-                  Loan ID{sortArrow('loanId')}
-                </th>
-                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('calibratedProbability')}>
-                  Calibrated risk{sortArrow('calibratedProbability')}
-                </th>
-                <th>Band</th>
-                <th>Raw risk</th>
-                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('computedAt')}>
-                  Computed at{sortArrow('computedAt')}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredSorted.map((s) => {
+          <div role="table" aria-label="Scored loans">
+            <div role="row" style={{ ...GRID, fontWeight: 600, borderBottom: '1px solid #3a4a68', padding: '0.4rem 0' }}>
+              <div role="columnheader" style={{ cursor: 'pointer' }} onClick={() => toggleSort('loanId')}>Loan ID{sortArrow('loanId')}</div>
+              <div role="columnheader" style={{ cursor: 'pointer' }} onClick={() => toggleSort('calibratedProbability')}>Calibrated risk{sortArrow('calibratedProbability')}</div>
+              <div role="columnheader">Band</div>
+              <div role="columnheader">Raw risk</div>
+              <div role="columnheader" style={{ cursor: 'pointer' }} onClick={() => toggleSort('computedAt')}>Computed at{sortArrow('computedAt')}</div>
+            </div>
+            {/* Virtualized: only the visible rows are in the DOM, so a portfolio of thousands scrolls as smoothly as a dozen. */}
+            <VirtualList
+              items={filteredSorted}
+              rowHeight={38}
+              height={Math.min(480, filteredSorted.length * 38)}
+              renderRow={(s) => {
                 const band = riskBand(s.calibratedProbability);
                 return (
-                  <tr key={s.loanId}>
-                    <td>
-                      <Link to={`/loans/${encodeURIComponent(s.loanId)}`}>{s.loanId}</Link>
-                    </td>
-                    <td>{(s.calibratedProbability * 100).toFixed(3)}%</td>
-                    <td style={{ color: BAND_COLOR[band], fontWeight: 600 }}>{BAND_LABEL[band]}</td>
-                    <td>{(s.rawProbability * 100).toFixed(2)}%</td>
-                    <td>{new Date(s.computedAt).toLocaleString()}</td>
-                  </tr>
+                  <div role="row" style={{ ...GRID, alignItems: 'center', height: 38 }}>
+                    <div role="cell"><Link to={`/loans/${encodeURIComponent(s.loanId)}`}>{s.loanId}</Link></div>
+                    <div role="cell">{(s.calibratedProbability * 100).toFixed(3)}%</div>
+                    <div role="cell" style={{ color: BAND_COLOR[band], fontWeight: 600 }}>{BAND_LABEL[band]}</div>
+                    <div role="cell">{(s.rawProbability * 100).toFixed(2)}%</div>
+                    <div role="cell">{new Date(s.computedAt).toLocaleString()}</div>
+                  </div>
                 );
-              })}
-            </tbody>
-          </table>
+              }}
+            />
+          </div>
         )}
       </div>
     </div>

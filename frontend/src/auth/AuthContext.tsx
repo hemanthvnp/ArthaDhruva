@@ -5,6 +5,7 @@ export interface AuthState {
   token: string;
   username: string;
   role: Role;
+  sandbox?: boolean;
 }
 
 interface AuthContextValue {
@@ -61,5 +62,5 @@ export function clearStoredAuth(): void {
 /** Single source of truth for "where does this role land after login" -- shared by LoginPage
  * (post-login redirect) and App's index-route redirect, so they can't drift out of sync again. */
 export function landingPathFor(role: Role): string {
-  return role === 'CLIENT' ? '/my-loan' : '/loans';
+  return role === 'CLIENT' ? '/my-loan' : role === 'PLATFORM_ADMIN' ? '/account/password' : '/dashboard';
 }
