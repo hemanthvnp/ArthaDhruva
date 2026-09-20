@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+          cache-dependency-path: backend/risk-engine/pom.xml
+
+      - name: Run backend tests
+        working-directory: backend/risk-engine
+        run: |
+          chmod +x mvnw
+          ./mvnw -B test
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Type-check and build
+        working-directory: frontend
+        run: npm run build
+
+      - name: Enforce initial-bundle budget
+        working-directory: frontend
+        run: npm run check:bundle
+
+  loadtest:
+    # Performance gate: boots the real containerised stack and fails the build if p95 latency or the
+    # error rate on the key endpoints regress past the thresholds in loadtest/smoke.js.
+    runs-on: ubuntu-latest
+    needs: backend
+    env:
+      JWT_SECRET: ci-only-secret-ci-only-secret-ci-only-1234
+      TOTP_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      ADMIN_PASSWORD: Ci-Admin-Passw0rd!2026
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start the stack
+        run: docker compose --profile app up -d --build postgres redis neo4j backend
+
+      - name: Wait for the backend to be healthy
+        run: |
+          for i in $(seq 1 60); do
+            [ "$(docker inspect -f '{{.State.Health.Status}}' $(docker compose ps -q backend))" = healthy ] && exit 0
+            sleep 5
+          done
+          docker compose logs backend | tail -50
+          exit 1
+
+      - name: Mint a session token for the bootstrap admin
+        run: |
+          b64() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
+          now=$(date +%s)
+          H=$(printf '{"alg":"HS256"}' | b64)
+          ORG=$(docker compose exec -T postgres psql -U arthadhruva -d arthadhruva -Atc "select id from organization where slug='legacy'")
+          P=$(printf '{"sub":"admin","role":"ADMIN","org":%s,"iat":%s,"exp":%s}' "$ORG" "$now" "$((now+3600))" | b64)
+          S=$(printf '%s.%s' "$H" "$P" | openssl dgst -sha256 -hmac "$JWT_SECRET" -binary | b64)
+          echo "TOKEN=$H.$P.$S" >> "$GITHUB_ENV"
+
+      - name: Run k6
+        run: |
+          docker run --rm --network "$(docker network ls --format '{{.Name}}' | grep _edge$)" \
+            -v "$PWD/loadtest:/work" -e TOKEN="$TOKEN" -e BASE=http://backend:8080/v1 -e RATE=40 -e DURATION=30s \
+            grafana/k6 run /work/smoke.js
