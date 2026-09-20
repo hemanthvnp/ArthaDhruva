@@ -1,5 +1,6 @@
 package com.arthadhruva.riskengine.graph;
 
+import com.arthadhruva.riskengine.cache.CacheService;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.springframework.validation.annotation.Validated;
@@ -8,6 +9,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Duration;
 import java.util.List;
 
 /**
@@ -20,10 +22,17 @@ import java.util.List;
 @Validated
 public class SegmentGraphController {
 
-    private final SegmentGraphService segmentGraphService;
+    /** The graph only changes when {@link GraphLoader} re-runs at the next deploy, so a
+     * same-state-and-maxHops lookup is safe to serve stale for a full day rather than re-running
+     * the Cypher traversal against Neo4j on every call. */
+    private static final Duration NEIGHBORS_CACHE_TTL = Duration.ofHours(24);
 
-    public SegmentGraphController(SegmentGraphService segmentGraphService) {
+    private final SegmentGraphService segmentGraphService;
+    private final CacheService cacheService;
+
+    public SegmentGraphController(SegmentGraphService segmentGraphService, CacheService cacheService) {
         this.segmentGraphService = segmentGraphService;
+        this.cacheService = cacheService;
     }
 
     @GetMapping("/segments")
@@ -35,6 +44,13 @@ public class SegmentGraphController {
     public List<SegmentNeighbor> neighbors(
             @PathVariable String state,
             @RequestParam(defaultValue = "2") @Min(1) @Max(5) int maxHops) {
-        return segmentGraphService.neighbors(state, maxHops);
+        String key = "segment-neighbors:" + state + ":" + maxHops;
+        return cacheService.get(key, SegmentNeighborsResponse.class)
+                .orElseGet(() -> {
+                    SegmentNeighborsResponse response = new SegmentNeighborsResponse(segmentGraphService.neighbors(state, maxHops));
+                    cacheService.put(key, response, NEIGHBORS_CACHE_TTL);
+                    return response;
+                })
+                .neighbors();
     }
 }

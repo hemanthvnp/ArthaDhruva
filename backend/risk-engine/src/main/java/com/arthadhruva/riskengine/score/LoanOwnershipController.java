@@ -1,7 +1,7 @@
 package com.arthadhruva.riskengine.score;
 
-import com.arthadhruva.riskengine.security.User;
-import com.arthadhruva.riskengine.security.UserRepository;
+import com.arthadhruva.riskengine.security.UserService;
+import com.arthadhruva.riskengine.tenant.TenantContext;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
@@ -15,14 +15,14 @@ import java.util.List;
 @RestController
 public class LoanOwnershipController {
 
-    private final UserRepository userRepository;
+    private final UserService userService;
 
-    public LoanOwnershipController(UserRepository userRepository) {
-        this.userRepository = userRepository;
+    public LoanOwnershipController(UserService userService) {
+        this.userService = userService;
     }
 
     @GetMapping("/loans/{loanId}/clients")
     public List<String> clientsFor(@PathVariable String loanId) {
-        return userRepository.findByLoanIdsContaining(loanId).stream().map(User::getUsername).toList();
+        return userService.findUsernamesOwningLoan(TenantContext.get(), loanId);
     }
 }

@@ -21,8 +21,12 @@ import java.util.stream.Collectors;
 public class LoanCatalogService {
 
     private final Map<String, LoanFeatures> loansById;
+    private final Map<String, List<String>> loanIdsByState;
 
-    public LoanCatalogService() throws IOException {
+    private final TenantLoanService tenantLoans;
+
+    public LoanCatalogService(TenantLoanService tenantLoans) throws IOException {
+        this.tenantLoans = tenantLoans;
         ObjectMapper mapper = new ObjectMapper();
         List<LoanFeatures> loans;
         try (InputStream is = getClass().getClassLoader().getResourceAsStream("loan_catalog.json")) {
@@ -32,13 +36,40 @@ public class LoanCatalogService {
             loans = mapper.readValue(is.readAllBytes(), new TypeReference<List<LoanFeatures>>() {});
         }
         this.loansById = loans.stream().collect(Collectors.toMap(LoanFeatures::loanId, l -> l));
+        // Built once: state -> loan ids is an O(1) lookup per request instead of an O(n) scan of the catalog.
+        this.loanIdsByState = loans.stream().collect(Collectors.groupingBy(
+                l -> l.propertyState().toUpperCase(), Collectors.mapping(LoanFeatures::loanId, Collectors.toUnmodifiableList())));
     }
 
+    /** The tenant's own uploaded portfolio if it has one, otherwise the shared demo catalog. */
     public List<LoanFeatures> all() {
+        Long tenant = ownPortfolioTenant();
+        return tenant != null ? tenantLoans.all(tenant) : List.copyOf(loansById.values());
+    }
+
+    private Long ownPortfolioTenant() {
+        return com.arthadhruva.riskengine.tenant.TenantContext.getOptional()
+                .filter(tenantLoans::hasPortfolio).orElse(null);
+    }
+
+    /** The shared demo catalog regardless of tenant (used as the population baseline for attribution). */
+    public List<LoanFeatures> demoLoans() {
         return List.copyOf(loansById.values());
     }
 
+    public List<String> loanIdsInState(String state) {
+        Long tenant = ownPortfolioTenant();
+        if (tenant != null) {
+            return tenantLoans.loanIdsInState(tenant, state);
+        }
+        return loanIdsByState.getOrDefault(state.toUpperCase(), List.of());
+    }
+
     public LoanFeatures find(String loanId) {
+        Long tenant = ownPortfolioTenant();
+        if (tenant != null) {
+            return tenantLoans.find(tenant, loanId).orElse(null);
+        }
         return loansById.get(loanId);
     }
 }

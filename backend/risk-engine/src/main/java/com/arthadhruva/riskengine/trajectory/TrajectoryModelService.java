@@ -1,15 +1,13 @@
 package com.arthadhruva.riskengine.trajectory;
 
-import ai.onnxruntime.*;
+import ai.onnxruntime.OrtException;
+import ai.onnxruntime.OrtSession;
+import com.arthadhruva.riskengine.ml.AbstractOnnxModelService;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import jakarta.annotation.PreDestroy;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.FloatBuffer;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -24,63 +22,57 @@ import java.util.List;
  * the packed-sequence model it was trained as), so feature-building here must match the export
  * script's preprocessing exactly: status parsed-or-sentinel-12, UPB ratio clipped to [0, 5], both
  * standardized with the exported train-set mean/std; the modification flag stays raw 0/1.
+ *
+ * <p>Unlike {@code ModelService}/{@code EarlyWarningModelService}, this model has no isotonic
+ * calibration step -- the sigmoid of its raw logit is used directly -- so {@link #calibrate} is
+ * left at the template's identity default.
  */
 @Service
-public class TrajectoryModelService {
+public class TrajectoryModelService extends AbstractOnnxModelService<TrajectoryRequest, TrajectoryScoreResponse> {
 
     private static final int STATUS_SENTINEL = 12;
     private static final double UPB_RATIO_MIN = 0.0;
     private static final double UPB_RATIO_MAX = 5.0;
+    private static final int FEATURES_PER_MONTH = 3;
 
-    private final OrtEnvironment environment;
-    private final OrtSession session;
     private final double[] featMean;
     private final double[] featStd;
 
     public TrajectoryModelService() throws OrtException, IOException {
-        this.environment = OrtEnvironment.getEnvironment();
-
-        byte[] modelBytes = readResource("lstm_model.onnx");
-        this.session = environment.createSession(modelBytes, new OrtSession.SessionOptions());
-
+        super();
         ObjectMapper mapper = new ObjectMapper();
         LstmMeta meta = mapper.readValue(readResource("lstm_meta.json"), LstmMeta.class);
         this.featMean = meta.featMean();
         this.featStd = meta.featStd();
     }
 
-    private byte[] readResource(String name) throws IOException {
-        try (InputStream is = getClass().getClassLoader().getResourceAsStream(name)) {
-            if (is == null) {
-                throw new IOException("Resource not found on classpath: " + name);
-            }
-            return is.readAllBytes();
-        }
+    @Override
+    protected String modelResourceName() {
+        return "lstm_model.onnx";
     }
 
-    public TrajectoryScoreResponse score(TrajectoryRequest request) {
-        float[] flatInput = buildFeatureTensor(request);
-        int seqLen = request.months().size();
-        try {
-            OnnxTensor input = OnnxTensor.createTensor(
-                    environment, FloatBuffer.wrap(flatInput), new long[]{1, seqLen, 3});
-            try (OrtSession.Result result = session.run(Collections.singletonMap("input", input))) {
-                float[][] logitOutput = (float[][]) result.get(0).getValue();
-                double logit = logitOutput[0][0];
-                double probability = 1.0 / (1.0 + Math.exp(-logit));
-                return new TrajectoryScoreResponse(probability);
-            } finally {
-                input.close();
-            }
-        } catch (OrtException e) {
-            throw new IllegalStateException("ONNX inference failed", e);
-        }
+    @Override
+    protected long[] tensorShape(float[] featureVector) {
+        return new long[]{1, featureVector.length / FEATURES_PER_MONTH, FEATURES_PER_MONTH};
     }
 
-    private float[] buildFeatureTensor(TrajectoryRequest request) {
+    @Override
+    protected double extractRawProbability(OrtSession.Result result) throws OrtException {
+        float[][] logitOutput = (float[][]) result.get(0).getValue();
+        double logit = logitOutput[0][0];
+        return 1.0 / (1.0 + Math.exp(-logit));
+    }
+
+    @Override
+    protected TrajectoryScoreResponse buildResponse(double rawProbability, double calibratedProbability) {
+        return new TrajectoryScoreResponse(calibratedProbability);
+    }
+
+    @Override
+    protected float[] buildFeatureVector(TrajectoryRequest request) {
         double originalUpb = request.originalUpb() <= 0 ? 1.0 : request.originalUpb();
         List<MonthlyRecord> months = request.months();
-        float[] flat = new float[months.size() * 3];
+        float[] flat = new float[months.size() * FEATURES_PER_MONTH];
 
         for (int i = 0; i < months.size(); i++) {
             MonthlyRecord month = months.get(i);
@@ -89,9 +81,9 @@ public class TrajectoryModelService {
             double upbRatio = clip(month.currentActualUpb() / originalUpb, UPB_RATIO_MIN, UPB_RATIO_MAX);
             double isModified = "Y".equals(month.modificationFlag()) ? 1.0 : 0.0;
 
-            flat[i * 3] = (float) ((statusNumeric - featMean[0]) / featStd[0]);
-            flat[i * 3 + 1] = (float) ((upbRatio - featMean[1]) / featStd[1]);
-            flat[i * 3 + 2] = (float) isModified;
+            flat[i * FEATURES_PER_MONTH] = (float) ((statusNumeric - featMean[0]) / featStd[0]);
+            flat[i * FEATURES_PER_MONTH + 1] = (float) ((upbRatio - featMean[1]) / featStd[1]);
+            flat[i * FEATURES_PER_MONTH + 2] = (float) isModified;
         }
         return flat;
     }
@@ -106,12 +98,6 @@ public class TrajectoryModelService {
 
     private double clip(double value, double min, double max) {
         return Math.max(min, Math.min(max, value));
-    }
-
-    @PreDestroy
-    public void close() throws OrtException {
-        session.close();
-        environment.close();
     }
 
     private record LstmMeta(

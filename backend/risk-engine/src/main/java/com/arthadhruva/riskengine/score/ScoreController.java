@@ -1,65 +1,53 @@
 package com.arthadhruva.riskengine.score;
 
 import com.arthadhruva.riskengine.cache.CacheService;
+import com.arthadhruva.riskengine.export.CsvWriter;
+import com.arthadhruva.riskengine.tenant.TenantContext;
 import jakarta.validation.Valid;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Comparator;
 import java.util.List;
 
 @RestController
 public class ScoreController {
 
-    private static final Logger log = LoggerFactory.getLogger(ScoreController.class);
     private static final Duration SCORE_CACHE_TTL = Duration.ofHours(24);
 
     private final ModelService modelService;
     private final CacheService cacheService;
-    private final LoanScoreRecordRepository loanScoreRecordRepository;
+    private final LoanScoreService loanScoreService;
+    private final ExplanationService explanationService;
 
-    public ScoreController(ModelService modelService, CacheService cacheService,
-                            LoanScoreRecordRepository loanScoreRecordRepository) {
+    public ScoreController(ModelService modelService, CacheService cacheService, LoanScoreService loanScoreService,
+                           ExplanationService explanationService) {
+        this.explanationService = explanationService;
         this.modelService = modelService;
         this.cacheService = cacheService;
-        this.loanScoreRecordRepository = loanScoreRecordRepository;
+        this.loanScoreService = loanScoreService;
     }
 
     @PostMapping("/score")
     public ScoreResponse score(@Valid @RequestBody LoanFeatures loan) {
-        ScoreResponse response = modelService.score(loan);
+        ScoreResponse response = modelService.score(loan).withExplanation(explanationService.explain(loan));
         if (loan.loanId() != null) {
             Instant now = Instant.now();
-            cacheService.put(cacheKey(loan.loanId()),
+            Long tenantId = TenantContext.get();
+            cacheService.put(cacheKey(tenantId, loan.loanId()),
                     new ScoreResponse.CachedScore(response, now), SCORE_CACHE_TTL);
-            persistDurableRecord(loan.loanId(), response, now);
+            loanScoreService.upsert(tenantId, loan.loanId(), response.rawProbability(), response.calibratedProbability(), now);
         }
         return response;
-    }
-
-    /**
-     * Durable counterpart to the Redis cache above -- backs GET /my/loans, which a client might
-     * check weeks after scoring, well past the 24h Redis TTL. Fails open (log and swallow): a
-     * Postgres hiccup here must not break the actual scoring response, same fail-open philosophy
-     * as everything else in this app that touches Postgres.
-     */
-    private void persistDurableRecord(String loanId, ScoreResponse response, Instant computedAt) {
-        try {
-            LoanScoreRecord record = loanScoreRecordRepository.findById(loanId)
-                    .orElseGet(() -> new LoanScoreRecord(loanId, response.rawProbability(), response.calibratedProbability(), computedAt));
-            record.update(response.rawProbability(), response.calibratedProbability(), computedAt);
-            loanScoreRecordRepository.save(record);
-        } catch (Exception e) {
-            log.warn("Failed to persist durable loan score record for {}", loanId, e);
-        }
     }
 
     /**
@@ -68,13 +56,15 @@ public class ScoreController {
      */
     @GetMapping("/score/{loanId}")
     public ResponseEntity<ScoreResponse.CachedScore> getCachedScore(@PathVariable String loanId) {
-        return cacheService.get(cacheKey(loanId), ScoreResponse.CachedScore.class)
+        return cacheService.get(cacheKey(TenantContext.get(), loanId), ScoreResponse.CachedScore.class)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    private String cacheKey(String loanId) {
-        return "score:" + loanId;
+    /** Tenant-prefixed: a completely separate scoping surface from Postgres/Hibernate -- without
+     * this, two tenants scoring the same loanId would read each other's cached scores. */
+    private String cacheKey(Long tenantId, String loanId) {
+        return "score:" + tenantId + ":" + loanId;
     }
 
     /**
@@ -84,11 +74,27 @@ public class ScoreController {
      * unfiltered and role-open to ANALYST/ADMIN (the default access rule for this endpoint).
      */
     @GetMapping("/loan-scores")
-    public List<LoanScoreSummary> loanScores() {
-        return loanScoreRecordRepository.findAll().stream()
-                .sorted(Comparator.comparing(LoanScoreRecord::getComputedAt).reversed())
+    public List<LoanScoreSummary> loanScores(@RequestParam(defaultValue = "50") int limit) {
+        return loanScoreService.recentForTenant(TenantContext.get(), limit).stream()
                 .map(r -> new LoanScoreSummary(r.getLoanId(), r.getRawProbability(), r.getCalibratedProbability(), r.getComputedAt()))
                 .toList();
+    }
+
+    /** Same data as {@code GET /loan-scores}, at the service's max page size, as a downloadable
+     * CSV -- an analyst wanting the whole scored portfolio in a spreadsheet rather than the
+     * paginated in-app view. */
+    @GetMapping("/loan-scores/export")
+    public ResponseEntity<String> exportLoanScores() {
+        List<List<String>> rows = loanScoreService.recentForTenant(TenantContext.get(), Integer.MAX_VALUE).stream()
+                .map(r -> List.of(r.getLoanId(), String.valueOf(r.getRawProbability()),
+                        String.valueOf(r.getCalibratedProbability()), r.getComputedAt().toString()))
+                .toList();
+        String csv = CsvWriter.write(List.of("loanId", "rawProbability", "calibratedProbability", "computedAt"), rows);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("text/csv"))
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment().filename("loan-scores.csv").build().toString())
+                .body(csv);
     }
 
     public record LoanScoreSummary(String loanId, double rawProbability, double calibratedProbability, Instant computedAt) {

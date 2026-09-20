@@ -1,5 +1,6 @@
 package com.arthadhruva.riskengine.audit;
 
+import com.arthadhruva.riskengine.tenant.TenantContext;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -32,6 +33,10 @@ import java.util.Map;
  * Bean-validation ({@code @Valid}) rejections happen before the controller method -- and
  * therefore this proxy's advice -- is ever invoked, so those are captured separately by
  * {@link ValidationAuditAdvice}.
+ *
+ * {@code AssistantController} is excluded too, for a different reason than the credential-carrying
+ * controllers above: a free-text question and an LLM's free-text answer aren't the structured,
+ * replayable request/response shape this audit trail is designed for, not a secrecy concern.
  */
 @Aspect
 @Component
@@ -48,7 +53,8 @@ public class AuditAspect {
             + "&& !within(com.arthadhruva.riskengine.security.AuthController) "
             + "&& !within(com.arthadhruva.riskengine.security.AdminUserController) "
             + "&& !within(com.arthadhruva.riskengine.security.AccountController) "
-            + "&& !within(com.arthadhruva.riskengine.security.ActivationController)")
+            + "&& !within(com.arthadhruva.riskengine.security.ActivationController) "
+            + "&& !within(com.arthadhruva.riskengine.assistant.AssistantController)")
     public Object audit(ProceedingJoinPoint joinPoint) throws Throwable {
         String endpoint = joinPoint.getSignature().getDeclaringType().getSimpleName()
                 + "." + joinPoint.getSignature().getName();
@@ -83,6 +89,7 @@ public class AuditAspect {
     private void persist(String endpoint, String requestJson, String responseJson,
                           boolean success, String errorMessage, long latencyMs) {
         auditEventWriter.write(new ModelInvocationEvent(
+                TenantContext.getOptional().orElse(null),
                 endpoint, requestJson, responseJson, success, errorMessage, Instant.now(), latencyMs));
     }
 

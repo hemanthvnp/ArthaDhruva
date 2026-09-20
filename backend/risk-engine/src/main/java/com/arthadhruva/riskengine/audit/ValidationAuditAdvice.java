@@ -1,5 +1,6 @@
 package com.arthadhruva.riskengine.audit;
 
+import com.arthadhruva.riskengine.tenant.TenantContext;
 import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
@@ -78,6 +79,7 @@ public class ValidationAuditAdvice {
                 : safeWrite(ex.getBindingResult().getTarget());
 
         auditEventWriter.write(new ModelInvocationEvent(
+                TenantContext.getOptional().orElse(null),
                 endpoint,
                 requestJson,
                 null,

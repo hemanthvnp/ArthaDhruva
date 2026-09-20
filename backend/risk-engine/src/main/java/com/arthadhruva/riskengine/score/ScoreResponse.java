@@ -12,8 +12,22 @@ import java.time.Instant;
  */
 public record ScoreResponse(
         double rawProbability,
-        double calibratedProbability
+        double calibratedProbability,
+        java.util.List<Attribution> explanation
 ) {
+    /** One feature's local contribution to this loan's calibrated probability: how much the score
+     * moves (positive = raises risk) compared with that feature at its portfolio-typical value. */
+    public record Attribution(String feature, double contribution) {
+    }
+
+    public ScoreResponse(double rawProbability, double calibratedProbability) {
+        this(rawProbability, calibratedProbability, java.util.List.of());
+    }
+
+    public ScoreResponse withExplanation(java.util.List<Attribution> explanation) {
+        return new ScoreResponse(rawProbability, calibratedProbability, explanation);
+    }
+
 
     /** A {@link ScoreResponse} as read back from the cache, with the time it was computed. */
     public record CachedScore(ScoreResponse score, Instant computedAt) {
