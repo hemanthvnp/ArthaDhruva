@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { login as loginRequest, ssoLoginUrl } from '../api/client';
+import BrandMark from '../components/BrandMark';
 import { landingPathFor, useAuth } from '../auth/AuthContext';
 import ErrorBanner from '../components/ErrorBanner';
 import type { LoginOutcome } from '../api/types';
@@ -62,9 +63,22 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="auth-page">
+    <div className="auth-split">
+      <aside className="auth-panel">
+        <div className="brand"><BrandMark size={32} /> <span className="brand-text">ArthaDhruva</span></div>
+        <div>
+          <h1>Know the risk before it happens.</h1>
+          <p>Score loans, surface early warnings and work every case in one console built for credit risk teams.</p>
+        </div>
+        <div className="spectrum-art" aria-hidden="true">
+          {[22, 34, 28, 46, 40, 58, 52, 70, 64, 86, 78, 100].map((h, i) => (
+            <span key={i} style={{ height: h + '%', background: i < 5 ? 'var(--sig-low)' : i < 9 ? 'var(--sig-mid)' : 'var(--sig-high)' }} />
+          ))}
+        </div>
+      </aside>
+      <div className="auth-form">
       <form onSubmit={submit} className="auth-card">
-        <div className="brand"><span className="brand-mark">A</span>ArthaDhruva</div>
+        <div className="brand"><BrandMark /> ArthaDhruva</div>
         <h2>Sign in</h2>
         <p className="page-subtitle">Access your organization's risk console.</p>
 
@@ -119,6 +133,7 @@ export default function LoginPage() {
           <Link to="/forgot-password">Forgot password?</Link> &middot; <Link to="/signup">Create an organization</Link>
         </p>
       </form>
+      </div>
     </div>
   );
 }

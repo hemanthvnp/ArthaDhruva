@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
+import BrandMark from './components/BrandMark';
 import Icon from './components/Icon';
 import NotificationBell from './components/NotificationBell';
 
@@ -156,7 +157,7 @@ export default function Layout() {
         {navOpen && <div className="scrim" onClick={() => setNavOpen(false)} />}
         <aside className={`sidebar${navOpen ? ' open' : ''}`} aria-label="Primary">
           <Link to={auth?.role === 'CLIENT' ? '/my-loan' : '/dashboard'} className="brand">
-            <span className="brand-mark">A</span>
+            <span className="brand-mark"><BrandMark /></span>
             <span className="brand-text">ArthaDhruva</span>
           </Link>
           <button

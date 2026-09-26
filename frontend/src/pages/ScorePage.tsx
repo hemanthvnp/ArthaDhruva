@@ -3,6 +3,7 @@ import { getCachedScore, score } from '../api/client';
 import LoanFeaturesForm, { DEFAULT_LOAN } from '../components/LoanFeaturesForm';
 import ErrorBanner from '../components/ErrorBanner';
 import RiskBadge from '../components/RiskBadge';
+import RiskMeter from '../components/RiskMeter';
 import type { ScoreResponse, CachedScore } from '../api/types';
 
 /** Diverging bar per factor, scaled to the largest effect so the biggest driver fills its half. */
@@ -98,6 +99,7 @@ export default function ScorePage() {
               <div className="label">Raw model output</div>
               <div className="value">{(result.rawProbability * 100).toFixed(2)}%</div>
             </div>
+            <div style={{ flexBasis: '100%' }}><RiskMeter probability={result.calibratedProbability} scale /></div>
           </div>
         )}
 

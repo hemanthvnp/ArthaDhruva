@@ -5,6 +5,7 @@ import { getDashboardConfig, listLoanCases, listLoanScores, listRecentNotes, sav
 import { useAuth } from '../auth/AuthContext';
 import ErrorBanner from '../components/ErrorBanner';
 import RiskBadge, { riskBand } from '../components/RiskBadge';
+import RiskMeter from '../components/RiskMeter';
 
 const LABELS: Record<string, string> = {
   PORTFOLIO_KPI: 'Portfolio KPIs',
@@ -46,7 +47,10 @@ const PortfolioKpi = memo(function PortfolioKpi() {
   const avg = rows.length ? rows.reduce((s, l) => s + l.calibratedProbability, 0) / rows.length : 0;
   const high = rows.filter((r) => riskBand(r.calibratedProbability) === 'HIGH').length;
   const flagged = (cases.data ?? []).filter((c) => c.flagged).length;
+  const med = rows.filter((r) => riskBand(r.calibratedProbability) === 'MEDIUM').length;
+  const low = rows.length - high - med;
   return (
+    <>
     <div className="kpi-row">
       <div className="kpi accent">
         <div className="label">Loans scored</div>
@@ -69,6 +73,28 @@ const PortfolioKpi = memo(function PortfolioKpi() {
         <div className="hint">need attention</div>
       </div>
     </div>
+    <div className="card">
+      <div className="card-head"><h3>Portfolio risk mix</h3></div>
+      {rows.length === 0 ? (
+        <p className="empty">Score loans to see how your portfolio splits across the risk bands.</p>
+      ) : (
+        <>
+          <div className="mix" role="img" aria-label={`${low} low, ${med} medium, ${high} high risk loans`}>
+            {low > 0 && <span className="low" style={{ flexGrow: low }} />}
+            {med > 0 && <span className="mid" style={{ flexGrow: med }} />}
+            {high > 0 && <span className="high" style={{ flexGrow: high }} />}
+          </div>
+          <div className="mix-legend">
+            <span><i style={{ background: 'var(--sig-low)' }} /><b>{low}</b>Low risk</span>
+            <span><i style={{ background: 'var(--sig-mid)' }} /><b>{med}</b>Medium</span>
+            <span><i style={{ background: 'var(--sig-high)' }} /><b>{high}</b>High risk</span>
+            <span style={{ marginLeft: 'auto' }}>Average PD <b>{pct(avg)}</b></span>
+          </div>
+          <div style={{ marginTop: '1.1rem' }}><RiskMeter probability={avg} scale /></div>
+        </>
+      )}
+    </div>
+    </>
   );
 });
 

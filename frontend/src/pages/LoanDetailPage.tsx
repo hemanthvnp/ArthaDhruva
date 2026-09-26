@@ -21,6 +21,7 @@ import {
 import { recordLoanVisit } from '../recentLoans';
 import ErrorBanner from '../components/ErrorBanner';
 import RiskBadge from '../components/RiskBadge';
+import RiskMeter from '../components/RiskMeter';
 import type {
   AttachmentView,
   EarlyWarningCatalogEntry,
@@ -238,6 +239,7 @@ export default function LoanDetailPage() {
             <span style={{ fontVariantNumeric: 'tabular-nums' }}>{loanId}</span>
             {(pdResult ?? lastScore) && <RiskBadge probability={(pdResult ?? lastScore)!.calibratedProbability} />}
           </h2>
+          {(pdResult ?? lastScore) && <div style={{ maxWidth: 320, margin: '0.5rem 0 0.75rem' }}><RiskMeter probability={(pdResult ?? lastScore)!.calibratedProbability} scale /></div>}
           <p className="page-subtitle">Every model's view of this loan, plus the review workflow around it.</p>
         </div>
       </div>
