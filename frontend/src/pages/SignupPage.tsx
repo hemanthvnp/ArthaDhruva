@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { signup } from '../api/client';
 import ErrorBanner from '../components/ErrorBanner';
+import BrandMark from '../components/BrandMark';
 
 export default function SignupPage() {
   const [form, setForm] = useState({ organizationName: '', slug: '', adminUsername: '', email: '', password: '' });
@@ -27,6 +28,7 @@ export default function SignupPage() {
   return (
     <div className="auth-page">
       <form onSubmit={submit} className="auth-card">
+        <div className="brand"><BrandMark /> ArthaDhruva</div>
         <h2 style={{ marginBottom: '0.25rem' }}>Start your free trial</h2>
         <p className="page-subtitle">Create an organization and its first admin account.</p>
         {done ? (

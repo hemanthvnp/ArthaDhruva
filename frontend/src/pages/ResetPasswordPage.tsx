@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { completePasswordReset } from '../api/client';
 import ErrorBanner from '../components/ErrorBanner';
+import BrandMark from '../components/BrandMark';
 
 export default function ResetPasswordPage() {
   const [params] = useSearchParams();
@@ -28,6 +29,7 @@ export default function ResetPasswordPage() {
   return (
     <div className="auth-page">
       <form onSubmit={submit} className="auth-card">
+        <div className="brand"><BrandMark /> ArthaDhruva</div>
         <h2 style={{ marginBottom: '0.25rem' }}>Choose a new password</h2>
         {!token && <p>This link is missing its token. Request a new reset link.</p>}
         {message ? (

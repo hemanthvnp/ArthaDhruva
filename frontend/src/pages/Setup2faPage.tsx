@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { totpConfirmWithToken, totpSetupWithToken } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import ErrorBanner from '../components/ErrorBanner';
+import BrandMark from '../components/BrandMark';
 
 interface LocationState {
   setupToken?: string;
@@ -58,6 +59,7 @@ export default function Setup2faPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
+        <div className="brand"><BrandMark /> ArthaDhruva</div>
         <h2 style={{ marginBottom: '0.25rem' }}>Set up two-factor authentication</h2>
         <p className="page-subtitle">
           {username ? `Required for ${username}'s role. ` : ''}

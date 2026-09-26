@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { requestPasswordReset } from '../api/client';
 import ErrorBanner from '../components/ErrorBanner';
+import BrandMark from '../components/BrandMark';
 
 export default function ForgotPasswordPage() {
   const [orgSlug, setOrgSlug] = useState('');
@@ -26,6 +27,7 @@ export default function ForgotPasswordPage() {
   return (
     <div className="auth-page">
       <form onSubmit={submit} className="auth-card">
+        <div className="brand"><BrandMark /> ArthaDhruva</div>
         <h2 style={{ marginBottom: '0.25rem' }}>Reset your password</h2>
         <p className="page-subtitle">We will email a reset link if the account has an email on file.</p>
         <div className="field" style={{ marginBottom: '0.8rem' }}>

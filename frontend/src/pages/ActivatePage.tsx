@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { activateAccount } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import ErrorBanner from '../components/ErrorBanner';
+import BrandMark from '../components/BrandMark';
 
 /** Reached from a CLIENT invite link created by an admin (see AdminCreateUserPage) -- the
  * activationToken lives in the URL, not in AuthContext, since the account has no session yet.
@@ -50,6 +51,7 @@ export default function ActivatePage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
+        <div className="brand"><BrandMark /> ArthaDhruva</div>
         <h2 style={{ marginBottom: '0.25rem' }}>Activate your account</h2>
         <p className="page-subtitle">
           Set a password to finish setting up your ArthaDhruva account. Must be at least 10
