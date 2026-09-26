@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import { useAuth } from './auth/AuthContext';
 import Icon from './components/Icon';
 import NotificationBell from './components/NotificationBell';
+import { PALETTES, applyPalette, readPalette, type Palette } from './theme';
 
 type NavItem = { to: string; label: string; icon: string };
 type NavGroup = { label: string; items: NavItem[] };
@@ -87,9 +88,11 @@ export default function Layout() {
   const [navOpen, setNavOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>(readTheme);
+  const [palette, setPalette] = useState<Palette>(readPalette);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => applyTheme(theme), [theme]);
+  useEffect(() => applyPalette(palette), [palette]);
   useEffect(() => {
     setNavOpen(false);
     setMenuOpen(false);
@@ -198,6 +201,23 @@ export default function Layout() {
                         {l.label}
                       </Link>
                     ))}
+                    <hr />
+                    <div className="menu-head">
+                      <div className="role" style={{ marginBottom: '0.4rem' }}>Colour scheme (light mode)</div>
+                      <div className="swatches" role="group" aria-label="Colour scheme">
+                        {PALETTES.map((p) => (
+                          <button
+                            key={p.id}
+                            className={`swatch${palette === p.id ? ' on' : ''}`}
+                            style={{ background: p.swatch }}
+                            onClick={() => setPalette(p.id)}
+                            aria-label={p.label}
+                            aria-pressed={palette === p.id}
+                            title={p.label}
+                          />
+                        ))}
+                      </div>
+                    </div>
                     <hr />
                     <button onClick={doLogout} role="menuitem">
                       Sign out
