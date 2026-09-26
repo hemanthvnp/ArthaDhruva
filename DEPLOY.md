@@ -47,8 +47,12 @@ Compute → Instances → **Create instance**:
 | SSH keys | Generate a key pair and **download the private key**. You cannot get it again |
 | Boot volume | 50 to 100 GB (the free allowance is 200 GB in total) |
 
-If you see **"Out of capacity for shape VM.Standard.A1.Flex"**, retry later, try another availability
-domain, or drop to 1 OCPU / 6 GB, which is still plenty. Note the **public IP** once it is running.
+If you see **"Out of capacity for shape VM.Standard.A1.Flex"** (very common), drop to 1 OCPU / 6 GB,
+try each fault domain under Advanced options, or let `deploy/oracle-launch-retry.sh` keep trying for you:
+open **Cloud Shell** (the `>_` icon in the console), paste your SSH public key into `~/artha.pub`, download
+the script with `curl -fsSLo launch.sh https://raw.githubusercontent.com/hemanthvnp/ArthaDhruva/main/deploy/oracle-launch-retry.sh`
+and run `bash launch.sh`. It stops when an instance exists and prints the public IP. Create the VCN first
+(named `artha-vcn`, via the VCN wizard) so the script can find a public subnet.
 
 ### 3. Open ports 80 and 443 (two separate layers)
 Both must be opened, and forgetting the second one is the most common failure.
