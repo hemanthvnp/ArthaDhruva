@@ -1,0 +1,9 @@
+# Keep LF for anything executed or mounted into Linux containers (CRLF breaks /bin/sh and nginx envsubst)
+* text=auto
+*.sh text eol=lf
+*.conf text eol=lf
+*.template text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+Dockerfile text eol=lf
+*.sql text eol=lf
