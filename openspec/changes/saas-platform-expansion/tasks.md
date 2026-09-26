@@ -7,7 +7,7 @@
 - [x] 1.5 Extract an abstract `AbstractModelService` template-method base class (load model → build feature vector → run inference → calibrate) and refactor `ModelService`, `EarlyWarningModelService`, `TrajectoryModelService` to extend it, supplying only their feature-vector construction and model/calibration artifacts (Decision 8)
 - [x] 1.6 Add a `production` Spring profile that fails startup if `JWT_SECRET`, `TOTP_ENCRYPTION_KEY`, or other required secrets are unset, while leaving the existing random-generation fallback unchanged for non-production profiles (Decision 5)
 - [x] 1.7 Introduce a `/v1/` path prefix for all existing REST endpoints, updating the frontend `api/client.ts` base path accordingly
-- [ ] 1.8 Verify: full `mvn test` passes with Testcontainers and no locally-running Postgres/Redis; CI workflow runs green on a pushed branch
+- [x] 1.8 Verify: full `mvn test` passes with Testcontainers and no locally-running Postgres/Redis; CI workflow runs green on a pushed branch
 
 ## 2. Trust the plumbing
 
