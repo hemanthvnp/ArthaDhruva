@@ -4,18 +4,18 @@
  * Risk colours are reserved for risk meaning (badge-*, .risk-*) and are always paired with text. */
 
 :root {
-  --bg: #f3f5f9;
+  --bg: #f5f4f0;
   --surface: #ffffff;
-  --surface-2: #f6f8fb;
-  --sidebar: #0b1f3a;
-  --border: #e3e8ef;
-  --border-strong: #cdd5e1;
-  --text: #0b1b33;
-  --text-muted: #5b6b82;
-  --accent: #1d4ed8;
-  --accent-hover: #1e40af;
-  --accent-soft: #e8efff;
-  --accent-text: #1e3a8a;
+  --surface-2: #f9f8f4;
+  --sidebar: #0c2b33;
+  --border: #e6e3db;
+  --border-strong: #d3cfc4;
+  --text: #14211f;
+  --text-muted: #5f6b68;
+  --accent: #0e7c86;
+  --accent-hover: #0b636b;
+  --accent-soft: #e2f1f2;
+  --accent-text: #0a5a62;
   --on-accent: #ffffff;
 
   --ok: #0a7a4b;
@@ -26,9 +26,9 @@
   --danger-bg: #fdecec;
   --danger-border: #f5c2c4;
 
-  --shadow-sm: 0 1px 2px rgb(11 31 58 / 0.06);
-  --shadow-md: 0 12px 32px rgb(11 31 58 / 0.16);
-  --shadow-cta: 0 1px 2px rgb(11 31 58 / 0.18);
+  --shadow-sm: 0 1px 2px rgb(12 43 51 / 0.06);
+  --shadow-md: 0 12px 32px rgb(12 43 51 / 0.16);
+  --shadow-cta: 0 1px 2px rgb(12 43 51 / 0.18);
   --radius: 12px;
   --radius-sm: 8px;
   --sidebar-w: 248px;
@@ -42,19 +42,19 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #08111f;
-    --surface: #0f1b2e;
-    --surface-2: #0c1727;
-    --sidebar: #06101d;
-    --border: #1f2f47;
-    --border-strong: #2d4263;
-    --text: #eef2f8;
-    --text-muted: #9aabc4;
-    --accent: #6ea8fe;
-    --accent-hover: #9ec5fe;
-    --accent-soft: #14284a;
-    --accent-text: #b6d4fe;
-    --on-accent: #06101d;
+    --bg: #0a1517;
+    --surface: #0f1e21;
+    --surface-2: #0c191b;
+    --sidebar: #071214;
+    --border: #1d3235;
+    --border-strong: #2c4a4e;
+    --text: #eef4f3;
+    --text-muted: #93aaa8;
+    --accent: #4cc3cc;
+    --accent-hover: #7dd6dc;
+    --accent-soft: #0f2f33;
+    --accent-text: #a5e3e7;
+    --on-accent: #06181a;
     --ok: #47cd89;
     --ok-bg: #0c2a1d;
     --warn: #fdb022;
@@ -70,19 +70,19 @@
 }
 
 :root[data-theme="dark"] {
-  --bg: #08111f;
-  --surface: #0f1b2e;
-  --surface-2: #0c1727;
-  --sidebar: #06101d;
-  --border: #1f2f47;
-  --border-strong: #2d4263;
-  --text: #eef2f8;
-  --text-muted: #9aabc4;
-  --accent: #6ea8fe;
-  --accent-hover: #9ec5fe;
-  --accent-soft: #14284a;
-  --accent-text: #b6d4fe;
-  --on-accent: #06101d;
+  --bg: #0a1517;
+  --surface: #0f1e21;
+  --surface-2: #0c191b;
+  --sidebar: #071214;
+  --border: #1d3235;
+  --border-strong: #2c4a4e;
+  --text: #eef4f3;
+  --text-muted: #93aaa8;
+  --accent: #4cc3cc;
+  --accent-hover: #7dd6dc;
+  --accent-soft: #0f2f33;
+  --accent-text: #a5e3e7;
+  --on-accent: #06181a;
   --ok: #47cd89;
   --ok-bg: #0c2a1d;
   --warn: #fdb022;
@@ -363,7 +363,7 @@ tbody tr:last-child td { border-bottom: none; }
 .brand-mark {
   width: 28px; height: 28px;
   border-radius: 8px;
-  background: #2563eb;
+  background: #0e7c86;
   color: #fff;
   display: grid; place-items: center;
   font-size: 0.85rem; font-weight: 800;
@@ -374,7 +374,7 @@ tbody tr:last-child td { border-bottom: none; }
   font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #7e8ea9;
+  color: #7f9a98;
   font-weight: 650;
   padding: 0.4rem 0.65rem 0.25rem;
 }
@@ -383,7 +383,7 @@ tbody tr:last-child td { border-bottom: none; }
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  color: #b8c4d9;
+  color: #b7cbc9;
   padding: 0.5rem 0.65rem;
   border-radius: var(--radius-sm);
   font-size: 0.9rem;
@@ -391,7 +391,7 @@ tbody tr:last-child td { border-bottom: none; }
   text-decoration: none;
 }
 .sidebar a:hover { background: rgb(255 255 255 / 0.07); color: #fff; text-decoration: none; }
-.sidebar a.active { background: rgb(255 255 255 / 0.12); color: #fff; font-weight: 600; box-shadow: inset 3px 0 0 #60a5fa; }
+.sidebar a.active { background: rgb(255 255 255 / 0.12); color: #fff; font-weight: 600; box-shadow: inset 3px 0 0 #4cc3cc; }
 .sidebar a svg { flex: none; }
 
 .main-col { min-width: 0; display: flex; flex-direction: column; }
