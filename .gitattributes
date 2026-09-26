@@ -7,3 +7,7 @@
 *.yaml text eol=lf
 Dockerfile text eol=lf
 *.sql text eol=lf
+
+# Files without an extension that Linux containers read
+Caddyfile text eol=lf
+.env.example text eol=lf

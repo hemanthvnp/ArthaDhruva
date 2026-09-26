@@ -1,5 +1,7 @@
 # Deployment and networking notes
 
+Deploying to a real server for free? Follow the step-by-step guide in [DEPLOY.md](DEPLOY.md). This file describes the run modes and network design.
+
 ## Run modes
 | Goal | Command |
 |---|---|
