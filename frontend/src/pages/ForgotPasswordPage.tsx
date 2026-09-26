@@ -24,8 +24,8 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <form onSubmit={submit} className="card" style={{ width: 340 }}>
+    <div className="auth-page">
+      <form onSubmit={submit} className="auth-card">
         <h2 style={{ marginBottom: '0.25rem' }}>Reset your password</h2>
         <p className="page-subtitle">We will email a reset link if the account has an email on file.</p>
         <div className="field" style={{ marginBottom: '0.8rem' }}>

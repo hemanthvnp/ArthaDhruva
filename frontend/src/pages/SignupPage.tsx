@@ -25,8 +25,8 @@ export default function SignupPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <form onSubmit={submit} className="card" style={{ width: 380 }}>
+    <div className="auth-page">
+      <form onSubmit={submit} className="auth-card">
         <h2 style={{ marginBottom: '0.25rem' }}>Start your free trial</h2>
         <p className="page-subtitle">Create an organization and its first admin account.</p>
         {done ? (

@@ -26,8 +26,8 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <form onSubmit={submit} className="card" style={{ width: 340 }}>
+    <div className="auth-page">
+      <form onSubmit={submit} className="auth-card">
         <h2 style={{ marginBottom: '0.25rem' }}>Choose a new password</h2>
         {!token && <p>This link is missing its token. Request a new reset link.</p>}
         {message ? (

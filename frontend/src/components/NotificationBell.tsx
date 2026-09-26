@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { listNotifications, markNotificationRead, unreadNotificationCount } from '../api/client';
 import type { NotificationView } from '../api/types';
+import Icon from './Icon';
 
 const POLL_INTERVAL_MS = 30_000;
 
@@ -45,66 +46,29 @@ export default function NotificationBell() {
   };
 
   return (
-    <div style={{ position: 'relative', marginBottom: '0.75rem' }}>
-      <button
-        className="secondary"
-        onClick={toggleOpen}
-        style={{ width: '100%', textAlign: 'left', position: 'relative' }}
-      >
-        Notifications
-        {count > 0 && (
-          <span
-            style={{
-              marginLeft: '0.5rem',
-              background: '#c0392b',
-              color: '#fff',
-              borderRadius: '999px',
-              padding: '0.05rem 0.5rem',
-              fontSize: '0.75rem',
-            }}
-          >
-            {count}
-          </span>
-        )}
+    <div style={{ position: 'relative' }}>
+      <button className="icon-btn" onClick={toggleOpen} aria-label={`Notifications${count > 0 ? `, ${count} unread` : ''}`} aria-expanded={open}>
+        <Icon name="bell" />
+        {count > 0 && <span className="dot-badge">{count > 99 ? '99+' : count}</span>}
       </button>
       {open && (
-        <div
-          className="card"
-          style={{
-            position: 'absolute',
-            top: '100%',
-            left: 0,
-            right: 0,
-            zIndex: 10,
-            maxHeight: 320,
-            overflowY: 'auto',
-            marginTop: '0.25rem',
-          }}
-        >
-          {loading && <p className="page-subtitle">Loading...</p>}
-          {!loading && notifications.length === 0 && <p className="page-subtitle">No notifications yet.</p>}
+        <div className="popover" role="dialog" aria-label="Notifications">
+          <div className="popover-head">Notifications</div>
+          {loading && <div className="popover-empty">Loading...</div>}
+          {!loading && notifications.length === 0 && <div className="popover-empty">You're all caught up.</div>}
           {!loading &&
             notifications.map((n) => (
-              <div
-                key={n.id}
-                style={{
-                  padding: '0.4rem 0',
-                  borderBottom: '1px solid var(--border, #2a3650)',
-                  opacity: n.read ? 0.6 : 1,
-                }}
-              >
+              <div key={n.id} className={`popover-item${n.read ? '' : ' unread'}`}>
                 {n.link ? (
-                  <Link to={n.link} onClick={() => handleClick(n)} style={{ display: 'block' }}>
+                  <Link to={n.link} onClick={() => handleClick(n)}>
                     {n.message}
                   </Link>
                 ) : (
-                  <span onClick={() => handleClick(n)} style={{ cursor: 'pointer', display: 'block' }}>
+                  <span onClick={() => handleClick(n)} style={{ cursor: 'pointer' }}>
                     {n.message}
                   </span>
                 )}
-                <span className="page-subtitle" style={{ fontSize: '0.75rem' }}>
-                  {new Date(n.createdAt).toLocaleString()}
-                </span>
+                <div className="when">{new Date(n.createdAt).toLocaleString()}</div>
               </div>
             ))}
         </div>

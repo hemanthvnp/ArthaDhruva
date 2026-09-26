@@ -56,8 +56,8 @@ export default function Setup2faPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div className="card" style={{ width: 380 }}>
+    <div className="auth-page">
+      <div className="auth-card">
         <h2 style={{ marginBottom: '0.25rem' }}>Set up two-factor authentication</h2>
         <p className="page-subtitle">
           {username ? `Required for ${username}'s role. ` : ''}

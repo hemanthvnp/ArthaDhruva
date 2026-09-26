@@ -62,8 +62,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <form onSubmit={submit} className="card" style={{ width: 340 }}>
+    <div className="auth-page">
+      <form onSubmit={submit} className="auth-card">
         <h2 style={{ marginBottom: '0.25rem' }}>ArthaDhruva Risk Console</h2>
         <p className="page-subtitle">Sign in to continue</p>
 
@@ -114,7 +114,7 @@ export default function LoginPage() {
           </div>
         )}
         {ssoError && <p role="alert" style={{ color: '#e57373' }}>{ssoError}</p>}
-        <p style={{ fontSize: "0.8rem", marginTop: "1rem", textAlign: "center" }}>
+        <p className="auth-foot">
           <Link to="/forgot-password">Forgot password?</Link> &middot; <Link to="/signup">Create an organization</Link>
         </p>
       </form>

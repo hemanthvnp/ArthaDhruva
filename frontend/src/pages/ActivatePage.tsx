@@ -38,8 +38,8 @@ export default function ActivatePage() {
 
   if (!activationToken) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div className="card" style={{ width: 380 }}>
+      <div className="auth-page">
+        <div className="auth-card">
           <h2>Invalid activation link</h2>
           <p className="page-subtitle">This link is missing its activation token.</p>
         </div>
@@ -48,8 +48,8 @@ export default function ActivatePage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div className="card" style={{ width: 380 }}>
+    <div className="auth-page">
+      <div className="auth-card">
         <h2 style={{ marginBottom: '0.25rem' }}>Activate your account</h2>
         <p className="page-subtitle">
           Set a password to finish setting up your ArthaDhruva account. Must be at least 10
