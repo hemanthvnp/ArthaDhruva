@@ -3,7 +3,6 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import { useAuth } from './auth/AuthContext';
 import Icon from './components/Icon';
 import NotificationBell from './components/NotificationBell';
-import { PALETTES, applyPalette, readPalette, type Palette } from './theme';
 
 type NavItem = { to: string; label: string; icon: string };
 type NavGroup = { label: string; items: NavItem[] };
@@ -88,11 +87,23 @@ export default function Layout() {
   const [navOpen, setNavOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>(readTheme);
-  const [palette, setPalette] = useState<Palette>(readPalette);
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('nav-collapsed') === '1';
+    } catch {
+      return false;
+    }
+  });
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => applyTheme(theme), [theme]);
-  useEffect(() => applyPalette(palette), [palette]);
+  useEffect(() => {
+    try {
+      localStorage.setItem('nav-collapsed', collapsed ? '1' : '0');
+    } catch {
+      /* not persisted */
+    }
+  }, [collapsed]);
   useEffect(() => {
     setNavOpen(false);
     setMenuOpen(false);
@@ -141,20 +152,29 @@ export default function Layout() {
           Sandbox organization &middot; demo data, not production
         </div>
       )}
-      <div className={`app-shell${auth?.sandbox ? ' has-banner' : ''}`}>
+      <div className={`app-shell${auth?.sandbox ? ' has-banner' : ''}${collapsed ? ' collapsed' : ''}`}>
         {navOpen && <div className="scrim" onClick={() => setNavOpen(false)} />}
         <aside className={`sidebar${navOpen ? ' open' : ''}`} aria-label="Primary">
           <Link to={auth?.role === 'CLIENT' ? '/my-loan' : '/dashboard'} className="brand">
             <span className="brand-mark">A</span>
-            ArthaDhruva
+            <span className="brand-text">ArthaDhruva</span>
           </Link>
+          <button
+            className="collapse-btn"
+            onClick={() => setCollapsed((c) => !c)}
+            aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+            aria-pressed={collapsed}
+            title={collapsed ? 'Expand' : 'Collapse'}
+          >
+            <Icon name="panel" />
+          </button>
           {groups.map((g) => (
             <div className="nav-group" key={g.label}>
               <div className="nav-label">{g.label}</div>
               {g.items.map((item) => (
-                <NavLink key={item.to} to={item.to} className={({ isActive }) => (isActive ? 'active' : '')}>
+                <NavLink key={item.to} to={item.to} title={collapsed ? item.label : undefined} aria-label={item.label} className={({ isActive }) => (isActive ? 'active' : '')}>
                   <Icon name={item.icon} />
-                  {item.label}
+                  <span className="nav-text">{item.label}</span>
                 </NavLink>
               ))}
             </div>
@@ -201,23 +221,6 @@ export default function Layout() {
                         {l.label}
                       </Link>
                     ))}
-                    <hr />
-                    <div className="menu-head">
-                      <div className="role" style={{ marginBottom: '0.4rem' }}>Colour scheme (light mode)</div>
-                      <div className="swatches" role="group" aria-label="Colour scheme">
-                        {PALETTES.map((p) => (
-                          <button
-                            key={p.id}
-                            className={`swatch${palette === p.id ? ' on' : ''}`}
-                            style={{ background: p.swatch }}
-                            onClick={() => setPalette(p.id)}
-                            aria-label={p.label}
-                            aria-pressed={palette === p.id}
-                            title={p.label}
-                          />
-                        ))}
-                      </div>
-                    </div>
                     <hr />
                     <button onClick={doLogout} role="menuitem">
                       Sign out

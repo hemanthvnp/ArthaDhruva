@@ -51,6 +51,7 @@ const PortfolioKpi = memo(function PortfolioKpi() {
       <div className="kpi accent">
         <div className="label">Loans scored</div>
         <div className="value">{rows.length}</div>
+        <div className="hint">in your portfolio</div>
       </div>
       <div className="kpi">
         <div className="label">Average PD</div>
