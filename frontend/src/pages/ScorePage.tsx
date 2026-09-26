@@ -2,7 +2,32 @@ import { useState } from 'react';
 import { getCachedScore, score } from '../api/client';
 import LoanFeaturesForm, { DEFAULT_LOAN } from '../components/LoanFeaturesForm';
 import ErrorBanner from '../components/ErrorBanner';
+import RiskBadge from '../components/RiskBadge';
 import type { ScoreResponse, CachedScore } from '../api/types';
+
+/** Diverging bar per factor, scaled to the largest effect so the biggest driver fills its half. */
+function Factors({ items }: { items: NonNullable<ScoreResponse['explanation']> }) {
+  const max = Math.max(...items.map((a) => Math.abs(a.contribution)), 1e-9);
+  return (
+    <div role="table" aria-label="Factor contributions">
+      {items.map((a) => {
+        const up = a.contribution > 0;
+        const width = `${(Math.abs(a.contribution) / max) * 50}%`;
+        return (
+          <div className="factor-row" role="row" key={a.feature}>
+            <span role="cell">{a.feature}</span>
+            <span className="factor-track" role="cell" aria-hidden="true">
+              <span className={`factor-bar ${up ? 'up' : 'down'}`} style={{ width }} />
+            </span>
+            <span role="cell" className={`factor-val ${up ? 'up' : 'down'}`}>
+              {up ? '+' : '−'}{Math.abs(a.contribution * 100).toFixed(3)} pts
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function ScorePage() {
   const [loan, setLoan] = useState(DEFAULT_LOAN);
@@ -43,12 +68,16 @@ export default function ScorePage() {
 
   return (
     <div>
-      <h2>Default Risk Score</h2>
-      <p className="page-subtitle">
-        PD (probability of default) from the 16-field LightGBM model, with the isotonic
-        calibration correction applied. If a Loan ID is supplied, the result is cached in Redis
-        and can be looked up below without recomputing.
-      </p>
+      <div className="page-head-row">
+        <div>
+          <div className="eyebrow">Risk models</div>
+          <h2>Default risk score</h2>
+          <p className="page-subtitle">
+            Probability of default from the LightGBM model, corrected by isotonic calibration. Give the loan an ID and the
+            result is cached, so you can look it up below without recomputing.
+          </p>
+        </div>
+      </div>
 
       <div className="card">
         <LoanFeaturesForm value={loan} onChange={setLoan} showLoanId />
@@ -58,45 +87,37 @@ export default function ScorePage() {
           </button>
         </div>
         <ErrorBanner error={error} />
+
         {result && (
-          <div className="result-grid">
-            <div className="stat">
-              <div className="label">Raw probability</div>
+          <div className="hero-score" role="status">
+            <div>
+              <div className="meta">Calibrated probability of default</div>
+              <div className="big">{(result.calibratedProbability * 100).toFixed(2)}%</div>
+            </div>
+            <RiskBadge probability={result.calibratedProbability} />
+            <div className="secondary-stat">
+              <div className="label">Raw model output</div>
               <div className="value">{(result.rawProbability * 100).toFixed(2)}%</div>
             </div>
-            <div className="stat">
-              <div className="label">Calibrated probability</div>
-              <div className="value">{(result.calibratedProbability * 100).toFixed(3)}%</div>
-            </div>
           </div>
         )}
-        {result && result.explanation && result.explanation.length > 0 && (
-          <div style={{ marginTop: '1rem' }}>
-            <h4>What moved this score</h4>
+
+        {result?.explanation && result.explanation.length > 0 && (
+          <div style={{ marginTop: '1.5rem' }}>
+            <h3>What moved this score</h3>
             <p className="page-subtitle">
-              Each factor's effect on the calibrated probability versus a typical loan (positive raises risk). A
-              single-factor estimate; it does not capture interactions between factors.
+              Each factor's effect versus a typical loan. Red raises risk, green lowers it. This is a single-factor
+              estimate and does not capture interactions between factors.
             </p>
-            <table>
-              <thead><tr><th>Factor</th><th>Effect</th></tr></thead>
-              <tbody>
-                {result.explanation.map((a) => (
-                  <tr key={a.feature}>
-                    <td>{a.feature}</td>
-                    <td style={{ color: a.contribution > 0 ? '#e57373' : '#81c784' }}>
-                      {a.contribution > 0 ? '+' : ''}{(a.contribution * 100).toFixed(3)} pts
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <Factors items={result.explanation} />
           </div>
         )}
+
         {result && (
           <p className="warn-banner">
-            The raw LightGBM output overpredicts default probability by ~17.5x on average
-            (scale_pos_weight distorts probabilities while still improving ranking) -- use the
-            calibrated probability for any dollar-valued decision.
+            The raw model output overpredicts default probability by about 17.5x on average, because class weighting
+            distorts probabilities while still improving ranking. Use the calibrated probability for any dollar-valued
+            decision.
           </p>
         )}
       </div>
@@ -113,18 +134,17 @@ export default function ScorePage() {
           </button>
         </div>
         <ErrorBanner error={cacheError} />
-        {cacheMiss && <p className="page-subtitle">No cached score found for this Loan ID yet.</p>}
+        {cacheMiss && <p className="empty">No cached score found for this Loan ID yet.</p>}
         {cached && (
-          <div className="result-grid">
-            <div className="stat">
-              <div className="label">Calibrated probability</div>
-              <div className="value">{(cached.score.calibratedProbability * 100).toFixed(3)}%</div>
+          <div className="hero-score">
+            <div>
+              <div className="meta">Calibrated probability of default</div>
+              <div className="big">{(cached.score.calibratedProbability * 100).toFixed(2)}%</div>
             </div>
-            <div className="stat">
-              <div className="label">Computed at</div>
-              <div className="value" style={{ fontSize: '0.95rem' }}>
-                {new Date(cached.computedAt).toLocaleString()}
-              </div>
+            <RiskBadge probability={cached.score.calibratedProbability} />
+            <div className="secondary-stat">
+              <div className="label">Computed</div>
+              <div className="value" style={{ fontSize: '0.95rem' }}>{new Date(cached.computedAt).toLocaleString()}</div>
             </div>
           </div>
         )}

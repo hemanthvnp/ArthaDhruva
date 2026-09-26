@@ -7,6 +7,14 @@ import type { LoanCaseSummary, RecentNoteView } from '../api/types';
 
 type Filter = 'ALL' | 'MINE' | 'FLAGGED';
 
+const loanLink = (id: string) => `/loans/${encodeURIComponent(id)}`;
+const ago = (iso: string) => {
+  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (mins < 60) return `${mins}m ago`;
+  if (mins < 60 * 24) return `${Math.round(mins / 60)}h ago`;
+  return `${Math.round(mins / 1440)}d ago`;
+};
+
 /**
  * The "what's on my plate" view: every loan case across the system (status/assignment/flag), the
  * quick filters an analyst actually works from day to day, plus a cross-loan activity feed built
@@ -41,92 +49,99 @@ export default function CasesPage() {
 
   useEffect(load, []);
 
+  const counts: Record<Filter, number> = {
+    MINE: cases.filter((c) => c.assignedTo === auth?.username).length,
+    FLAGGED: cases.filter((c) => c.flagged).length,
+    ALL: cases.length,
+  };
   const filtered = cases.filter((c) => {
     if (filter === 'MINE') return c.assignedTo === auth?.username;
     if (filter === 'FLAGGED') return c.flagged;
     return true;
   });
+  const tabs: [Filter, string][] = [['MINE', 'Assigned to me'], ['FLAGGED', 'Flagged'], ['ALL', 'All cases']];
 
   return (
     <div>
-      <h2>Cases</h2>
-      <p className="page-subtitle">
-        Every loan someone has acted on -- status, assignment, and flags -- plus a live feed of
-        recent notes across the whole portfolio.
-      </p>
-
-      <div className="card">
-        <div className="row-inline" style={{ justifyContent: 'space-between' }}>
-          <div className="field">
-            <label htmlFor="caseFilter">Show</label>
-            <select id="caseFilter" value={filter} onChange={(e) => setFilter(e.target.value as Filter)}>
-              <option value="MINE">Assigned to me</option>
-              <option value="FLAGGED">Flagged</option>
-              <option value="ALL">All cases</option>
-            </select>
-          </div>
-          <div className="row-inline">
-            <button className="secondary" onClick={exportCsv}>
-              Export CSV
-            </button>
-            <button className="secondary" onClick={load} disabled={loading}>
-              {loading ? 'Loading...' : 'Refresh'}
-            </button>
-          </div>
+      <div className="page-head-row">
+        <div>
+          <div className="eyebrow">Portfolio</div>
+          <h2>Cases</h2>
+          <p className="page-subtitle">Every loan someone has acted on, with a live feed of recent notes across the portfolio.</p>
         </div>
-        <ErrorBanner error={error} />
-        <ErrorBanner error={exportError} />
-        {filtered.length === 0 && !loading && (
-          <p className="page-subtitle">
-            {filter === 'MINE'
-              ? "No cases assigned to you yet -- assign one from a loan's detail page."
-              : filter === 'FLAGGED'
-                ? 'No flagged loans right now.'
-                : 'No cases yet -- opening a loan detail page creates one.'}
-          </p>
-        )}
-        {filtered.length > 0 && (
-          <table>
-            <thead>
-              <tr>
-                <th>Loan ID</th>
-                <th>Status</th>
-                <th>Assigned to</th>
-                <th>Flagged</th>
-                <th>Updated</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((c) => (
-                <tr key={c.loanId}>
-                  <td>
-                    <Link to={`/loans/${encodeURIComponent(c.loanId)}`}>{c.loanId}</Link>
-                  </td>
-                  <td>{c.status}</td>
-                  <td>{c.assignedTo ?? '-'}</td>
-                  <td>{c.flagged ? 'Yes' : '-'}</td>
-                  <td>{new Date(c.updatedAt).toLocaleString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        <div className="actions" style={{ marginTop: 0 }}>
+          <button className="secondary" onClick={exportCsv}>Export CSV</button>
+          <button className="secondary" onClick={load} disabled={loading}>{loading ? 'Loading...' : 'Refresh'}</button>
+        </div>
       </div>
+      <ErrorBanner error={error} />
+      <ErrorBanner error={exportError} />
 
-      <div className="card">
-        <h3>Recent activity</h3>
-        {notes.length === 0 && !loading && <p className="page-subtitle">No notes yet across any loan.</p>}
-        {notes.length > 0 && (
-          <ul style={{ paddingLeft: '1.2rem' }}>
-            {notes.map((n, i) => (
-              <li key={i} style={{ marginBottom: '0.5rem' }}>
-                <strong>{n.author}</strong> on{' '}
-                <Link to={`/loans/${encodeURIComponent(n.loanId)}`}>{n.loanId}</Link> (
-                {new Date(n.createdAt).toLocaleString()}): {n.text}
-              </li>
-            ))}
-          </ul>
-        )}
+      <div className="split">
+        <div className="card">
+          <div className="toolbar">
+            <div className="segmented" role="tablist" aria-label="Case filter">
+              {tabs.map(([key, label]) => (
+                <button key={key} role="tab" aria-selected={filter === key} className={filter === key ? 'on' : ''} onClick={() => setFilter(key)}>
+                  {label}<span className="count">{counts[key]}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {loading && filtered.length === 0 && (
+            <div aria-busy="true">
+              <div className="skeleton" /><div className="skeleton" style={{ width: '85%' }} /><div className="skeleton" style={{ width: '70%' }} />
+            </div>
+          )}
+          {filtered.length === 0 && !loading && (
+            <p className="empty">
+              {filter === 'MINE'
+                ? "No cases assigned to you yet. Assign one from a loan's detail page."
+                : filter === 'FLAGGED'
+                  ? 'No flagged loans right now.'
+                  : 'No cases yet. Opening a loan detail page creates one.'}
+            </p>
+          )}
+          {filtered.length > 0 && (
+            <table>
+              <thead>
+                <tr><th>Loan</th><th>Status</th><th>Assigned to</th><th>Updated</th></tr>
+              </thead>
+              <tbody>
+                {filtered.map((c) => (
+                  <tr key={c.loanId}>
+                    <td>
+                      <Link to={loanLink(c.loanId)}>{c.loanId}</Link>
+                      {c.flagged && <span className="badge badge-high" style={{ marginLeft: '0.5rem' }}>Flagged</span>}
+                    </td>
+                    <td><span className={`badge badge-${c.status.toLowerCase()}`}>{c.status.toLowerCase()}</span></td>
+                    <td>{c.assignedTo ?? <span className="sub" style={{ color: 'var(--text-muted)' }}>Unassigned</span>}</td>
+                    <td style={{ color: 'var(--text-muted)' }} title={new Date(c.updatedAt).toLocaleString()}>{ago(c.updatedAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <div className="card">
+          <div className="card-head"><h3>Recent activity</h3></div>
+          {notes.length === 0 && !loading && <p className="empty">No notes yet across any loan.</p>}
+          {notes.length > 0 && (
+            <ul className="list">
+              {notes.slice(0, 12).map((n, i) => (
+                <li key={i} className="list-row" style={{ alignItems: 'flex-start' }}>
+                  <span className="grow" style={{ whiteSpace: 'normal' }}>
+                    <strong>{n.author}</strong> on <Link to={loanLink(n.loanId)}>{n.loanId}</Link>
+                    <div className="sub">{n.text}</div>
+                  </span>
+                  <span className="sub">{ago(n.createdAt)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -619,3 +619,40 @@ tbody tr:last-child td { border-bottom: none; }
 
 .skeleton { background: linear-gradient(90deg, var(--surface-2), var(--border), var(--surface-2)); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 8px; height: 1rem; margin: 0.6rem 0; }
 @keyframes shimmer { to { background-position: -200% 0; } }
+
+/* ---------- score hero, factor bars, segmented control ---------- */
+
+.hero-score { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; padding: 1.25rem 1.5rem; border-radius: var(--radius); background: var(--accent-soft); margin-top: 1.25rem; }
+.hero-score .big { font-size: 3rem; font-weight: 800; letter-spacing: -0.04em; line-height: 1; font-variant-numeric: tabular-nums; }
+.hero-score .meta { color: var(--text-muted); font-size: 0.85rem; }
+.hero-score .secondary-stat { margin-left: auto; text-align: right; }
+.hero-score .secondary-stat .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 650; color: var(--text-muted); }
+.hero-score .secondary-stat .value { font-size: 1.15rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+
+/* Diverging bars: the centre line is "no effect"; red extends right (raises risk), green left (lowers it). */
+.factor-row { display: grid; grid-template-columns: minmax(120px, 200px) 1fr 90px; gap: 0.75rem; align-items: center; padding: 0.35rem 0; font-size: 0.88rem; }
+.factor-track { position: relative; height: 10px; background: var(--surface-2); border-radius: 999px; }
+.factor-track::after { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--border-strong); }
+.factor-bar { position: absolute; top: 0; bottom: 0; border-radius: 999px; }
+.factor-bar.up { left: 50%; background: var(--danger); }
+.factor-bar.down { right: 50%; background: var(--ok); }
+.factor-val { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.factor-val.up { color: var(--danger); }
+.factor-val.down { color: var(--ok); }
+
+.segmented { display: inline-flex; padding: 3px; gap: 2px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; }
+.segmented button { background: transparent; color: var(--text-muted); box-shadow: none; padding: 0.35rem 0.9rem; font-size: 0.85rem; }
+.segmented button:hover { background: transparent; color: var(--text); }
+.segmented button.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+.segmented .count { margin-left: 0.4rem; color: var(--text-muted); font-weight: 500; }
+
+.badge-new { color: var(--accent-text); background: var(--accent-soft); border-color: transparent; }
+.badge-reviewed { color: var(--text); }
+.badge-escalated { color: var(--danger); background: var(--danger-bg); border-color: transparent; }
+.badge-cleared { color: var(--ok); background: var(--ok-bg); border-color: transparent; }
+
+.split { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+.split .card { margin-bottom: 0; }
+@media (max-width: 1000px) { .split { grid-template-columns: minmax(0, 1fr); } }
+
+.toolbar { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
