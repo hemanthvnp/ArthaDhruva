@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { earlyWarningScore, listEarlyWarningCatalog } from '../api/client';
 import EarlyWarningFeaturesForm, { DEFAULT_EARLY_WARNING_LOAN } from '../components/EarlyWarningFeaturesForm';
 import ErrorBanner from '../components/ErrorBanner';
+import RiskMeter from '../components/RiskMeter';
 import type { EarlyWarningCatalogEntry, EarlyWarningResponse } from '../api/types';
 
 export default function EarlyWarningPage() {
@@ -98,10 +99,11 @@ export default function EarlyWarningPage() {
               <div className="stat">
                 <div className="label">Calibrated risk</div>
                 <div className="value">{(pickResult.result.calibratedRisk * 100).toFixed(2)}%</div>
+                <div style={{ marginTop: '0.6rem' }}><RiskMeter probability={pickResult.result.calibratedRisk} small /></div>
               </div>
               <div className="stat">
                 <div className="label">Actually went delinquent?</div>
-                <div className="value" style={{ color: pickResult.entry.actuallyWentDelinquent ? '#c0392b' : '#2e7d32' }}>
+                <div className="value" style={{ color: pickResult.entry.actuallyWentDelinquent ? 'var(--danger)' : 'var(--ok)' }}>
                   {pickResult.entry.actuallyWentDelinquent ? 'Yes' : 'No'}
                 </div>
               </div>
@@ -142,6 +144,7 @@ export default function EarlyWarningPage() {
             <div className="stat">
               <div className="label">Calibrated risk</div>
               <div className="value">{(result.calibratedRisk * 100).toFixed(2)}%</div>
+              <div style={{ marginTop: '0.6rem' }}><RiskMeter probability={result.calibratedRisk} small /></div>
             </div>
           </div>
         )}

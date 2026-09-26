@@ -147,7 +147,7 @@ export default function CvarPage() {
             point={result.valueAtRisk}
             lower={result.valueAtRiskConfidenceInterval[0]}
             upper={result.valueAtRiskConfidenceInterval[1]}
-            color="#2f6fed"
+            color="var(--text)"
             format={money}
           />
           <RangeBar
@@ -155,7 +155,7 @@ export default function CvarPage() {
             point={result.conditionalValueAtRisk}
             lower={result.conditionalValueAtRiskConfidenceInterval[0]}
             upper={result.conditionalValueAtRiskConfidenceInterval[1]}
-            color="#c0392b"
+            color="var(--sig-high)"
             format={money}
           />
           <div className="result-grid">

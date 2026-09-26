@@ -60,42 +60,42 @@ export default function AutomationRulesPage() {
 
   return (
     <div>
-      <h2>Automation Rules</h2>
-      <p className="page-subtitle">
-        When something happens and a condition matches, do something automatically. Rules run in order; a failing rule never
-        blocks the others.
-      </p>
+      <div className="page-head-row">
+        <div>
+          <h2>Automation Rules</h2>
+          <p className="page-subtitle">
+            When something happens and a condition matches, do something automatically. Rules run in order; a failing rule never
+            blocks the others.
+          </p>
+        </div>
+      </div>
 
       <form className="card" onSubmit={submit}>
         <div className="field" style={{ marginBottom: '0.8rem' }}>
           <label htmlFor="r-name">Name</label>
           <input id="r-name" value={name} onChange={(e) => setName(e.target.value)} />
         </div>
-        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
-          <div className="field"><label htmlFor="r-trig">When</label>
-            <select id="r-trig" value={trigger} onChange={(e) => onTrigger(e.target.value as RuleTrigger)}>
-              <option value="LOAN_SCORED">a loan is scored</option>
-              <option value="LOAN_CASE_UPDATED">a case is updated</option>
-            </select></div>
-          <div className="field"><label htmlFor="r-field">and</label>
-            <select id="r-field" value={field} onChange={(e) => onField(e.target.value)}>
-              {FIELDS[trigger].map((f) => <option key={f.field}>{f.field}</option>)}
-            </select></div>
-          <div className="field"><label htmlFor="r-op">is</label>
-            <select id="r-op" value={op} onChange={(e) => setOp(e.target.value as ConditionOp)}>
-              {(numeric ? NUMERIC_OPS : TEXT_OPS).map((o) => <option key={o}>{o}</option>)}
-            </select></div>
-          <div className="field"><label htmlFor="r-val">value</label>
-            <input id="r-val" value={value} onChange={(e) => setValue(e.target.value)} /></div>
-        </div>
-        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginTop: '0.8rem' }}>
-          <div className="field"><label htmlFor="r-act">then</label>
-            <select id="r-act" value={action} onChange={(e) => setAction(e.target.value as ActionType)}>
-              {ACTIONS.map((a) => <option key={a.type} value={a.type}>{a.label}</option>)}
-            </select></div>
+        <div className="rule-sentence">
+          <span className="word">When</span>
+          <select aria-label="trigger" id="r-trig" value={trigger} onChange={(e) => onTrigger(e.target.value as RuleTrigger)}>
+            <option value="LOAN_SCORED">a loan is scored</option>
+            <option value="LOAN_CASE_UPDATED">a case is updated</option>
+          </select>
+          <span className="word">and</span>
+          <select aria-label="field" id="r-field" value={field} onChange={(e) => onField(e.target.value)}>
+            {FIELDS[trigger].map((f) => <option key={f.field}>{f.field}</option>)}
+          </select>
+          <span className="word">is</span>
+          <select aria-label="operator" id="r-op" value={op} onChange={(e) => setOp(e.target.value as ConditionOp)}>
+            {(numeric ? NUMERIC_OPS : TEXT_OPS).map((o) => <option key={o}>{o}</option>)}
+          </select>
+          <input aria-label="value" id="r-val" placeholder="value" value={value} onChange={(e) => setValue(e.target.value)} style={{ width: 130 }} />
+          <span className="word">then</span>
+          <select aria-label="action" id="r-act" value={action} onChange={(e) => setAction(e.target.value as ActionType)}>
+            {ACTIONS.map((a) => <option key={a.type} value={a.type}>{a.label}</option>)}
+          </select>
           {needsParam && (
-            <div className="field"><label htmlFor="r-param">username</label>
-              <input id="r-param" value={param} onChange={(e) => setParam(e.target.value)} /></div>
+            <input aria-label="username" id="r-param" placeholder="username" value={param} onChange={(e) => setParam(e.target.value)} style={{ width: 150 }} />
           )}
         </div>
         <ErrorBanner error={create.error} />
@@ -104,7 +104,7 @@ export default function AutomationRulesPage() {
 
       <ErrorBanner error={rules.error ?? toggle.error ?? remove.error} />
       <div className="card">
-        {rules.data?.length === 0 && <p>No rules yet.</p>}
+        {rules.data?.length === 0 && <p className="empty">No rules yet. Build one above, for example "When a loan is scored and calibratedRisk is GT 0.2, then flag the case".</p>}
         {rules.data && rules.data.length > 0 && (
           <table>
             <thead><tr><th>#</th><th>Name</th><th>Trigger</th><th>Condition</th><th>Actions</th><th>On</th><th /></tr></thead>
@@ -113,11 +113,11 @@ export default function AutomationRulesPage() {
                 <tr key={r.id}>
                   <td>{r.position}</td>
                   <td>{r.name}</td>
-                  <td>{r.trigger}</td>
-                  <td>{r.field} {r.op} {r.value}</td>
-                  <td>{(JSON.parse(r.actions) as RuleAction[]).map((a) => (a.param ? `${a.type}(${a.param})` : a.type)).join(', ')}</td>
+                  <td>{r.trigger.replaceAll('_', ' ').toLowerCase()}</td>
+                  <td><code>{r.field} {r.op} {r.value}</code></td>
+                  <td>{(JSON.parse(r.actions) as RuleAction[]).map((a, i) => <span key={i} className="badge badge-accent" style={{ marginRight: 4 }}>{a.param ? `${a.type}(${a.param})` : a.type}</span>)}</td>
                   <td><input type="checkbox" aria-label={`enable ${r.name}`} checked={r.enabled} onChange={(e) => toggle.mutate({ id: r.id, on: e.target.checked })} /></td>
-                  <td><button onClick={() => remove.mutate(r.id)}>Delete</button></td>
+                  <td><button className="danger-outline" onClick={() => remove.mutate(r.id)}>Delete</button></td>
                 </tr>
               ))}
             </tbody>

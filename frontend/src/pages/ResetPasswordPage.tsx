@@ -45,7 +45,7 @@ export default function ResetPasswordPage() {
               <label htmlFor="pw2">Confirm password</label>
               <input id="pw2" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
             </div>
-            {confirm && password !== confirm && <p style={{ color: '#e57373' }}>Passwords do not match.</p>}
+            {confirm && password !== confirm && <p style={{ color: 'var(--danger)' }}>Passwords do not match.</p>}
             <ErrorBanner error={error} />
             <div className="actions">
               <button type="submit" disabled={loading || !token || !password || password !== confirm} style={{ width: '100%' }}>

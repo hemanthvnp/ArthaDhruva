@@ -82,6 +82,11 @@ export default function RegimeForecastPage() {
         </div>
         <ErrorBanner error={error} />
         {single && (
+          <>
+          <div className="mix" style={{ marginTop: '1rem' }} role="img" aria-label={`Calm ${(single.regimeProbabilities.calm * 100).toFixed(1)} percent, stressed ${(single.regimeProbabilities.stressed * 100).toFixed(1)} percent`}>
+            <span className="low" style={{ flexGrow: single.regimeProbabilities.calm }} />
+            <span className="high" style={{ flexGrow: single.regimeProbabilities.stressed }} />
+          </div>
           <div className="result-grid">
             <div className="stat">
               <div className="label">As of</div>
@@ -100,6 +105,7 @@ export default function RegimeForecastPage() {
               <div className="value">{(single.regimeProbabilities.stressed * 100).toFixed(1)}%</div>
             </div>
           </div>
+          </>
         )}
       </div>
 
@@ -108,13 +114,13 @@ export default function RegimeForecastPage() {
           <h3>Regime probability by horizon</h3>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={curve}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="monthsAhead" label={{ value: 'Months ahead', position: 'insideBottom', offset: -5 }} />
-              <YAxis unit="%" domain={[0, 100]} />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="calm" stroke="#2f6fed" name="P(calm)" dot={false} />
-              <Line type="monotone" dataKey="stressed" stroke="#c0392b" name="P(stressed)" dot={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis dataKey="monthsAhead" stroke="var(--border-strong)" tick={{ fill: 'var(--text-muted)', fontSize: 12 }} label={{ value: 'Months ahead', position: 'insideBottom', offset: -5, fill: 'var(--text-muted)' }} />
+              <YAxis unit="%" domain={[0, 100]} stroke="var(--border-strong)" tick={{ fill: 'var(--text-muted)', fontSize: 12 }} />
+              <Tooltip contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 8, color: 'var(--text)' }} />
+              <Legend verticalAlign="top" align="right" iconType="plainline" wrapperStyle={{ paddingBottom: 8, color: 'var(--text-muted)' }} />
+              <Line type="monotone" dataKey="calm" stroke="var(--sig-low)" strokeWidth={2.5} name="P(calm)" dot={false} />
+              <Line type="monotone" dataKey="stressed" stroke="var(--sig-high)" strokeWidth={2.5} name="P(stressed)" dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>

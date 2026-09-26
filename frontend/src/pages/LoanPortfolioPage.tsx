@@ -146,7 +146,7 @@ export default function LoanPortfolioPage() {
           <h3>Recently viewed</h3>
           <div className="row-inline">
             {recentLoans.map((id) => (
-              <Link key={id} to={`/loans/${encodeURIComponent(id)}`} className="secondary" style={{ padding: '0.4rem 0.8rem', borderRadius: 6, border: '1px solid var(--border, #ddd)' }}>
+              <Link key={id} to={`/loans/${encodeURIComponent(id)}`} className="secondary" style={{ padding: '0.4rem 0.8rem', borderRadius: 999, border: '1px solid var(--border-strong)' }}>
                 {id}
               </Link>
             ))}

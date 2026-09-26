@@ -317,7 +317,7 @@ export default function LoanDetailPage() {
           <>
             <p className="page-subtitle">
               Real snapshot found for this loan ({ewEntry.label}). Actual outcome:{' '}
-              <strong style={{ color: ewEntry.actuallyWentDelinquent ? '#c0392b' : '#2e7d32' }}>
+              <strong style={{ color: ewEntry.actuallyWentDelinquent ? 'var(--danger)' : 'var(--ok)' }}>
                 {ewEntry.actuallyWentDelinquent ? 'went delinquent' : 'did not go delinquent'}
               </strong>
             </p>

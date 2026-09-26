@@ -7,6 +7,7 @@ export default function AuditLogPage() {
   const [entries, setEntries] = useState<AuditLogEntry[]>([]);
   const [error, setError] = useState<unknown>(null);
   const [loading, setLoading] = useState(true);
+  const [visible, setVisible] = useState(25);
 
   const load = async () => {
     setLoading(true);
@@ -26,14 +27,21 @@ export default function AuditLogPage() {
 
   return (
     <div>
-      <h2>Audit Log</h2>
-      <p className="page-subtitle">
-        Every call to every model-serving endpoint, persisted immutably (SR 11-7-style audit
-        trail) via a Spring AOP aspect. Admin-only.
-      </p>
+      <div className="page-head-row">
+        <div>
+          <h2>Audit Log</h2>
+          <p className="page-subtitle">
+            Every call to every model-serving endpoint, persisted immutably (SR 11-7-style audit trail) via a Spring AOP
+            aspect. Admin-only.
+          </p>
+        </div>
+      </div>
 
       <div className="card">
-        <div className="actions" style={{ marginTop: 0, marginBottom: '0.9rem' }}>
+        <div className="toolbar">
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+            Showing {Math.min(visible, entries.length)} of {entries.length} most recent events
+          </span>
           <button className="secondary" onClick={load} disabled={loading}>
             {loading ? 'Refreshing...' : 'Refresh'}
           </button>
@@ -46,24 +54,27 @@ export default function AuditLogPage() {
                 <th>Occurred at</th>
                 <th>Endpoint</th>
                 <th>Success</th>
-                <th>Latency (ms)</th>
+                <th style={{ textAlign: 'right' }}>Latency</th>
               </tr>
             </thead>
             <tbody>
-              {entries.map((e) => (
+              {entries.slice(0, visible).map((e) => (
                 <tr key={e.id}>
                   <td>{new Date(e.occurredAt).toLocaleString()}</td>
-                  <td>{e.endpoint}</td>
-                  <td style={{ color: e.success ? 'var(--ok)' : 'var(--danger)' }}>
-                    {e.success ? 'yes' : 'no'}
-                  </td>
-                  <td>{e.latencyMs}</td>
+                  <td><code>{e.endpoint}</code></td>
+                  <td><span className={`badge ${e.success ? 'badge-low' : 'badge-high'}`}>{e.success ? 'OK' : 'Failed'}</span></td>
+                  <td className="num" style={{ textAlign: 'right' }}>{e.latencyMs} ms</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        {!loading && entries.length === 0 && <p className="page-subtitle">No audit events yet.</p>}
+        {!loading && entries.length === 0 && <p className="empty">No audit events yet.</p>}
+        {visible < entries.length && (
+          <div className="actions" style={{ justifyContent: 'center' }}>
+            <button className="secondary" onClick={() => setVisible((v) => v + 25)}>Show 25 more</button>
+          </div>
+        )}
       </div>
     </div>
   );

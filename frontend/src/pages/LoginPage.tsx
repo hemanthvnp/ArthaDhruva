@@ -128,7 +128,7 @@ export default function LoginPage() {
             </button>
           </div>
         )}
-        {ssoError && <p role="alert" style={{ color: '#e57373' }}>{ssoError}</p>}
+        {ssoError && <p role="alert" style={{ color: 'var(--danger)' }}>{ssoError}</p>}
         <p className="auth-foot">
           <Link to="/forgot-password">Forgot password?</Link> &middot; <Link to="/signup">Create an organization</Link>
         </p>

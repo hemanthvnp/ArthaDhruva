@@ -3,7 +3,8 @@ import { listSegments, segmentNeighbors } from '../api/client';
 import ErrorBanner from '../components/ErrorBanner';
 import type { SegmentNeighbor } from '../api/types';
 
-const HOP_COLORS = ['#16a34a', '#f59e0b', '#dc2626', '#9333ea', '#0891b2'];
+// Hop distance is not risk, so it uses a neutral ink scale (tokens), never the risk spectrum.
+const HOP_COLORS = ['var(--hop-1)', 'var(--hop-2)', 'var(--hop-3)', 'var(--hop-4)', 'var(--hop-5)'];
 const SIZE = 420;
 const CENTER = SIZE / 2;
 const RADIUS = 165;
@@ -128,7 +129,7 @@ export default function SegmentGraphPage() {
                 const pa = positions.get(a);
                 const pb = positions.get(b);
                 if (!pa || !pb) return null;
-                return <line key={`${a}-${b}`} x1={pa.x} y1={pa.y} x2={pb.x} y2={pb.y} stroke="#e2e8f0" strokeWidth={1.5} />;
+                return <line key={`${a}-${b}`} x1={pa.x} y1={pa.y} x2={pb.x} y2={pb.y} stroke="var(--border-strong)" strokeWidth={1.5} />;
               })}
               {states.map((s) => {
                 const p = positions.get(s);
@@ -136,20 +137,28 @@ export default function SegmentGraphPage() {
                 const hops = hopByState.get(s);
                 const isSource = s === source && neighbors !== null;
                 const fill = isSource
-                  ? '#2f6fed'
+                  ? 'var(--text)'
                   : hops !== undefined
                     ? HOP_COLORS[Math.min(hops - 1, HOP_COLORS.length - 1)]
-                    : '#cbd5e1';
+                    : 'var(--border-strong)';
+                const onDark = isSource || (hops !== undefined && hops <= 3);
                 return (
                   <g key={s}>
-                    <circle cx={p.x} cy={p.y} r={16} fill={fill} stroke="#fff" strokeWidth={2} />
-                    <text x={p.x} y={p.y + 4} textAnchor="middle" fontSize={11} fill="#fff" fontWeight={600}>
+                    <circle cx={p.x} cy={p.y} r={16} fill={fill} stroke="var(--surface)" strokeWidth={2} />
+                    <text x={p.x} y={p.y + 4} textAnchor="middle" fontSize={11} fill={onDark ? 'var(--bg)' : 'var(--text)'} fontWeight={600}>
                       {s}
                     </text>
                   </g>
                 );
               })}
             </svg>
+            {neighbors !== null && (
+              <div className="mix-legend" style={{ justifyContent: 'center' }}>
+                <span><i style={{ background: 'var(--text)' }} />Source</span>
+                {HOP_COLORS.slice(0, 3).map((c, i) => <span key={i}><i style={{ background: c }} />{i + 1} hop{i ? 's' : ''}</span>)}
+                <span><i style={{ background: 'var(--border-strong)' }} />Not reached</span>
+              </div>
+            )}
           </>
         )}
       </div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { expectedLoss, listLoanCatalog } from '../api/client';
 import LoanFeaturesForm, { DEFAULT_LOAN } from '../components/LoanFeaturesForm';
 import ErrorBanner from '../components/ErrorBanner';
+import RiskMeter from '../components/RiskMeter';
 import type { ExpectedLossResponse, LoanFeatures } from '../api/types';
 
 export default function ExpectedLossPage() {
@@ -96,6 +97,7 @@ export default function ExpectedLossPage() {
             <div className="stat">
               <div className="label">PD</div>
               <div className="value">{(pickResult.result.pd * 100).toFixed(3)}%</div>
+              <div style={{ marginTop: '0.6rem' }}><RiskMeter probability={pickResult.result.pd} small /></div>
             </div>
             <div className="stat">
               <div className="label">LGD</div>
@@ -124,6 +126,7 @@ export default function ExpectedLossPage() {
               <div className="stat">
                 <div className="label">PD</div>
                 <div className="value">{(result.pd * 100).toFixed(3)}%</div>
+                <div style={{ marginTop: '0.6rem' }}><RiskMeter probability={result.pd} small /></div>
               </div>
               <div className="stat">
                 <div className="label">LGD</div>

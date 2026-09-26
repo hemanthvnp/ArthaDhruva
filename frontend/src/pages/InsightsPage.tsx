@@ -15,12 +15,16 @@ export default function InsightsPage() {
 
   return (
     <div>
-      <h2>ML Insights</h2>
-      <p className="page-subtitle">
-        Unsupervised clustering, recomputed nightly and on demand. Topics group your case notes by what they talk
-        about; segments group loans by their own characteristics.
-      </p>
-      <div className="actions"><button onClick={refresh}>Recompute now</button></div>
+      <div className="page-head-row">
+        <div>
+          <h2>ML Insights</h2>
+          <p className="page-subtitle">
+            Unsupervised clustering, recomputed nightly and on demand. Topics group your case notes by what they talk
+            about; segments group loans by their own characteristics.
+          </p>
+        </div>
+        <button onClick={refresh}>Recompute now</button>
+      </div>
       <ErrorBanner error={topics.error ?? segments.error} />
 
       <div className="card">
@@ -28,8 +32,11 @@ export default function InsightsPage() {
         {topics.data && <p className="page-subtitle">{topics.data.noteCount} notes &middot; computed {new Date(topics.data.computedAt).toLocaleString()}</p>}
         {topics.data?.topics.length === 0 && <p>Not enough notes yet to find topics.</p>}
         {topics.data?.topics.map((t, i) => (
-          <div key={i} style={{ marginBottom: '1rem' }}>
-            <strong>{t.terms.join(', ')}</strong> <span style={{ opacity: 0.7 }}>({t.size} notes)</span>
+          <div key={i} className="topic">
+            <div className="chips" style={{ alignItems: 'center' }}>
+              {t.terms.map((term) => <span key={term} className="badge badge-accent">{term}</span>)}
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{t.size} notes</span>
+            </div>
             <ul>{t.examples.map((e, j) => <li key={j}>{e}</li>)}</ul>
           </div>
         ))}
@@ -44,7 +51,7 @@ export default function InsightsPage() {
             {segments.data?.segments.map((s, i) => (
               <tr key={i}>
                 <td>{s.size}</td>
-                <td>{s.definingTraits.map((t) => `${t.direction} ${t.feature}`).join(', ')}</td>
+                <td>{s.definingTraits.map((t) => <span key={t.feature} className="badge" style={{ marginRight: 4 }}>{t.direction} {t.feature}</span>)}</td>
                 <td>{Math.round(s.averages.creditScore)}</td>
                 <td>{s.averages.originalLtv.toFixed(1)}</td>
                 <td>{Math.round(s.averages.originalUpb).toLocaleString()}</td>

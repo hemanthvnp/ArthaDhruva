@@ -1,12 +1,18 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { chatWithAssistant } from '../api/client';
 import ErrorBanner from '../components/ErrorBanner';
 
 interface Exchange {
   question: string;
-  answer: string;
+  answer: string | null; // null while the answer is still on its way
 }
+
+const SUGGESTIONS = [
+  'Why might this loan be considered high risk?',
+  'What should I check first before escalating this case?',
+  'Summarize the notes on this loan.',
+];
 
 /**
  * A single-turn Q&A panel over an LLM reachable via the LiteLLM proxy (see docker-compose.yml) --
@@ -22,74 +28,94 @@ export default function AssistantPage() {
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
   const [error, setError] = useState<unknown>(null);
   const [asking, setAsking] = useState(false);
+  const endRef = useRef<HTMLDivElement>(null);
 
-  const ask = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!question.trim()) return;
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [exchanges]);
+
+  const ask = async (text: string) => {
+    const askedQuestion = text.trim();
+    if (!askedQuestion || asking) return;
     setAsking(true);
     setError(null);
-    const askedQuestion = question.trim();
+    setQuestion('');
+    setExchanges((prev) => [...prev, { question: askedQuestion, answer: null }]);
     try {
       const result = await chatWithAssistant({ loanId: loanId.trim() || undefined, question: askedQuestion });
-      setExchanges((prev) => [...prev, { question: askedQuestion, answer: result.answer }]);
-      setQuestion('');
+      setExchanges((prev) => prev.map((x, i) => (i === prev.length - 1 ? { ...x, answer: result.answer } : x)));
     } catch (err) {
       setError(err);
+      setExchanges((prev) => prev.slice(0, -1));
+      setQuestion(askedQuestion);
     } finally {
       setAsking(false);
     }
   };
 
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    void ask(question);
+  };
+
   return (
     <div>
-      <h2>AI Assistant</h2>
-      <p className="page-subtitle">
-        Ask about a specific loan (fill in its Loan ID to ground the answer in its known
-        features, score, case status, and notes) or ask a general question. Each question is
-        independent -- the assistant doesn't remember earlier turns in this conversation yet.
-      </p>
-
-      <div className="card">
-        <form onSubmit={ask}>
-          <div className="field" style={{ maxWidth: 260, marginBottom: '0.8rem' }}>
-            <label htmlFor="assistantLoanId">Loan ID (optional)</label>
-            <input
-              id="assistantLoanId"
-              value={loanId}
-              onChange={(e) => setLoanId(e.target.value)}
-              placeholder="e.g. L-10293"
-            />
-          </div>
-          <div className="field" style={{ marginBottom: '0.8rem' }}>
-            <label htmlFor="assistantQuestion">Question</label>
-            <input
-              id="assistantQuestion"
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              placeholder="e.g. Why might this loan be considered high risk?"
-              autoFocus
-            />
-          </div>
-          <div className="actions">
-            <button type="submit" disabled={asking || !question.trim()}>
-              {asking ? 'Asking...' : 'Ask'}
-            </button>
-          </div>
-        </form>
-        <ErrorBanner error={error} />
+      <div className="page-head-row">
+        <div>
+          <h2>AI Assistant</h2>
+          <p className="page-subtitle">
+            Ask about a specific loan or a general question. Each question is independent: the assistant does not remember earlier
+            turns yet.
+          </p>
+        </div>
       </div>
 
-      {exchanges.length > 0 && (
-        <div className="card">
-          <h3>Conversation</h3>
+      <div className="chat">
+        <div className="chat-context">
+          <label htmlFor="assistantLoanId">Grounded in loan</label>
+          <input id="assistantLoanId" value={loanId} onChange={(e) => setLoanId(e.target.value)} placeholder="Loan ID (optional), e.g. L-10293" />
+          <span className="chat-hint">
+            {loanId.trim() ? 'Answers use this loan’s features, score, case status and notes.' : 'No loan selected: general questions only.'}
+          </span>
+        </div>
+
+        <div className="chat-thread" aria-live="polite">
+          {exchanges.length === 0 && (
+            <div className="chat-empty">
+              <p>Try one of these, or ask your own.</p>
+              <div className="chips">
+                {SUGGESTIONS.map((s) => (
+                  <button key={s} type="button" className="chip" onClick={() => void ask(s)}>{s}</button>
+                ))}
+              </div>
+            </div>
+          )}
           {exchanges.map((ex, i) => (
-            <div key={i} style={{ marginBottom: '1rem' }}>
-              <p style={{ fontWeight: 600, marginBottom: '0.25rem' }}>Q: {ex.question}</p>
-              <p className="page-subtitle" style={{ whiteSpace: 'pre-wrap' }}>{ex.answer}</p>
+            <div key={i}>
+              <div className="bubble me">{ex.question}</div>
+              {ex.answer === null ? (
+                <div className="bubble bot typing" aria-label="Assistant is thinking"><span /><span /><span /></div>
+              ) : (
+                <div className="bubble bot">{ex.answer}</div>
+              )}
             </div>
           ))}
+          <div ref={endRef} />
         </div>
-      )}
+
+        <ErrorBanner error={error} />
+        <form className="chat-input" onSubmit={submit}>
+          <input
+            id="assistantQuestion"
+            aria-label="Question"
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            placeholder="Ask a question…"
+            autoFocus
+          />
+          <button type="submit" disabled={asking || !question.trim()}>{asking ? 'Asking…' : 'Send'}</button>
+        </form>
+      </div>
     </div>
   );
 }

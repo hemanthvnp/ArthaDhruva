@@ -19,7 +19,7 @@ export default function RangeBar({ label, point, lower, upper, color, format }: 
         <span style={{ color: 'var(--text-muted)' }}>{label}</span>
         <span style={{ fontWeight: 600 }}>{format(point)}</span>
       </div>
-      <div style={{ position: 'relative', height: 10, background: '#eef1f5', borderRadius: 5 }}>
+      <div style={{ position: 'relative', height: 10, background: 'var(--surface-2)', borderRadius: 5 }}>
         <div
           style={{
             position: 'absolute',

@@ -79,7 +79,7 @@ export default function ManageUsersPage() {
                 <tr
                   key={u.username}
                   onClick={() => setUsername(u.username)}
-                  style={{ cursor: 'pointer', background: username === u.username ? 'var(--row-selected, #eef2ff)' : undefined }}
+                  style={{ cursor: 'pointer', background: username === u.username ? 'var(--accent-soft)' : undefined }}
                 >
                   <td>{u.username}</td>
                   <td><span className={`badge ${u.role === 'ADMIN' ? 'badge-accent' : ''}`}>{u.role.toLowerCase()}</span></td>
