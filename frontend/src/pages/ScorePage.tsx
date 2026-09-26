@@ -70,7 +70,6 @@ export default function ScorePage() {
     <div>
       <div className="page-head-row">
         <div>
-          <div className="eyebrow">Risk models</div>
           <h2>Default risk score</h2>
           <p className="page-subtitle">
             Probability of default from the LightGBM model, corrected by isotonic calibration. Give the loan an ID and the

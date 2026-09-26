@@ -65,7 +65,6 @@ export default function CasesPage() {
     <div>
       <div className="page-head-row">
         <div>
-          <div className="eyebrow">Portfolio</div>
           <h2>Cases</h2>
           <p className="page-subtitle">Every loan someone has acted on, with a live feed of recent notes across the portfolio.</p>
         </div>

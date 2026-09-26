@@ -409,7 +409,7 @@ tbody tr:last-child td { border-bottom: none; }
   z-index: 30;
 }
 .topbar .spacer { flex: 1; }
-.menu-btn { display: none; }
+.icon-btn.menu-btn { display: none; }
 
 .org-chip {
   display: inline-flex;
@@ -556,7 +556,7 @@ tbody tr:last-child td { border-bottom: none; }
   }
   .sidebar.open { transform: none; }
   .scrim { position: fixed; inset: 0; background: rgb(0 0 0 / 0.4); z-index: 65; }
-  .menu-btn { display: grid; }
+  .icon-btn.menu-btn { display: grid; }
   .content { padding: 1.25rem 1rem 2.5rem; }
   .topbar { padding: 0 1rem; }
   .field-grid { grid-template-columns: minmax(0, 1fr); }
@@ -666,3 +666,24 @@ tbody tr:last-child td { border-bottom: none; }
 .form-section .field-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 1000px) { .form-section .field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 600px) { .form-section .field-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- breadcrumb, form rows, virtual grid ---------- */
+
+.crumbs { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text-muted); min-width: 0; }
+.crumb:not(:last-child)::after { content: "/"; margin-left: 0.5rem; color: var(--border-strong); }
+.crumb.current { color: var(--text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.form-row { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; margin-bottom: 0.75rem; }
+.form-row input:not([type="checkbox"]) { min-width: 240px; flex: 1; max-width: 420px; }
+
+.grid-head { padding: 0.55rem 0; background: var(--surface-2); border-bottom: 1px solid var(--border); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+[role="columnheader"] { user-select: none; }
+[role="row"] > [role="cell"] { font-size: 0.88rem; }
+
+input[type="file"] { padding: 0.4rem; background: var(--surface-2); border-style: dashed; cursor: pointer; }
+input[type="file"]::file-selector-button { font: inherit; font-weight: 600; font-size: 0.85rem; margin-right: 0.75rem; padding: 0.35rem 0.8rem; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--surface); color: var(--text); cursor: pointer; }
+
+.chip input[type="checkbox"] { display: none; }
+
+.list-row > .sub { white-space: nowrap; flex: none; }
+.field input[type="checkbox"], .field input[type="radio"] { width: 1rem; }

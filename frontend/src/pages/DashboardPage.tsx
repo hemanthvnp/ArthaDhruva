@@ -185,7 +185,6 @@ export default function DashboardPage() {
     <div>
       <div className="page-head-row">
         <div>
-          <div className="eyebrow">Overview</div>
           <h2>Welcome back, {auth?.username}</h2>
           <p className="page-subtitle">Your layout is yours alone; colleagues keep their own.</p>
         </div>

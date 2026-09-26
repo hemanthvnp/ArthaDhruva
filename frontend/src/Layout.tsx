@@ -110,6 +110,23 @@ export default function Layout() {
 
   const groups =
     auth?.role === 'CLIENT' ? CLIENT_GROUPS : auth?.role === 'ADMIN' ? [...ANALYST_GROUPS, ADMIN_GROUP] : ANALYST_GROUPS;
+  const crumb = (() => {
+    const path = location.pathname;
+    let best: { group: string; item: NavItem } | null = null;
+    for (const g of groups) {
+      for (const item of g.items) {
+        if ((path === item.to || path.startsWith(item.to + '/')) && (!best || item.to.length > best.item.to.length)) {
+          best = { group: g.label, item };
+        }
+      }
+    }
+    if (best) {
+      const extra = path.slice(best.item.to.length).split('/').filter(Boolean).map(decodeURIComponent);
+      return [best.group, best.item.label, ...extra];
+    }
+    const acct = ACCOUNT_LINKS.find((a) => a.to === path);
+    return acct ? ['Account', acct.label] : [];
+  })();
   const isStaff = auth?.role === 'ANALYST' || auth?.role === 'ADMIN';
   // Cycle system -> light -> dark, showing the icon of the mode you'd switch to.
   const nextTheme: Theme = theme === 'system' ? 'light' : theme === 'light' ? 'dark' : 'system';
@@ -146,8 +163,13 @@ export default function Layout() {
             <button className="icon-btn menu-btn" aria-label="Open navigation" onClick={() => setNavOpen(true)}>
               <Icon name="menu" />
             </button>
+            <nav className="crumbs" aria-label="Breadcrumb">
+              {crumb.map((c, i) => (
+                <span key={i} className={i === crumb.length - 1 ? 'crumb current' : 'crumb'}>{c}</span>
+              ))}
+            </nav>
             <span className="org-chip">
-              {auth?.sandbox ? <span className="badge badge-medium">Sandbox</span> : <span className="badge badge-accent">Live</span>}
+              {auth?.sandbox && <span className="badge badge-medium">Sandbox</span>}
             </span>
             <span className="spacer" />
             {isStaff && <NotificationBell />}

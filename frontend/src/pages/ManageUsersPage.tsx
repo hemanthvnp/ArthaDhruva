@@ -82,11 +82,14 @@ export default function ManageUsersPage() {
                   style={{ cursor: 'pointer', background: username === u.username ? 'var(--row-selected, #eef2ff)' : undefined }}
                 >
                   <td>{u.username}</td>
-                  <td>{u.role}</td>
+                  <td><span className={`badge ${u.role === 'ADMIN' ? 'badge-accent' : ''}`}>{u.role.toLowerCase()}</span></td>
                   <td>
-                    {!u.enabled ? 'Disabled' : u.locked ? 'Locked' : !u.activated ? 'Pending activation' : 'Active'}
+                    {!u.enabled ? <span className="badge badge-high">Disabled</span>
+                      : u.locked ? <span className="badge badge-high">Locked</span>
+                      : !u.activated ? <span className="badge badge-medium">Pending</span>
+                      : <span className="badge badge-low">Active</span>}
                   </td>
-                  <td>{u.totpEnabled ? 'Enrolled' : '-'}</td>
+                  <td>{u.totpEnabled ? <span className="badge badge-low">Enrolled</span> : <span className="badge">Off</span>}</td>
                   <td>{u.loanIds.length || '-'}</td>
                   <td>{new Date(u.createdAt).toLocaleDateString()}</td>
                 </tr>

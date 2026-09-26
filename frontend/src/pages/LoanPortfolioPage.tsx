@@ -269,7 +269,7 @@ export default function LoanPortfolioPage() {
         )}
         {filteredSorted.length > 0 && (
           <div role="table" aria-label="Scored loans">
-            <div role="row" style={{ ...GRID, fontWeight: 600, borderBottom: '1px solid #3a4a68', padding: '0.4rem 0' }}>
+            <div role="row" className="grid-head" style={GRID}>
               <div role="columnheader" style={{ cursor: 'pointer' }} onClick={() => toggleSort('loanId')}>Loan ID{sortArrow('loanId')}</div>
               <div role="columnheader" style={{ cursor: 'pointer' }} onClick={() => toggleSort('calibratedProbability')}>Calibrated risk{sortArrow('calibratedProbability')}</div>
               <div role="columnheader">Band</div>

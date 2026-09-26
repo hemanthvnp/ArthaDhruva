@@ -65,7 +65,7 @@ export default function IntegrationsPage() {
       <div className="card">
         <h3>API keys</h3>
         <p className="page-subtitle">For programmatic batch loading at <code>POST /v1/ingest/loans</code> (header <code>X-API-Key</code>). A key can do nothing else.</p>
-        <div style={{ display: 'flex', gap: '0.6rem' }}>
+        <div className="form-row">
           <input placeholder="Key name" value={keyName} onChange={(e) => setKeyName(e.target.value)} />
           <button onClick={() => addKey.mutate()} disabled={!keyName}>Create key</button>
         </div>
@@ -86,10 +86,10 @@ export default function IntegrationsPage() {
 
       <div className="card">
         <h3>Webhooks</h3>
-        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div className="form-row">
           <input placeholder="https://example.com/hook" value={url} onChange={(e) => setUrl(e.target.value)} style={{ minWidth: 280 }} />
           {EVENTS.map((e) => (
-            <label key={e}><input type="checkbox" checked={events.includes(e)} onChange={() => toggleEvent(e)} /> {e}</label>
+            <label key={e} className={`chip${events.includes(e) ? ' on' : ''}`}><input type="checkbox" checked={events.includes(e)} onChange={() => toggleEvent(e)} /> {e}</label>
           ))}
           <button onClick={() => addHook.mutate()} disabled={!url || events.length === 0}>Add</button>
         </div>

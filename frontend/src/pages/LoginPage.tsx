@@ -64,8 +64,9 @@ export default function LoginPage() {
   return (
     <div className="auth-page">
       <form onSubmit={submit} className="auth-card">
-        <h2 style={{ marginBottom: '0.25rem' }}>ArthaDhruva Risk Console</h2>
-        <p className="page-subtitle">Sign in to continue</p>
+        <div className="brand"><span className="brand-mark">A</span>ArthaDhruva</div>
+        <h2>Sign in</h2>
+        <p className="page-subtitle">Access your organization's risk console.</p>
 
         <div className="field" style={{ marginBottom: '0.8rem' }}>
           <label htmlFor="org-slug">Organization</label>

@@ -234,7 +234,6 @@ export default function LoanDetailPage() {
       </p>
       <div className="page-head-row">
         <div>
-          <div className="eyebrow">Loan</div>
           <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
             <span style={{ fontVariantNumeric: 'tabular-nums' }}>{loanId}</span>
             {(pdResult ?? lastScore) && <RiskBadge probability={(pdResult ?? lastScore)!.calibratedProbability} />}
@@ -260,6 +259,7 @@ export default function LoanDetailPage() {
         </p>
       )}
 
+      <div className="widget-grid" style={{ marginBottom: '1.25rem' }}>
       <div className="card">
         <h3>Default risk &amp; expected loss</h3>
         {lastScore && (
@@ -374,6 +374,8 @@ export default function LoanDetailPage() {
             <Link to="/regime-forecast">Regime Forecast</Link> for other horizons.
           </p>
         )}
+      </div>
+
       </div>
 
       <div className="card">
