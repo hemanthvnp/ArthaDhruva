@@ -2,23 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { listLoanCatalog, listLoanScores, score } from '../api/client';
 import ErrorBanner from '../components/ErrorBanner';
+import RiskBadge, { riskBand, type RiskBand } from '../components/RiskBadge';
 import VirtualList from '../components/VirtualList';
 import { getRecentLoans } from '../recentLoans';
 import type { LoanFeatures, LoanScoreSummary, ScoreResponse } from '../api/types';
 
-type RiskBand = 'LOW' | 'MEDIUM' | 'HIGH';
 type SortKey = 'loanId' | 'calibratedProbability' | 'computedAt';
 
-/** Thresholds are a judgment call, roughly matched to the spread actually observed across this
- * project's own sampled/seeded loans (which ranges from well under 1% to the mid-20s%). */
-function riskBand(calibratedProbability: number): RiskBand {
-  if (calibratedProbability < 0.02) return 'LOW';
-  if (calibratedProbability < 0.1) return 'MEDIUM';
-  return 'HIGH';
-}
-
-const BAND_COLOR: Record<RiskBand, string> = { LOW: '#2e7d32', MEDIUM: '#b8860b', HIGH: '#c0392b' };
-const BAND_LABEL: Record<RiskBand, string> = { LOW: 'Low', MEDIUM: 'Medium', HIGH: 'High' };
+const BAND_COLOR: Record<RiskBand, string> = { LOW: 'var(--ok)', MEDIUM: 'var(--warn)', HIGH: 'var(--danger)' };
 
 function toCsv(rows: LoanScoreSummary[]): string {
   const header = 'loanId,calibratedProbability,rawProbability,computedAt,riskBand';
@@ -291,12 +282,11 @@ export default function LoanPortfolioPage() {
               rowHeight={38}
               height={Math.min(480, filteredSorted.length * 38)}
               renderRow={(s) => {
-                const band = riskBand(s.calibratedProbability);
                 return (
                   <div role="row" style={{ ...GRID, alignItems: 'center', height: 38 }}>
                     <div role="cell"><Link to={`/loans/${encodeURIComponent(s.loanId)}`}>{s.loanId}</Link></div>
                     <div role="cell">{(s.calibratedProbability * 100).toFixed(3)}%</div>
-                    <div role="cell" style={{ color: BAND_COLOR[band], fontWeight: 600 }}>{BAND_LABEL[band]}</div>
+                    <div role="cell"><RiskBadge probability={s.calibratedProbability} /></div>
                     <div role="cell">{(s.rawProbability * 100).toFixed(2)}%</div>
                     <div role="cell">{new Date(s.computedAt).toLocaleString()}</div>
                   </div>

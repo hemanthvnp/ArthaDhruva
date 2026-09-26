@@ -20,6 +20,7 @@ import {
 } from '../api/client';
 import { recordLoanVisit } from '../recentLoans';
 import ErrorBanner from '../components/ErrorBanner';
+import RiskBadge from '../components/RiskBadge';
 import type {
   AttachmentView,
   EarlyWarningCatalogEntry,
@@ -228,14 +229,19 @@ export default function LoanDetailPage() {
 
   return (
     <div>
-      <p className="page-subtitle">
-        <Link to="/loans">&larr; Back to Loan Portfolio</Link>
+      <p className="page-subtitle" style={{ marginBottom: '0.5rem' }}>
+        <Link to="/loans">&larr; Loan Portfolio</Link>
       </p>
-      <h2>Loan {loanId}</h2>
-      <p className="page-subtitle">
-        Every model's view of this one loan, side by side, plus the human review workflow around
-        it -- instead of navigating between five separate tool pages.
-      </p>
+      <div className="page-head-row">
+        <div>
+          <div className="eyebrow">Loan</div>
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <span style={{ fontVariantNumeric: 'tabular-nums' }}>{loanId}</span>
+            {(pdResult ?? lastScore) && <RiskBadge probability={(pdResult ?? lastScore)!.calibratedProbability} />}
+          </h2>
+          <p className="page-subtitle">Every model's view of this loan, plus the review workflow around it.</p>
+        </div>
+      </div>
       {clients && (
         <p className="page-subtitle">
           {clients.length === 0
