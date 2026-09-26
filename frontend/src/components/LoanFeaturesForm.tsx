@@ -1,3 +1,4 @@
+import type React from 'react';
 import type { LoanFeatures } from '../api/types';
 
 // Real category codes the PD model was trained on (backend/risk-engine/.../category_mappings.json),
@@ -98,39 +99,59 @@ export default function LoanFeaturesForm({ value, onChange, showLoanId }: Props)
     </div>
   );
 
+  const section = (title: string, children: React.ReactNode) => (
+    <div className="form-section">
+      <div className="section-title">{title}</div>
+      <div className="field-grid">{children}</div>
+    </div>
+  );
+
   return (
-    <div className="field-grid">
-      {showLoanId && (
-        <div className="field">
-          <label htmlFor="loanId">Loan ID (optional)</label>
-          <input
-            id="loanId"
-            type="text"
-            value={value.loanId ?? ''}
-            onChange={(e) => set('loanId', e.target.value || undefined)}
-            placeholder="for caching + later lookup"
-          />
-        </div>
+    <div>
+      {showLoanId &&
+        section(
+          'Identification',
+          <div className="field">
+            <label htmlFor="loanId">Loan ID (optional)</label>
+            <input
+              id="loanId"
+              type="text"
+              value={value.loanId ?? ''}
+              onChange={(e) => set('loanId', e.target.value || undefined)}
+              placeholder="for caching + later lookup"
+            />
+          </div>,
+        )}
+      {section(
+        'Borrower',
+        <>
+          {numberField('creditScore', 'Credit score (300-850)')}
+          {numberField('originalDti', 'DTI (%)', 0.1)}
+          {numberField('numberOfBorrowers', 'Number of borrowers')}
+          {selectField('firstTimeHomebuyerFlag', 'First-time homebuyer', FIRST_TIME_HOMEBUYER)}
+        </>,
       )}
-      {numberField('creditScore', 'Credit score (300-850)')}
-      {numberField('originalDti', 'DTI (%)', 0.1)}
-      {numberField('originalUpb', 'Original UPB ($)', 1000)}
-      {numberField('originalCltv', 'CLTV (%)', 0.1)}
-      {numberField('originalLtv', 'LTV (%)', 0.1)}
-      {numberField('originalInterestRate', 'Interest rate (%)', 0.01)}
-      {numberField('originalLoanTerm', 'Loan term (months)')}
-      {numberField('numberOfBorrowers', 'Number of borrowers')}
-      {numberField('numberOfUnits', 'Number of units')}
-      {numberField('miPercent', 'MI percent (%)', 0.1)}
-      {selectField('occupancyStatus', 'Occupancy status', OCCUPANCY_STATUS)}
-      {selectField('propertyType', 'Property type', PROPERTY_TYPE)}
-      {selectField('loanPurpose', 'Loan purpose', LOAN_PURPOSE)}
-      {selectField('channel', 'Channel', CHANNEL)}
-      {selectField('firstTimeHomebuyerFlag', 'First-time homebuyer', FIRST_TIME_HOMEBUYER)}
-      {selectField(
-        'propertyState',
-        'Property state',
-        PROPERTY_STATE.map((s) => ({ value: s, label: s })),
+      {section(
+        'Loan terms',
+        <>
+          {numberField('originalUpb', 'Original UPB ($)', 1000)}
+          {numberField('originalInterestRate', 'Interest rate (%)', 0.01)}
+          {numberField('originalLoanTerm', 'Loan term (months)')}
+          {numberField('miPercent', 'MI percent (%)', 0.1)}
+          {selectField('loanPurpose', 'Loan purpose', LOAN_PURPOSE)}
+          {selectField('channel', 'Channel', CHANNEL)}
+        </>,
+      )}
+      {section(
+        'Property and collateral',
+        <>
+          {numberField('originalLtv', 'LTV (%)', 0.1)}
+          {numberField('originalCltv', 'CLTV (%)', 0.1)}
+          {numberField('numberOfUnits', 'Number of units')}
+          {selectField('propertyType', 'Property type', PROPERTY_TYPE)}
+          {selectField('occupancyStatus', 'Occupancy status', OCCUPANCY_STATUS)}
+          {selectField('propertyState', 'Property state', PROPERTY_STATE.map((st) => ({ value: st, label: st })))}
+        </>,
       )}
     </div>
   );

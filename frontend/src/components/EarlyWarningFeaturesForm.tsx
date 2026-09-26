@@ -1,3 +1,4 @@
+import type React from 'react';
 import type { EarlyWarningFeatures } from '../api/types';
 
 // Same real category codes as LoanFeaturesForm (backend/risk-engine/.../early_warning_category_mappings.json).
@@ -129,44 +130,72 @@ export default function EarlyWarningFeaturesForm({ value, onChange }: Props) {
     </div>
   );
 
+  const section = (title: string, children: React.ReactNode) => (
+    <div className="form-section">
+      <div className="section-title">{title}</div>
+      <div className="field-grid">{children}</div>
+    </div>
+  );
+
   return (
-    <div className="field-grid">
-      {numberField('creditScore', 'Credit score (300-850)')}
-      {numberField('originalDti', 'Original DTI (%)', 0.1)}
-      {numberField('originalUpb', 'Original UPB ($)', 1000)}
-      {numberField('originalCltv', 'Original CLTV (%)', 0.1)}
-      {numberField('originalLtv', 'Original LTV (%)', 0.1)}
-      {numberField('originalInterestRate', 'Original interest rate (%)', 0.01)}
-      {numberField('originalLoanTerm', 'Loan term (months)')}
-      {numberField('numberOfBorrowers', 'Number of borrowers')}
-      {numberField('numberOfUnits', 'Number of units')}
-      {numberField('miPercent', 'MI percent (%)', 0.1)}
-      {numberField('loanAge', 'Loan age (months)')}
-      {numberField('eltv', 'Estimated LTV, current (%)', 0.1)}
-      {numberField('currentInterestRate', 'Current interest rate (%)', 0.01)}
-      {numberField('upbPaydownRatio', 'UPB paydown ratio', 0.01)}
-      {numberField('rateLockSeverity', 'Rate-lock severity', 0.01)}
-      {numberField('eltvChange3m', 'eLTV change, 3mo', 0.1)}
-      {numberField('upbPaydownChange3m', 'UPB paydown change, 3mo', 0.01)}
-      {numberField('rateLockSeverityChange3m', 'Rate-lock severity change, 3mo', 0.01)}
-      {numberField('eltvChange6m', 'eLTV change, 6mo', 0.1)}
-      {numberField('upbPaydownChange6m', 'UPB paydown change, 6mo', 0.01)}
-      {numberField('rateLockSeverityChange6m', 'Rate-lock severity change, 6mo', 0.01)}
-      {selectField('occupancyStatus', 'Occupancy status', OCCUPANCY_STATUS)}
-      {selectField('propertyType', 'Property type', PROPERTY_TYPE)}
-      {selectField('loanPurpose', 'Loan purpose', LOAN_PURPOSE)}
-      {selectField('channel', 'Channel', CHANNEL)}
-      {selectField('firstTimeHomebuyerFlag', 'First-time homebuyer', FIRST_TIME_HOMEBUYER)}
-      {selectField(
-        'propertyState',
-        'Property state',
-        PROPERTY_STATE.map((s) => ({ value: s, label: s })),
+    <div>
+      {section(
+        'Borrower and loan at origination',
+        <>
+          {numberField('creditScore', 'Credit score (300-850)')}
+          {numberField('originalDti', 'Original DTI (%)', 0.1)}
+          {numberField('originalUpb', 'Original UPB ($)', 1000)}
+          {numberField('originalInterestRate', 'Original interest rate (%)', 0.01)}
+          {numberField('originalLoanTerm', 'Loan term (months)')}
+          {numberField('numberOfBorrowers', 'Number of borrowers')}
+          {numberField('miPercent', 'MI percent (%)', 0.1)}
+          {selectField('loanPurpose', 'Loan purpose', LOAN_PURPOSE)}
+          {selectField('channel', 'Channel', CHANNEL)}
+          {selectField('firstTimeHomebuyerFlag', 'First-time homebuyer', FIRST_TIME_HOMEBUYER)}
+        </>,
       )}
-      {selectField('hmmRegime', 'Macro regime (as of snapshot month)', HMM_REGIME)}
-      {checkboxField('priorAssistance', 'Prior forbearance/assistance')}
-      {checkboxField('priorModification', 'Prior modification')}
-      {checkboxField('priorDisaster', 'Prior disaster flag')}
-      {checkboxField('upbStalled', 'UPB paydown stalled')}
+      {section(
+        'Property and collateral',
+        <>
+          {numberField('originalLtv', 'Original LTV (%)', 0.1)}
+          {numberField('originalCltv', 'Original CLTV (%)', 0.1)}
+          {numberField('numberOfUnits', 'Number of units')}
+          {selectField('propertyType', 'Property type', PROPERTY_TYPE)}
+          {selectField('occupancyStatus', 'Occupancy status', OCCUPANCY_STATUS)}
+          {selectField('propertyState', 'Property state', PROPERTY_STATE.map((s) => ({ value: s, label: s })))}
+        </>,
+      )}
+      {section(
+        'Current position',
+        <>
+          {numberField('loanAge', 'Loan age (months)')}
+          {numberField('eltv', 'Estimated LTV, current (%)', 0.1)}
+          {numberField('currentInterestRate', 'Current interest rate (%)', 0.01)}
+          {numberField('upbPaydownRatio', 'UPB paydown ratio', 0.01)}
+          {numberField('rateLockSeverity', 'Rate-lock severity', 0.01)}
+          {selectField('hmmRegime', 'Macro regime (as of snapshot month)', HMM_REGIME)}
+        </>,
+      )}
+      {section(
+        'Recent change',
+        <>
+          {numberField('eltvChange3m', 'eLTV change, 3mo', 0.1)}
+          {numberField('upbPaydownChange3m', 'UPB paydown change, 3mo', 0.01)}
+          {numberField('rateLockSeverityChange3m', 'Rate-lock severity change, 3mo', 0.01)}
+          {numberField('eltvChange6m', 'eLTV change, 6mo', 0.1)}
+          {numberField('upbPaydownChange6m', 'UPB paydown change, 6mo', 0.01)}
+          {numberField('rateLockSeverityChange6m', 'Rate-lock severity change, 6mo', 0.01)}
+        </>,
+      )}
+      {section(
+        'History flags',
+        <>
+          {checkboxField('priorAssistance', 'Prior forbearance/assistance')}
+          {checkboxField('priorModification', 'Prior modification')}
+          {checkboxField('priorDisaster', 'Prior disaster flag')}
+          {checkboxField('upbStalled', 'UPB paydown stalled')}
+        </>,
+      )}
     </div>
   );
 }
