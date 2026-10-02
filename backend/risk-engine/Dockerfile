@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Stage 1: build. Dependencies are resolved in their own layer so a source-only change reuses the
 # cached ~200MB of jars instead of re-downloading them.
-FROM maven:3.9-eclipse-temurin-17 AS build
+FROM maven:3-eclipse-temurin-24 AS build
 WORKDIR /build
 COPY pom.xml .
 RUN mvn -q -B dependency:go-offline
