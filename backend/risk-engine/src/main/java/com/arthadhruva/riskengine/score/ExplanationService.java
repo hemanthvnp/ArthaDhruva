@@ -234,13 +234,10 @@ public class ExplanationService {
 
     private static String number(Object value) {
         if (value instanceof Number n) {
-            double d = n.doubleValue();
-            // Only route through the integer format within a range the long cast can represent exactly;
-            // a loan-derived value near that bound falls back to the decimal format instead of truncating.
-            if (d == Math.rint(d) && Math.abs(d) < 1e15) {
-                return String.format(Locale.ROOT, "%,d", (long) d);
-            }
-            return String.format(Locale.ROOT, "%.1f", d);
+            // Clamped, not just range-checked: the cast below only ever sees a value already bounded to a
+            // range a long represents exactly, so a loan-derived figure can't drive it into truncation.
+            double d = Math.max(-1e15, Math.min(1e15, n.doubleValue()));
+            return d == Math.rint(d) ? String.format(Locale.ROOT, "%,d", (long) d) : String.format(Locale.ROOT, "%.1f", d);
         }
         return String.valueOf(value);
     }

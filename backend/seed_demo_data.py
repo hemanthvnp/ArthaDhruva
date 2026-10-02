@@ -9,9 +9,9 @@ serves (its own portfolio, or the built-in catalog), so no local dataset is need
 Sign-in for the administrator, one of:
   ADMIN_TOKEN=<bearer token>                      a session you already have
   ADMIN_PASSWORD=<password>                       the bootstrap admin's password from the start-up log.
-                                                  On its first sign-in the script enrols the second factor
-                                                  and prints the secret: add it to an authenticator app,
-                                                  it is the only copy.
+                                                  On its first sign-in the script enrols the second factor;
+                                                  its secret, and every other account created or reset,
+                                                  ends up in backend/demo-credentials.txt (gitignored).
   ADMIN_PASSWORD=... ADMIN_TOTP_SECRET=<secret>   an administrator who is already enrolled
 
 Other settings: RISK_ENGINE_URL (default http://localhost:8080), ORG_SLUG (default legacy),
@@ -284,18 +284,30 @@ def main() -> None:
         login(api, client["username"], client["password"])
 
     print("\n" + "=" * 78)
-    # Deliberately on the console, not a log file: these are freshly generated, single-use demo
-    # credentials with no other delivery channel, and this script is a local/operator tool, never a
-    # service whose output is collected anywhere.
+    # Credentials go to a local, gitignored file rather than the console: a freshly generated secret
+    # printed to stdout lingers in terminal scrollback, tmux history and any CI log capture for as long
+    # as that history is kept, with no way to redact it after the fact. A file the operator opens once
+    # and the .gitignore blocks from ever being committed has the same one-time-delivery property
+    # without that open-ended exposure.
+    lines = []
     if admin_secret:
-        print(f"ADMINISTRATOR {ADMIN_USERNAME}: two-factor secret {admin_secret}")  # lgtm[py/clear-text-logging-sensitive-data]
-        print("  Add it to an authenticator app now. It is not stored anywhere else.")
+        lines.append(f"ADMINISTRATOR {ADMIN_USERNAME}: two-factor secret {admin_secret}")
+        lines.append("  Add it to an authenticator app now. It is not stored anywhere else.")
     if analyst:
-        print(f"ANALYST       {analyst['username']}  password {analyst['password']}  two-factor secret {analyst['secret']}")  # lgtm[py/clear-text-logging-sensitive-data]
+        lines.append(f"ANALYST       {analyst['username']}  password {analyst['password']}  two-factor secret {analyst['secret']}")
     for client in clients:
         password = client["password"] or "(unchanged from an earlier run)"
         risk = f"  default risk {scores[client['loan_id']]:.2%}" if client["loan_id"] in scores else ""
-        print(f"BORROWER      {client['username']:<15} password {password}  loan {client['loan_id']}{risk}")  # lgtm[py/clear-text-logging-sensitive-data]
+        lines.append(f"BORROWER      {client['username']:<15} password {password}  loan {client['loan_id']}{risk}")
+    creds_path = os.path.join(os.path.dirname(__file__), "demo-credentials.txt")
+    with open(creds_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+    try:
+        os.chmod(creds_path, 0o600)
+    except OSError:
+        pass   # best-effort outside POSIX; the file is still gitignored and local-only
+    print(f"Credentials for the accounts just created or reset: {creds_path}")
+    print("(gitignored, local only -- open it once, then delete it)")
     print(f"Organization: {ORG_SLUG}")
     if failures:
         print(f"\n{len(failures)} step(s) failed; the others completed:")

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { CHANGED, STORAGE_KEY, getStoredAuth, type AuthState } from './session';
+import { CHANGED, STORAGE_KEY, clearStoredAuth, getStoredAuth, storeAuth, type AuthState } from './session';
 import { AuthContext } from './useAuth';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -19,18 +19,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Persistence itself is session.ts's job (storeAuth/clearStoredAuth) for every sign-in path, including
+  // this one: the token is short-lived and rotated roughly every minute (AuthState.expiresAt/obtainedAt
+  // and the API client's refresh logic), so localStorage's XSS exposure window is one rotation, not the
+  // session lifetime. An httpOnly cookie would trade that for CSRF handling this API doesn't otherwise need.
   const login = (state: AuthState) => {
-    // A deliberate trade-off, not an oversight: the token is short-lived and rotated roughly every
-    // minute (see AuthState.expiresAt/obtainedAt and the API client's refresh logic), so localStorage's
-    // XSS exposure window is one rotation, not the session lifetime -- the same storage this app's own
-    // session.ts uses for the regular sign-in path. An httpOnly cookie would trade that for CSRF handling
-    // this API doesn't otherwise need.
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); // lgtm[js/clear-text-storage-of-sensitive-data]
+    storeAuth(state);
     setAuth(state);
   };
 
   const logout = () => {
-    localStorage.removeItem(STORAGE_KEY);
+    clearStoredAuth();
     setAuth(null);
   };
 
