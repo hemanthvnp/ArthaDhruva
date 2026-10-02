@@ -31,7 +31,7 @@ services:
 
   postgres:
     <<: *hardening
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     networks: [data]
     environment:
       POSTGRES_DB: arthadhruva
@@ -56,7 +56,7 @@ services:
 
   redis:
     <<: *hardening
-    image: redis:7-alpine
+    image: redis:8-alpine
     networks: [data]
     user: redis
     command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
@@ -192,7 +192,7 @@ services:
   # host today, not as its own compose service.
   prometheus:
     <<: *hardening
-    image: prom/prometheus:v2.55.1
+    image: prom/prometheus:v3.15.0
     profiles: ["observability"]
     networks: [observability]
     ports:
@@ -205,7 +205,7 @@ services:
 
   grafana:
     <<: *hardening
-    image: grafana/grafana:11.3.0
+    image: grafana/grafana:13.2.3
     profiles: ["observability"]
     networks: [observability]
     ports:
@@ -226,7 +226,7 @@ services:
 
   loki:
     <<: *hardening
-    image: grafana/loki:3.2.1
+    image: grafana/loki:3.7.8
     profiles: ["observability"]
     networks: [observability]
     ports:
@@ -237,7 +237,7 @@ services:
 
   promtail:
     <<: *hardening
-    image: grafana/promtail:3.2.1
+    image: grafana/promtail:3.6.8
     profiles: ["observability"]
     networks: [observability, dockerapi]
     environment:
@@ -267,7 +267,7 @@ services:
 
   jaeger:
     <<: *hardening
-    image: jaegertracing/all-in-one:1.65.0
+    image: jaegertracing/all-in-one:1.76.0
     profiles: ["observability"]
     networks: [observability]
     ports:
@@ -283,7 +283,7 @@ services:
   # reaches the backend. Opt-in like the observability stack; ports overridable via env.
   nginx:
     <<: *hardening
-    image: nginx:1.27
+    image: nginx:1.31
     profiles: ["edge"]
     networks: [edge]
     cap_add: [CHOWN, SETUID, SETGID, NET_BIND_SERVICE]
