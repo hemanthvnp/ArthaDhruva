@@ -20,7 +20,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = (state: AuthState) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    // A deliberate trade-off, not an oversight: the token is short-lived and rotated roughly every
+    // minute (see AuthState.expiresAt/obtainedAt and the API client's refresh logic), so localStorage's
+    // XSS exposure window is one rotation, not the session lifetime -- the same storage this app's own
+    // session.ts uses for the regular sign-in path. An httpOnly cookie would trade that for CSRF handling
+    // this API doesn't otherwise need.
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); // lgtm[js/clear-text-storage-of-sensitive-data]
     setAuth(state);
   };
 

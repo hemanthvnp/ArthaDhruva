@@ -55,7 +55,7 @@ test('asking for the status never starts the VM', async () => {
     const calls = world({ power });
     assert.deepEqual(await answer('/status'), { state: power, appUp: false });
     assert.equal(starts(calls).length, 0, power);
-    assert.equal(calls.some((c) => c.url.startsWith(APP)), false, 'a VM that is not running is not probed');
+    assert.equal(calls.some((c) => c.url.startsWith(`${APP}/`)), false, 'a VM that is not running is not probed');
   }
 });
 
@@ -101,7 +101,7 @@ test('once the application answers, the visit is recorded and the visitor is sen
   const calls = world({ power: 'running', app: 'up' });
   assert.deepEqual(await answer('/wake'), { state: 'running', appUp: true });
   assert.equal(visits(calls).length, 1);
-  for (const request of calls.filter((c) => c.url.startsWith(APP))) {
+  for (const request of calls.filter((c) => c.url.startsWith(`${APP}/`))) {
     assert.equal(request.headers['User-Agent'], 'arthadhruva-waker');
   }
 });

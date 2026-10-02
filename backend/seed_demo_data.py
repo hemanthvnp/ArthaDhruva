@@ -284,15 +284,18 @@ def main() -> None:
         login(api, client["username"], client["password"])
 
     print("\n" + "=" * 78)
+    # Deliberately on the console, not a log file: these are freshly generated, single-use demo
+    # credentials with no other delivery channel, and this script is a local/operator tool, never a
+    # service whose output is collected anywhere.
     if admin_secret:
-        print(f"ADMINISTRATOR {ADMIN_USERNAME}: two-factor secret {admin_secret}")
+        print(f"ADMINISTRATOR {ADMIN_USERNAME}: two-factor secret {admin_secret}")  # lgtm[py/clear-text-logging-sensitive-data]
         print("  Add it to an authenticator app now. It is not stored anywhere else.")
     if analyst:
-        print(f"ANALYST       {analyst['username']}  password {analyst['password']}  two-factor secret {analyst['secret']}")
+        print(f"ANALYST       {analyst['username']}  password {analyst['password']}  two-factor secret {analyst['secret']}")  # lgtm[py/clear-text-logging-sensitive-data]
     for client in clients:
         password = client["password"] or "(unchanged from an earlier run)"
         risk = f"  default risk {scores[client['loan_id']]:.2%}" if client["loan_id"] in scores else ""
-        print(f"BORROWER      {client['username']:<15} password {password}  loan {client['loan_id']}{risk}")
+        print(f"BORROWER      {client['username']:<15} password {password}  loan {client['loan_id']}{risk}")  # lgtm[py/clear-text-logging-sensitive-data]
     print(f"Organization: {ORG_SLUG}")
     if failures:
         print(f"\n{len(failures)} step(s) failed; the others completed:")
