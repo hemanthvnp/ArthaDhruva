@@ -19,7 +19,7 @@ jobs:
     name: Secret scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0   # the whole history: a secret removed by a later commit is still exposed
 
@@ -32,7 +32,7 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Refuse new dependencies with known vulnerabilities
         uses: actions/dependency-review-action@v5.0.0
@@ -52,7 +52,7 @@ jobs:
       matrix:
         language: [java-kotlin, javascript-typescript, python, actions]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: github/codeql-action/init@v4
         with:
@@ -71,7 +71,7 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build the backend image
         run: docker build --pull -t risk-engine:scan backend/risk-engine
