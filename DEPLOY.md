@@ -16,14 +16,29 @@ tier. Plan on 60 to 90 minutes the first time.
   secrets, and the app refuses to start on a missing secret or a leftover dev default.
 - A real certificate that renews itself.
 - Push to `prod`, CI passes, the server redeploys itself (GitHub Actions over SSH).
-- Nightly database backups.
+- Nightly backups of the database and the uploaded documents, with a tested restore.
 
-**How much of this has been verified.** The compose overlay, Caddy, nginx real-IP handling,
-`deploy/backup.sh`, the frontend build container and the fresh-install first login were all rehearsed
-end to end on a laptop under the `production` profile (this caught and fixed a broken
-`scripts/gen-secrets.sh`). The Oracle-specific steps (account, VM, firewall) and the SSH deploy job
-have **not** been run against a real Oracle VM yet; treat your first run as the final test, and the
-troubleshooting table at the bottom lists what usually goes wrong.
+**How much of this has been verified.** Parts 2 to 5 were first rehearsed on a laptop under the
+`production` profile and then run on a real server (Ubuntu 24.04 on an Azure VM, see "Any other
+Ubuntu server" below): Docker and swap, secrets, the frontend and image builds, a Let's Encrypt
+certificate through Caddy, sign-in through both proxies, a reboot that brings the whole stack back
+unattended in under a minute, the nightly backup, a restore of that backup into a second, empty
+stack on the same server, and the wake-on-visit cycle of step 13 (the VM turning itself off, and a
+browser bringing it back). Four things only showed up by doing it for real:
+
+- Piping a dump straight into `psql` silently loses the application's database roles and every
+  grant; `deploy/restore.sh` exists because of that.
+- On Linux the backend's unprivileged user could not read the secret files. Docker Desktop does not
+  enforce host file permissions, so the laptop never showed it; `scripts/gen-secrets.sh` now sets
+  permissions that work.
+- An earlier `scripts/gen-secrets.sh` wrote a corrupted line.
+- Crawlers found the new hostname within the hour (certificates are published) and loaded the whole
+  page. "Any request" is therefore not a usable definition of a visitor for step 13, and the site
+  now serves a `robots.txt`.
+
+Still **not** run: the Oracle-specific steps of Part 1 (account, VM, firewall) and the SSH deploy job
+of step 10. Treat your first run of those as the final test; the troubleshooting table at the bottom
+lists what usually goes wrong.
 
 Free-tier terms change. Check Oracle's current Always Free limits before you rely on them.
 
@@ -76,6 +91,27 @@ chmod 600 ~/Downloads/ssh-key-*.key
 ssh -i ~/Downloads/ssh-key-*.key ubuntu@<PUBLIC_IP>
 ```
 
+### Any other Ubuntu server
+Only Part 1 is about Oracle. Everything from Part 2 on works on any Ubuntu 24.04 server, x86 or ARM,
+with about 4 GB of memory, a public IP and ports 22, 80 and 443 open. Oracle's free ARM shape is often
+out of capacity; an Azure VM is one way not to wait (the Azure for Students credit covers a 2 vCPU,
+4 GB `B2als_v2` for a few months). From Azure Cloud Shell:
+
+```bash
+az group create -n artha-rg -l centralindia
+az vm create -g artha-rg -n artha --image Ubuntu2404 --size Standard_B2als_v2 --admin-username ubuntu \
+  --ssh-key-values "<your SSH public key>" --os-disk-size-gb 64 --storage-sku StandardSSD_LRS
+az vm open-port -g artha-rg -n artha --port 80 --priority 1010
+az vm open-port -g artha-rg -n artha --port 443 --priority 1020
+az vm show -d -g artha-rg -n artha --query publicIps -o tsv
+```
+
+Azure's image has no host firewall of its own, so step 3b does not apply. Compute is billed only
+while the VM is allocated: `az vm deallocate -g artha-rg -n artha` stops the charge (the disk and the
+address remain, and remain billed), and after `az vm start -g artha-rg -n artha` the stack comes back
+by itself. Shutting down from inside the VM does not stop the billing. Step 13 automates both
+directions.
+
 ---
 
 ## Part 2: A free hostname
@@ -106,6 +142,11 @@ docker compose version          # should print v2 or later
 sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
 sudo mkswap /swapfile && sudo swapon /swapfile
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+
+# Container logs rotate instead of growing until the disk is full. Do this before the first deploy:
+# it applies to containers created afterwards.
+echo '{ "log-driver": "json-file", "log-opts": { "max-size": "10m", "max-file": "5" } }' | sudo tee /etc/docker/daemon.json
+sudo systemctl restart docker
 ```
 
 ### 6. Get the code (the repository is public, so no credentials are needed)
@@ -181,18 +222,75 @@ passes on `prod`. Without the secrets the job skips itself.
 ### 11. Backups
 ```bash
 mkdir -p ~/backups
-( crontab -l 2>/dev/null; echo '0 3 * * * /home/ubuntu/ArthaDhruva/deploy/backup.sh >> /home/ubuntu/backups/backup.log 2>&1' ) | crontab -
+( crontab -l 2>/dev/null; echo '0 3 * * * bash /home/ubuntu/ArthaDhruva/deploy/backup.sh >> /home/ubuntu/backups/backup.log 2>&1' ) | crontab -
 bash deploy/backup.sh            # run once now to confirm
 ```
-This keeps the newest 7 dumps on the VM. A backup on the same disk does not survive losing the VM, so
-also copy them off-box (free options: `rclone` to a cloud bucket, or a periodic `scp` to your
-laptop). **Restore:** `gunzip -c backup.sql.gz | docker compose ... exec -T postgres psql -U arthadhruva -d arthadhruva`
-into an empty database.
+Each night this writes two files and keeps the newest 7 of each: the database
+(`arthadhruva-<time>.sql.gz`) and the uploaded loan documents (`arthadhruva-<time>.files.tar.gz`).
+Redis is a cache and Neo4j is reloaded at startup, so neither needs one.
+
+Two things the script cannot do for you:
+
+- **Copy the files off the server.** A backup on the same disk does not survive losing the VM (free
+  options: `rclone` to a cloud bucket, or a periodic `scp` to your laptop).
+- **Keep a private copy of `secrets/`**, once; it does not change. It holds the key that the stored
+  2FA, SSO and webhook secrets are encrypted with. Restore a database without that key and nobody
+  with two-factor sign-in can get in.
+
+**Restore** onto a new server (or this one after losing its volumes): clone the repository, create
+`.env`, put your copy of `secrets/` back, and before the first deploy run
+```bash
+bash deploy/restore.sh ~/backups/arthadhruva-<time>.sql.gz ~/backups/arthadhruva-<time>.files.tar.gz
+bash deploy/deploy.sh
+```
+`restore.sh` refuses a database that is not empty. Do not pipe the dump into `psql` by hand: the
+backend's two database roles are created by migrations that a restored database records as already
+run, so they would be missing and every grant in the dump would fail without stopping the load. The
+script creates them first and loads the dump as one transaction that stops at the first error.
 
 ### 12. Keep the free VM from being reclaimed
 Oracle may reclaim Always Free compute instances it judges idle. A commonly used safeguard is
 upgrading the account to **Pay As You Go**: you stay within the same free limits, and it removes the
 reclamation risk. Set a budget alert (Billing → Budgets) at a few dollars so nothing surprises you.
+
+### 13. On a paid VM: run only while someone is visiting (Azure)
+On Azure the VM is billed by the hour, and a demo is idle almost all of the time. `deploy/azure/`
+turns the VM off when nobody is using it and back on when someone opens a link, which cuts the cost
+from about $27 a month to about $10 (the disk and the address are billed either way).
+
+```
+ visitor ──▶ wake page (Azure Function, always on, free tier) ──start──▶ VM ──▶ the application
+                                                                          │
+                              no visitor for 30 min ◀── idle check (systemd timer on the VM)
+                                       └─ backup, then deallocate
+```
+
+- **Turning off.** A timer on the VM checks every five minutes. After 30 minutes without a visitor
+  it takes a backup and asks Azure to deallocate the VM. A visitor is a signed-in user (an API call
+  that succeeded) or someone the wake page has just sent in; page loads alone do not count, because
+  crawlers load pages.
+- **Turning on.** The link you publish is the Function's. If the application is up, the visitor goes
+  straight through. If the VM is asleep the page says so and offers a button; starting takes a click
+  because crawlers run scripts but do not click, and a crawler must not be able to switch a paid
+  machine on. Measured: 64 seconds from the click to the sign-in page.
+- **Permissions.** No secrets anywhere. The VM's managed identity may only deallocate that VM, and
+  the Function's may only read its power state and start it (two custom roles, assigned on the VM
+  alone). Containers cannot reach the metadata service that hands out the VM's token.
+
+Set it up after the first deploy:
+
+```bash
+# On the VM
+sudo bash deploy/azure/install-idle-stop.sh
+
+# In Azure Cloud Shell, from a checkout of this repository
+bash deploy/azure/setup-wake.sh        # prints the wake URL at the end
+```
+
+To keep the site always on for a while (the weeks you are applying, say), stop the timer on the VM
+with `sudo systemctl disable --now artha-idle-stop.timer`; `enable --now` puts it back. The idle
+window is `IDLE_MINUTES` in `/etc/systemd/system/artha-idle-stop.service`. The Function's logic has
+unit tests (`node --test deploy/azure/wake.test.js`, run by CI).
 
 ---
 
@@ -232,6 +330,9 @@ You can defend each of these decisions in an interview:
 - **A rehearsal of the production path locally** before touching a real server, which caught a broken
   secrets generator that would have failed the first deploy.
 - **Cost:** about 1 GB of RAM in use, on a free VM.
+- **Scale to zero for a VM**, on Azure: the machine deallocates itself when idle and a serverless
+  page starts it on demand, with least-privilege managed identities instead of stored credentials,
+  and a definition of "visitor" that crawlers do not meet.
 
 ## Tear down
 ```bash
