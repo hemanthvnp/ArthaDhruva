@@ -7,7 +7,9 @@ import { check, sleep } from 'k6';
 
 const BASE = __ENV.BASE || 'http://backend:8080/v1';
 const TOKEN = __ENV.TOKEN;
-const headers = { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
+// The session JWT travels as the ad_session cookie, not a bearer header -- see SessionCookie.java /
+// JwtAuthenticationFilter, which no longer accepts a bearer header for a session token at all.
+const headers = { Cookie: `ad_session=${TOKEN}`, 'Content-Type': 'application/json' };
 
 export const options = {
   scenarios: {
