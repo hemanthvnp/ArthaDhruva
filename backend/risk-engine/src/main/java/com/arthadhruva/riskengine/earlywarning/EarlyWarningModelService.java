@@ -82,7 +82,6 @@ public class EarlyWarningModelService extends AbstractOnnxModelService<EarlyWarn
      * a dense {@code float[][]} is handled too in case a future re-export changes that).
      */
     @Override
-    @SuppressWarnings("unchecked")
     protected double extractRawProbability(OrtSession.Result result) throws OrtException {
         Object onnxOutput = result.get(1).getValue();
         if (onnxOutput instanceof float[][] dense) {

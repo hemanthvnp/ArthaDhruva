@@ -49,9 +49,22 @@ public class TotpSecretCipher {
                     + "re-enrollment. Set TOTP_ENCRYPTION_KEY (base64-encoded 32 bytes, e.g. "
                     + "`openssl rand -base64 32`) for a real deployment.");
         } else {
-            byte[] decoded = Base64.getDecoder().decode(configuredKey);
+            byte[] decoded;
+            try {
+                decoded = Base64.getDecoder().decode(configuredKey.trim());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalStateException("TOTP_ENCRYPTION_KEY must be base64", e);
+            }
+            if (decoded.length != 32) {
+                throw new IllegalStateException("TOTP_ENCRYPTION_KEY must decode to 32 bytes (AES-256), got " + decoded.length);
+            }
             this.key = new SecretKeySpec(decoded, "AES");
         }
+    }
+
+    /** The data-encryption key, shared with {@link SecretCipher} (which adds per-purpose associated data). */
+    SecretKey key() {
+        return key;
     }
 
     public String encrypt(String plaintext) {
@@ -72,7 +85,15 @@ public class TotpSecretCipher {
 
     public String decrypt(String stored) {
         try {
-            byte[] combined = Base64.getDecoder().decode(stored);
+            byte[] combined;
+            try {
+                combined = Base64.getDecoder().decode(stored);
+            } catch (IllegalArgumentException e) {
+                throw new IllegalStateException("Stored TOTP secret is not valid base64", e);
+            }
+            if (combined.length <= GCM_IV_LENGTH) {
+                throw new IllegalStateException("Stored TOTP secret is truncated");
+            }
             ByteBuffer buffer = ByteBuffer.wrap(combined);
             byte[] iv = new byte[GCM_IV_LENGTH];
             buffer.get(iv);

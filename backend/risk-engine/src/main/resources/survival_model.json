@@ -1,0 +1,255 @@
+{
+  "model": "competing_risks_survival",
+  "version": "2026.10.01-1313",
+  "trained_at": "2026-10-01T13:13:29+00:00",
+  "features_in_order": [
+    "credit_score",
+    "original_dti",
+    "original_upb",
+    "original_cltv",
+    "original_ltv",
+    "rate_spread",
+    "original_loan_term",
+    "number_of_borrowers",
+    "number_of_units",
+    "mi_percent",
+    "occupancy_status",
+    "property_type",
+    "loan_purpose",
+    "channel",
+    "first_time_homebuyer_flag",
+    "property_state",
+    "loan_age",
+    "regime_stressed",
+    "rate_incentive",
+    "unemployment",
+    "unemployment_change_12m",
+    "hpi_change_12m",
+    "mtm_ltv"
+  ],
+  "numeric_features": [
+    "credit_score",
+    "original_dti",
+    "original_upb",
+    "original_cltv",
+    "original_ltv",
+    "rate_spread",
+    "original_loan_term",
+    "number_of_borrowers",
+    "number_of_units",
+    "mi_percent"
+  ],
+  "categorical_features": [
+    "occupancy_status",
+    "property_type",
+    "loan_purpose",
+    "channel",
+    "first_time_homebuyer_flag",
+    "property_state"
+  ],
+  "time_varying_features": [
+    "loan_age",
+    "regime_stressed",
+    "rate_incentive",
+    "unemployment",
+    "unemployment_change_12m",
+    "hpi_change_12m",
+    "mtm_ltv"
+  ],
+  "feature_decimals": {
+    "credit_score": 0,
+    "original_dti": 0,
+    "original_upb": 0,
+    "original_cltv": 0,
+    "original_ltv": 0,
+    "rate_spread": 3,
+    "original_loan_term": 0,
+    "number_of_borrowers": 0,
+    "number_of_units": 0,
+    "mi_percent": 0,
+    "loan_age": 0,
+    "regime_stressed": 0,
+    "rate_incentive": 3,
+    "unemployment": 2,
+    "unemployment_change_12m": 2,
+    "hpi_change_12m": 4,
+    "mtm_ltv": 2
+  },
+  "classes": [
+    "continue",
+    "default",
+    "prepay"
+  ],
+  "rate_lock_lag_months": 2,
+  "regimes": {
+    "labels": [
+      "calm",
+      "stressed"
+    ],
+    "transition_matrix": [
+      [
+        0.9851059913635254,
+        0.014894045889377594
+      ],
+      [
+        0.027195865288376808,
+        0.9728041291236877
+      ]
+    ],
+    "current_state_index": 0,
+    "as_of_month": "2026-03",
+    "stressed_periods": [
+      [
+        "2020-06",
+        "2022-06"
+      ]
+    ]
+  },
+  "training": {
+    "rows": 3597095,
+    "loans": 883564,
+    "months": [
+      "2017-01",
+      "2026-02"
+    ],
+    "months_left_out": [
+      "2025-09",
+      "2026-03"
+    ],
+    "all_vintages_through": "2025-08",
+    "held_out_loans": 252762,
+    "case_control_note": "no-event loan-months subsampled at 10% with weight 10",
+    "envelope": {
+      "loan_age": [
+        0.0,
+        96.0
+      ],
+      "rate_incentive": [
+        -4.745,
+        2.5325
+      ],
+      "unemployment": [
+        2.2,
+        16.1
+      ],
+      "unemployment_change_12m": [
+        -9.1,
+        12.0
+      ],
+      "hpi_change_12m": [
+        -0.0109,
+        0.281
+      ],
+      "mtm_ltv": [
+        12.5991,
+        95.5161
+      ]
+    }
+  },
+  "hyperparameters": {
+    "objective": "multiclass",
+    "num_class": 3,
+    "learning_rate": 0.05,
+    "num_leaves": 63,
+    "min_child_samples": 500,
+    "subsample": 0.8,
+    "subsample_freq": 1,
+    "colsample_bytree": 0.9,
+    "reg_lambda": 1.0,
+    "n_estimators": 3000,
+    "random_state": 7,
+    "deterministic": true,
+    "force_row_wise": true,
+    "best_iteration": 596
+  },
+  "validation": {
+    "out_of_time": {
+      "rows": 2429834,
+      "weighted_log_loss": 0.03602824432488037,
+      "age_only_baseline_log_loss": 0.04671444410296592,
+      "default_auc": 0.7905219807967172,
+      "prepay_auc": 0.6618191462793317,
+      "test_months": [
+        "2023-01",
+        "2026-02"
+      ],
+      "train_months": [
+        "2017-01",
+        "2022-12"
+      ],
+      "best_iteration": 472
+    },
+    "overlay_protocol": {
+      "estimated_on": [
+        "2023-01",
+        "2024-06"
+      ],
+      "judged_on": [
+        "2024-07",
+        "2025-08"
+      ],
+      "weighted_log_loss": {
+        "before": 0.041159657359053935,
+        "after": 0.04112690262388559
+      },
+      "default": {
+        "overlay": 1.2515312098727143,
+        "actual_over_predicted_before": 1.467386063950715,
+        "actual_over_predicted_after": 1.172472609852018,
+        "eligible": true
+      },
+      "prepay": {
+        "overlay": 1.0126323368084462,
+        "actual_over_predicted_before": 0.9767827924544856,
+        "actual_over_predicted_after": 0.9645976698048683,
+        "eligible": false
+      }
+    }
+  },
+  "overlay": {
+    "hazard_scalars": {
+      "default": 1.0495,
+      "prepay": 1.0
+    },
+    "window": [
+      "2023-09",
+      "2025-08"
+    ],
+    "default": {
+      "scalar": 1.0495,
+      "applied": true,
+      "actual_over_predicted": 1.0494663899138041,
+      "standard_error": 0.02191626318615457,
+      "events": 2293,
+      "eligible": true
+    },
+    "prepay": {
+      "scalar": 1.0,
+      "applied": false,
+      "actual_over_predicted": 0.985852082367457,
+      "standard_error": 0.007105344037456325,
+      "events": 19251,
+      "eligible": false
+    },
+    "rule": "realized / predicted hazard on held-out loans over the window; applied to a cause only if the out-of-time protocol showed the overlay carries forward for it and the ratio is more than two standard errors from 1"
+  },
+  "scenario_defaults": {
+    "hpi_annual_growth": 0.03,
+    "unemployment": "flat at latest",
+    "market_rate": "flat at latest"
+  },
+  "limitations": [
+    "Default means the first month 90 or more days past due (or REO, or an adverse termination). Most such loans later cure or are repaid from a sale; that is why loss given default is small, and why COVID-19 forbearance shows up as a wave of defaults.",
+    "The data (2017-2026) contains no housing downturn: over the training rows the 12-month change in state house prices was never below about -1%. The hazards' response to falling prices is therefore held at the edge of that range; in a house-price scenario the extra loss comes from re-marking the collateral, not from the hazard model. The engine reports every month in which a driver leaves the training range.",
+    "Loans are observed for at most about nine years. Beyond that the hazard's dependence on loan age is held at its last fitted level, so lifetime figures for long-dated loans rest on that assumption.",
+    "One stress episode (2020-06 to 2022-06) defines the stressed regime, and the regime chain is estimated from 99 months: an expected stress spell of about 37 months and a long-run stressed share of about 35% are uncertain, and the baseline lifetime PD inherits that uncertainty.",
+    "The model conditions on origination attributes and macro drivers, not on a loan's current delinquency status, so it understates the risk of a loan that is already past due.",
+    "The property's state is a feature. Geography can stand in for protected characteristics, so a lender using these figures in credit decisions must test for disparate impact on its own portfolio.",
+    "Prepayment drift is not corrected: it follows the rate cycle and reverses, and correcting it made later months worse in the out-of-time protocol.",
+    "Trained on agency-conforming fixed-rate mortgages; not validated for other products."
+  ],
+  "target": "first month 90+ days past due, REO acquisition or adverse zero-balance termination (default); zero-balance payoff (prepayment)",
+  "population": "Freddie Mac single-family fixed-rate loans, stratified random sample of 40,000 loans per origination quarter, 2017-2026",
+  "algorithm": "LightGBM multiclass gradient-boosted trees on loan-months (discrete-time competing-risks hazard)",
+  "artifact_sha256": "7fa88997d753483d0bc4f1b1cde6caf739ffe28d2018fcd4f640ab7a244435b5"
+}

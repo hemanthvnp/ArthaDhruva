@@ -106,6 +106,37 @@ public abstract class AbstractOnnxModelService<TFeatures, TResponse> {
         }
     }
 
+    /**
+     * Calibrated probabilities for many feature vectors in ONE inference call (batch shape [n, F]).
+     * Assumes the dense {@code [n, 2]} probability output of a zipmap-free export.
+     */
+    public final double[] calibratedProbabilities(float[][] featureVectors) {
+        int n = featureVectors.length;
+        if (n == 0) {
+            return new double[0];
+        }
+        int width = featureVectors[0].length;
+        float[] flat = new float[n * width];
+        for (int i = 0; i < n; i++) {
+            System.arraycopy(featureVectors[i], 0, flat, i * width, width);
+        }
+        try {
+            OnnxTensor input = OnnxTensor.createTensor(environment, FloatBuffer.wrap(flat), new long[]{n, width});
+            try (OrtSession.Result result = session.run(Collections.singletonMap("input", input))) {
+                float[][] probabilities = (float[][]) result.get(1).getValue();
+                double[] out = new double[n];
+                for (int i = 0; i < n; i++) {
+                    out[i] = calibrate(probabilities[i][1]);
+                }
+                return out;
+            } finally {
+                input.close();
+            }
+        } catch (OrtException e) {
+            throw new IllegalStateException("ONNX inference failed", e);
+        }
+    }
+
     /** Available to subclasses for their own extra classpath resources (category mappings,
      * feature order, calibration breakpoints, LSTM normalization stats, ...). */
     protected final byte[] readResource(String name) throws IOException {

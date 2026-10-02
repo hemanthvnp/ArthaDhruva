@@ -20,7 +20,12 @@ import java.util.stream.Collectors;
 @Service
 public class LoanCatalogService {
 
+    /** One page of the portfolio and how many loans match in total. */
+    public record Page(List<LoanFeatures> loans, int total) {
+    }
+
     private final Map<String, LoanFeatures> loansById;
+    private final List<LoanFeatures> demoInOrder;
     private final Map<String, List<String>> loanIdsByState;
 
     private final TenantLoanService tenantLoans;
@@ -36,15 +41,38 @@ public class LoanCatalogService {
             loans = mapper.readValue(is.readAllBytes(), new TypeReference<List<LoanFeatures>>() {});
         }
         this.loansById = loans.stream().collect(Collectors.toMap(LoanFeatures::loanId, l -> l));
+        this.demoInOrder = loans.stream().sorted(java.util.Comparator.comparing(LoanFeatures::loanId)).toList();
         // Built once: state -> loan ids is an O(1) lookup per request instead of an O(n) scan of the catalog.
         this.loanIdsByState = loans.stream().collect(Collectors.groupingBy(
                 l -> l.propertyState().toUpperCase(), Collectors.mapping(LoanFeatures::loanId, Collectors.toUnmodifiableList())));
     }
 
-    /** The tenant's own uploaded portfolio if it has one, otherwise the shared demo catalog. */
+    /** The tenant's own uploaded portfolio if it has one, otherwise the shared demo catalog: every loan,
+     * in loan-id order. For whole-portfolio computations; listing to a client goes through {@link #page}. */
     public List<LoanFeatures> all() {
         Long tenant = ownPortfolioTenant();
-        return tenant != null ? tenantLoans.all(tenant) : List.copyOf(loansById.values());
+        return tenant != null ? tenantLoans.all(tenant) : demoInOrder;
+    }
+
+    /**
+     * A page of the portfolio in loan-id order.
+     *
+     * @param idContains keep only loans whose id contains this text (case-insensitive); null for all
+     * @param state      keep only loans in this state; null for all
+     */
+    public Page page(String idContains, String state, int limit, int offset) {
+        String term = idContains == null || idContains.isBlank() ? null : idContains.trim();
+        String wantedState = state == null || state.isBlank() ? null : state.trim().toUpperCase(java.util.Locale.ROOT);
+        Long tenant = ownPortfolioTenant();
+        if (tenant != null) {
+            return new Page(tenantLoans.page(tenant, term, wantedState, limit, offset), tenantLoans.count(tenant, term, wantedState));
+        }
+        String needle = term == null ? null : term.toLowerCase(java.util.Locale.ROOT);
+        List<LoanFeatures> matching = demoInOrder.stream()
+                .filter(l -> needle == null || l.loanId().toLowerCase(java.util.Locale.ROOT).contains(needle))
+                .filter(l -> wantedState == null || l.propertyState().equalsIgnoreCase(wantedState))
+                .toList();
+        return new Page(matching.stream().skip(offset).limit(limit).toList(), matching.size());
     }
 
     private Long ownPortfolioTenant() {
@@ -54,7 +82,7 @@ public class LoanCatalogService {
 
     /** The shared demo catalog regardless of tenant (used as the population baseline for attribution). */
     public List<LoanFeatures> demoLoans() {
-        return List.copyOf(loansById.values());
+        return demoInOrder;
     }
 
     public List<String> loanIdsInState(String state) {

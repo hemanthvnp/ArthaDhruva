@@ -16,7 +16,15 @@ public record PageResult<T>(List<T> items, long total, int page, int size, boole
                 page.getTotalElements(), page.getNumber(), page.getSize(), page.hasNext());
     }
 
+    /** Deepest page served. OFFSET pagination costs O(offset) in Postgres, so an unbounded page number is a
+     * cheap way to make the database walk a whole index; 1,000 pages x 100 rows covers any real browse. */
+    public static final int MAX_PAGE = 1_000;
+
     public static int boundedSize(int requested) {
         return Math.max(1, Math.min(requested, MAX_PAGE_SIZE));
+    }
+
+    public static int boundedPage(int requested) {
+        return Math.max(0, Math.min(requested, MAX_PAGE));
     }
 }

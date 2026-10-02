@@ -1,5 +1,6 @@
 package com.arthadhruva.riskengine.notification;
 
+import com.arthadhruva.riskengine.audit.NotAudited;
 import com.arthadhruva.riskengine.tenant.TenantContext;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,6 +26,8 @@ public class NotificationController {
         this.notificationService = notificationService;
     }
 
+    /** Polled by every open browser tab; a row in the audit trail per poll would drown the real entries. */
+    @NotAudited
     @GetMapping("/notifications")
     public List<NotificationView> list(@RequestParam(defaultValue = "50") int limit, Authentication authentication) {
         return notificationService.listForUser(TenantContext.get(), authentication.getName(), limit).stream()
@@ -32,6 +35,7 @@ public class NotificationController {
                 .toList();
     }
 
+    @NotAudited
     @GetMapping("/notifications/unread-count")
     public Map<String, Long> unreadCount(Authentication authentication) {
         return Map.of("count", notificationService.unreadCount(TenantContext.get(), authentication.getName()));

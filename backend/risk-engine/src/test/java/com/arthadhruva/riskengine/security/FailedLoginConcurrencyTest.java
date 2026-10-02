@@ -6,7 +6,6 @@ import com.arthadhruva.riskengine.tenant.OrganizationService;
 import com.arthadhruva.riskengine.tenant.TenantContext;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.Instant;
@@ -25,7 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * exactly N. With the previous load-increment-save sequence, threads read the same value and
  * overwrite each other, so the final count came out below N (a lost update).
  */
-@SpringBootTest
 class FailedLoginConcurrencyTest extends AbstractIntegrationTest {
 
     @Autowired UserRepository userRepository;

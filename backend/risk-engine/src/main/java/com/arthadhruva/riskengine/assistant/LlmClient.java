@@ -6,10 +6,13 @@ import io.github.resilience4j.retry.annotation.Retry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 
@@ -31,6 +34,11 @@ public class LlmClient {
 
     private static final Logger log = LoggerFactory.getLogger(LlmClient.class);
 
+    /** Bounds the cost and length of one answer. */
+    private static final int MAX_ANSWER_TOKENS = 700;
+    /** Low: answers should restate the facts in the context, not improvise. */
+    private static final double TEMPERATURE = 0.2;
+
     private final RestClient restClient;
     private final String model;
 
@@ -38,11 +46,19 @@ public class LlmClient {
                       @Value("${litellm.model}") String model,
                       @Value("${litellm.api-key}") String apiKey) {
         this.model = model;
-        RestClient.Builder builder = RestClient.builder().baseUrl(baseUrl);
+        // Without timeouts a stalled provider would hold a request thread (and a bulkhead slot) forever.
+        SimpleClientHttpRequestFactory timeouts = new SimpleClientHttpRequestFactory();
+        timeouts.setConnectTimeout(Duration.ofSeconds(3));
+        timeouts.setReadTimeout(Duration.ofSeconds(30));
+        RestClient.Builder builder = RestClient.builder().baseUrl(baseUrl).requestFactory(timeouts);
         if (apiKey != null && !apiKey.isBlank()) {
             builder.defaultHeader("Authorization", "Bearer " + apiKey);
         }
         this.restClient = builder.build();
+    }
+
+    public String model() {
+        return model;
     }
 
     @CircuitBreaker(name = "llm", fallbackMethod = "completeFallback")
@@ -54,7 +70,7 @@ public class LlmClient {
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(new ChatCompletionRequest(model, List.of(
                         new ChatMessage("system", systemPrompt),
-                        new ChatMessage("user", userMessage))))
+                        new ChatMessage("user", userMessage)), MAX_ANSWER_TOKENS, TEMPERATURE))
                 .retrieve()
                 .body(ChatCompletionResponse.class);
 
@@ -64,6 +80,7 @@ public class LlmClient {
         return Optional.ofNullable(response.choices().get(0).message()).map(ChatMessage::content);
     }
 
+    @SuppressWarnings("unused")   // called by Resilience4j by name
     private Optional<String> completeFallback(String systemPrompt, String userMessage, Throwable t) {
         log.warn("LLM call failed (circuit open, network error, or provider error)", t);
         return Optional.empty();
@@ -72,7 +89,8 @@ public class LlmClient {
     private record ChatMessage(String role, String content) {
     }
 
-    private record ChatCompletionRequest(String model, List<ChatMessage> messages) {
+    private record ChatCompletionRequest(String model, List<ChatMessage> messages,
+                                         @JsonProperty("max_tokens") int maxTokens, double temperature) {
     }
 
     private record ChatCompletionResponse(List<Choice> choices) {

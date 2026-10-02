@@ -43,6 +43,7 @@ import java.util.UUID;
  * generic audit trail.
  */
 @RestController
+@com.arthadhruva.riskengine.audit.NotAudited
 public class AdminUserController {
 
     private final UserService userService;
@@ -83,6 +84,11 @@ public class AdminUserController {
      */
     @PostMapping("/admin/users")
     public ResponseEntity<?> createUser(@Valid @RequestBody CreateUserRequest request) {
+        // A tenant ADMIN manages its own organization's staff and clients only. PLATFORM_ADMIN is the
+        // cross-tenant operator role; accepting it here let any tenant admin mint a platform operator.
+        if (request.role() == Role.PLATFORM_ADMIN) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Role PLATFORM_ADMIN cannot be assigned by an organization admin."));
+        }
         Organization org = currentOrganization();
         if (userService.findByOrganizationAndUsername(org.getId(), request.username()).isPresent()) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
@@ -121,7 +127,7 @@ public class AdminUserController {
     private ResponseEntity<?> createInvitedClient(Organization org, CreateUserRequest request) {
         if (request.password() != null) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("error", "CLIENT accounts are activated via invite -- do not set a password directly."));
+                    .body(Map.of("error", "CLIENT accounts are activated by invitation. Do not set a password directly."));
         }
 
         User user = new User(org, request.username(), passwordEncoder.encode(UUID.randomUUID().toString()), request.role());
@@ -143,7 +149,7 @@ public class AdminUserController {
     }
 
     @PostMapping("/admin/users/{username}/loans")
-    public ResponseEntity<?> addLoan(@PathVariable String username, @RequestBody AddLoanRequest request) {
+    public ResponseEntity<?> addLoan(@PathVariable String username, @Valid @RequestBody AddLoanRequest request) {
         return userService.findByOrganizationAndUsername(TenantContext.get(), username)
                 .map(user -> {
                     user.addLoanId(request.loanId());
@@ -164,7 +170,8 @@ public class AdminUserController {
                     user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
                     user.clearLockout();
                     userService.save(user);
-                    return ResponseEntity.ok(Map.of("username", user.getUsername(), "message", "Password reset."));
+                    userService.revokeSessions(user);
+                    return ResponseEntity.ok(Map.of("username", user.getUsername(), "message", "Password reset; existing sessions signed out."));
                 })
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(Map.of("error", "Unknown user: " + username)));
@@ -182,6 +189,7 @@ public class AdminUserController {
                 .map(user -> {
                     user.setEnabled(false);
                     userService.save(user);
+                    userService.revokeSessions(user);
                     return ResponseEntity.ok(Map.of("username", user.getUsername(), "enabled", user.isEnabled()));
                 })
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -212,7 +220,9 @@ public class AdminUserController {
                 .map(user -> {
                     user.clearTotp();
                     userService.save(user);
-                    return ResponseEntity.ok(Map.of("username", user.getUsername(), "message", "2FA reset."));
+                    userService.clearTotpStep(user);
+                    userService.revokeSessions(user);
+                    return ResponseEntity.ok(Map.of("username", user.getUsername(), "message", "2FA reset; existing sessions signed out."));
                 })
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(Map.of("error", "Unknown user: " + username)));
@@ -256,7 +266,7 @@ public class AdminUserController {
     ) {
     }
 
-    public record AddLoanRequest(@NotBlank String loanId) {
+    public record AddLoanRequest(@NotBlank @jakarta.validation.constraints.Size(max = 80) String loanId) {
     }
 
     public record ResetPasswordRequest(@NotBlank @StrongPassword String newPassword) {

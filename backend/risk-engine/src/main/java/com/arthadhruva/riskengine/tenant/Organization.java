@@ -26,6 +26,9 @@ public class Organization {
      * still-empty database. */
     public static final String LEGACY_SLUG = "legacy";
 
+    /** The platform operator's own organization; the only one whose users may hold PLATFORM_ADMIN. */
+    public static final String PLATFORM_SLUG = "platform";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

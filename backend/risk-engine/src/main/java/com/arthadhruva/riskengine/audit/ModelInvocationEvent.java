@@ -14,14 +14,12 @@ import org.hibernate.annotations.ParamDef;
 import java.time.Instant;
 
 /**
- * One immutable row per call to any model-serving controller endpoint (SR 11-7-style audit
- * trail) -- written by {@link AuditAspect}, never updated or deleted. Endpoints are identified
- * by their join-point signature (e.g. {@code ScoreController.score}) rather than a hardcoded
- * enum, so a new controller is captured automatically without touching this class.
+ * One append-only row per audited API call (SR 11-7-style audit trail): who ({@code actor}), what
+ * ({@code endpoint}, method, path, redacted request and -- for writes -- redacted response), which model
+ * version answered, the outcome and the latency. The application's database role holds INSERT but no
+ * UPDATE or DELETE on this table (V26), so a row, once written, cannot be altered by the application.
  *
- * {@code tenantId} is nullable: a handful of endpoints this aspect wraps can run without a
- * resolved tenant in context (same reasoning as {@code LoginAttempt.tenantId}). See {@code
- * security.User}'s class doc for why {@code tenantFilter} is a backstop, not the primary guard.
+ * <p>{@code tenantId} is nullable: a few audited endpoints run before a tenant is known.
  */
 @Entity
 @Table(name = "model_invocation_events")
@@ -57,12 +55,30 @@ public class ModelInvocationEvent implements TenantAware {
     @Column(name = "latency_ms", nullable = false)
     private long latencyMs;
 
+    @Column(name = "actor")
+    private String actor;
+
+    @Column(name = "http_method")
+    private String httpMethod;
+
+    @Column(name = "path")
+    private String path;
+
+    @Column(name = "status_code")
+    private Integer statusCode;
+
+    @Column(name = "client_ip")
+    private String clientIp;
+
+    @Column(name = "model_version")
+    private String modelVersion;
+
     protected ModelInvocationEvent() {
         // required by JPA
     }
 
     public ModelInvocationEvent(Long tenantId, String endpoint, String requestJson, String responseJson,
-                                 boolean success, String errorMessage, Instant occurredAt, long latencyMs) {
+                                boolean success, String errorMessage, Instant occurredAt, long latencyMs) {
         this.tenantId = tenantId;
         this.endpoint = endpoint;
         this.requestJson = requestJson;
@@ -71,6 +87,22 @@ public class ModelInvocationEvent implements TenantAware {
         this.errorMessage = errorMessage;
         this.occurredAt = occurredAt;
         this.latencyMs = latencyMs;
+    }
+
+    /** Adds the request context: who, how, with what outcome and which model version. */
+    public ModelInvocationEvent withContext(String actor, String httpMethod, String path, Integer statusCode,
+                                            String clientIp, String modelVersion) {
+        this.actor = truncate(actor, 255);
+        this.httpMethod = truncate(httpMethod, 10);
+        this.path = truncate(path, 500);
+        this.statusCode = statusCode;
+        this.clientIp = truncate(clientIp, 64);
+        this.modelVersion = truncate(modelVersion, 64);
+        return this;
+    }
+
+    private static String truncate(String s, int max) {
+        return s == null || s.length() <= max ? s : s.substring(0, max);
     }
 
     public Long getId() {
@@ -108,5 +140,29 @@ public class ModelInvocationEvent implements TenantAware {
 
     public long getLatencyMs() {
         return latencyMs;
+    }
+
+    public String getActor() {
+        return actor;
+    }
+
+    public String getHttpMethod() {
+        return httpMethod;
+    }
+
+    public String getPath() {
+        return path;
+    }
+
+    public Integer getStatusCode() {
+        return statusCode;
+    }
+
+    public String getClientIp() {
+        return clientIp;
+    }
+
+    public String getModelVersion() {
+        return modelVersion;
     }
 }

@@ -47,6 +47,7 @@ public class CacheService {
         redisTemplate.opsForValue().set(key, json, ttl);
     }
 
+    @SuppressWarnings("unused")   // called by Resilience4j by name, when the circuit is open or the call fails
     private <T> void putFallback(String key, T value, Duration ttl, Throwable t) {
         log.warn("Failed to write cache key {} (circuit open or Redis error)", key, t);
     }
@@ -67,6 +68,7 @@ public class CacheService {
         }
     }
 
+    @SuppressWarnings("unused")   // called by Resilience4j by name
     private <T> Optional<T> getFallback(String key, Class<T> type, Throwable t) {
         log.warn("Failed to read cache key {} (circuit open or Redis error)", key, t);
         return Optional.empty();

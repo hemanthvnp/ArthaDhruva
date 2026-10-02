@@ -53,8 +53,8 @@ public class PortfolioController {
 
     @GetMapping("/admin/portfolio")
     public Map<String, Object> status() {
-        boolean own = service.hasPortfolio(TenantContext.get());
-        return Map.of("usingOwnPortfolio", own, "loanCount", own ? service.all(TenantContext.get()).size() : 0);
+        int loans = service.count(TenantContext.get());
+        return Map.of("usingOwnPortfolio", loans > 0, "loanCount", loans);
     }
 
     /** Revert to the shared demo catalog. */

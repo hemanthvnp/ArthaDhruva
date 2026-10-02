@@ -6,7 +6,7 @@ import java.util.List;
 
 public interface LoanNoteRepository extends JpaRepository<LoanNote, Long>,
         org.springframework.data.jpa.repository.JpaSpecificationExecutor<LoanNote> {
-    List<LoanNote> findByTenantIdAndLoanIdOrderByCreatedAtDesc(Long tenantId, String loanId);
+    List<LoanNote> findByTenantIdAndLoanIdOrderByCreatedAtDesc(Long tenantId, String loanId, org.springframework.data.domain.Pageable pageable);
 
     List<LoanNote> findTop50ByTenantIdOrderByCreatedAtDesc(Long tenantId);
 }

@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 public class FeatureBuildBenchmark {
 
     private static final List<String> NUMERIC = List.of("credit_score", "original_dti", "original_upb", "original_cltv",
-            "original_ltv", "original_interest_rate", "original_loan_term", "number_of_borrowers", "number_of_units", "mi_percent");
+            "original_ltv", "rate_spread", "original_loan_term", "number_of_borrowers", "number_of_units", "mi_percent");
     private static final List<String> CATEGORICAL = List.of("occupancy_status", "property_type", "loan_purpose",
             "channel", "first_time_homebuyer_flag", "property_state");
 
@@ -36,7 +36,7 @@ public class FeatureBuildBenchmark {
     private Map<String, Map<String, Integer>> mappings;
     private FeatureVectorBuilder builder;
 
-    private final float[] numeric = {720f, 38f, 250000f, 80f, 80f, 6.5f, 360f, 2f, 1f, 0f};
+    private final float[] numeric = {720f, 38f, 250000f, 80f, 80f, 0.25f, 360f, 2f, 1f, 0f};
     private final String[] categorical = {"P", "SF", "P", "R", "N", "CA"};
     private final boolean[] noBooleans = new boolean[0];
 

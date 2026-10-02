@@ -41,15 +41,25 @@ public class LoanScoreRecord implements TenantAware {
     @Column(name = "computed_at", nullable = false)
     private Instant computedAt;
 
+    /** Which model produced this score (null for scores recorded before versioning existed). */
+    @Column(name = "model_version")
+    private String modelVersion;
+
     protected LoanScoreRecord() {
         // required by JPA
     }
 
-    public LoanScoreRecord(LoanScoreId id, double rawProbability, double calibratedProbability, Instant computedAt) {
+    public LoanScoreRecord(LoanScoreId id, double rawProbability, double calibratedProbability, Instant computedAt,
+                           String modelVersion) {
         this.id = id;
         this.rawProbability = rawProbability;
         this.calibratedProbability = calibratedProbability;
         this.computedAt = computedAt;
+        this.modelVersion = modelVersion;
+    }
+
+    public String getModelVersion() {
+        return modelVersion;
     }
 
     public LoanScoreId getId() {
@@ -77,9 +87,10 @@ public class LoanScoreRecord implements TenantAware {
         return computedAt;
     }
 
-    public void update(double rawProbability, double calibratedProbability, Instant computedAt) {
+    public void update(double rawProbability, double calibratedProbability, Instant computedAt, String modelVersion) {
         this.rawProbability = rawProbability;
         this.calibratedProbability = calibratedProbability;
         this.computedAt = computedAt;
+        this.modelVersion = modelVersion;
     }
 }

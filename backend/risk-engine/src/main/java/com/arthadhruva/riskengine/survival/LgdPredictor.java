@@ -1,4 +1,4 @@
-package com.arthadhruva.riskengine.expectedloss;
+package com.arthadhruva.riskengine.survival;
 
 import com.arthadhruva.riskengine.score.LoanFeatures;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -10,12 +10,15 @@ import java.io.InputStream;
 import java.util.Map;
 
 /**
- * Predicts LGD (Loss Given Default) via the Beta regression fitted in
- * lgd_ead_expected_loss.ipynb (exported by backend/export_lgd_model.py): a logit-link mean
- * equation over 5 origination features, {@code sigmoid(const + Σ coefficient_i * feature_i)} --
- * verified during planning to exactly reproduce statsmodels' own {@code BetaModel.predict()}
- * output on a test case, so no Beta-distribution machinery needs reimplementing here, only the
- * one closed-form formula.
+ * Loss given default from the Beta regression fitted in lgd_ead_expected_loss.ipynb (exported by
+ * backend/export_lgd_model.py): a logit-link mean equation over five origination features,
+ * {@code sigmoid(const + sum coefficient_i * feature_i)}, which reproduces statsmodels'
+ * {@code BetaModel.predict()} exactly, so nothing of the Beta distribution needs reimplementing.
+ *
+ * <p>"Default" here is the first 90-days-past-due month, and most such loans later cure or are repaid
+ * from a sale, so the fitted LGD is small (around 1% of balance on 2017-2025 data, a period of rising
+ * house prices). It says nothing about a housing downturn; {@link TermStructureEngine#collateralLgd}
+ * adds that from the collateral.
  */
 @Service
 public class LgdPredictor {

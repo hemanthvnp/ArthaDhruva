@@ -52,6 +52,38 @@ public class UserService {
         return userRepository.findByOrganizationId(organizationId);
     }
 
+    /** Revokes every outstanding session of this account (see {@link User#getSessionVersion()}). */
+    public void revokeSessions(User user) {
+        userRepository.bumpSessionVersion(user.getId());
+    }
+
+    /** @return true if {@code step} is newer than the last accepted TOTP step (and is now recorded). */
+    public boolean claimTotpStep(User user, long step) {
+        return userRepository.claimTotpStep(user.getId(), step) == 1;
+    }
+
+    public void clearTotpStep(User user) {
+        userRepository.clearTotpStep(user.getId());
+    }
+
+    /** Re-reads the row, e.g. to pick up a session version bumped by an atomic update. */
+    public Optional<User> reload(User user) {
+        return userRepository.findById(user.getId());
+    }
+
+    public Optional<User> findBySsoIdentity(Long organizationId, String issuer, String subject) {
+        return userRepository.findByOrganizationIdAndSsoIssuerAndSsoSubject(organizationId, issuer, subject);
+    }
+
+    /** An enabled, activated ANALYST/ADMIN in this tenant -- the only accounts work can be routed to. */
+    public Optional<User> findActiveStaff(Long organizationId, String username) {
+        if (username == null || username.isBlank()) {
+            return Optional.empty();
+        }
+        return userRepository.findByOrganizationIdAndUsername(organizationId, username)
+                .filter(User::isStaff).filter(User::isEnabled).filter(User::isActivated);
+    }
+
     /** Usernames of every account within one tenant that can see this loan via GET /my/loans. */
     public List<String> findUsernamesOwningLoan(Long organizationId, String loanId) {
         return userRepository.findByOrganizationIdAndLoanIdsContaining(organizationId, loanId).stream()

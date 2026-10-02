@@ -1,0 +1,258 @@
+{
+  "model": "pd_24m",
+  "version": "2026.10.01-1308",
+  "trained_at": "2026-10-01T13:08:11+00:00",
+  "horizon_months": 24,
+  "target": "90+ days past due, REO acquisition, or adverse zero-balance termination within 24 months of origination",
+  "population": "Freddie Mac single-family 30/15-year fixed-rate loans, stratified random sample of 40,000 loans per origination quarter",
+  "training_window": {
+    "first_vintage": 2017,
+    "last_vintage": 2023
+  },
+  "n_eligible_loans": 1068050,
+  "default_rate": 0.022739572117410234,
+  "algorithm": "LightGBM gradient-boosted trees with monotone constraints, binned PAV calibration",
+  "hyperparameters": {
+    "objective": "binary",
+    "learning_rate": 0.05,
+    "num_leaves": 31,
+    "min_child_samples": 300,
+    "subsample": 0.8,
+    "subsample_freq": 1,
+    "colsample_bytree": 0.9,
+    "reg_lambda": 1.0,
+    "n_estimators": 3000,
+    "random_state": 42,
+    "deterministic": true,
+    "force_row_wise": true,
+    "best_iteration": 174
+  },
+  "monotone_constraints": {
+    "credit_score": -1,
+    "original_dti": 1,
+    "original_cltv": 1,
+    "original_ltv": 1,
+    "number_of_borrowers": -1,
+    "rate_spread": 1
+  },
+  "validation": {
+    "out_of_time": {
+      "n": 428050,
+      "default_rate": 0.018159093563836,
+      "mean_predicted_pd": 0.028355692752800574,
+      "auc": 0.7620168129598988,
+      "gini": 0.5240336259197975,
+      "pr_auc": 0.053866742660741,
+      "ks": 0.4040649437565425,
+      "brier": 0.01770164644948117,
+      "deciles": [
+        {
+          "pd_from": 0.001563314226159458,
+          "pd_to": 0.003727520635265324,
+          "n": 42805,
+          "predicted": 0.0029195495293839907,
+          "actual": 0.0016586847330919284
+        },
+        {
+          "pd_from": 0.003727520635265324,
+          "pd_to": 0.006486559341659177,
+          "n": 42805,
+          "predicted": 0.004875879562250788,
+          "actual": 0.003037028384534517
+        },
+        {
+          "pd_from": 0.006486559341659177,
+          "pd_to": 0.010044680609166428,
+          "n": 42805,
+          "predicted": 0.008276069795966498,
+          "actual": 0.004905968928863451
+        },
+        {
+          "pd_from": 0.010044680609166428,
+          "pd_to": 0.014277635092958164,
+          "n": 42805,
+          "predicted": 0.01189487925469335,
+          "actual": 0.006798271229996496
+        },
+        {
+          "pd_from": 0.014277635092958164,
+          "pd_to": 0.017846088814014144,
+          "n": 42805,
+          "predicted": 0.016819790627213997,
+          "actual": 0.00950823501927345
+        },
+        {
+          "pd_from": 0.017846088814014144,
+          "pd_to": 0.027104911939405913,
+          "n": 42805,
+          "predicted": 0.021896365036260433,
+          "actual": 0.012241560565354515
+        },
+        {
+          "pd_from": 0.027104911939405913,
+          "pd_to": 0.032535228918925074,
+          "n": 42805,
+          "predicted": 0.03016629221314564,
+          "actual": 0.01885293774091812
+        },
+        {
+          "pd_from": 0.032535228918925074,
+          "pd_to": 0.04532997965189965,
+          "n": 42805,
+          "predicted": 0.038299374807260374,
+          "actual": 0.026492232215862634
+        },
+        {
+          "pd_from": 0.04532997965189965,
+          "pd_to": 0.06374614140689044,
+          "n": 42805,
+          "predicted": 0.05277340687135937,
+          "actual": 0.036771405209671766
+        },
+        {
+          "pd_from": 0.06374614140689044,
+          "pd_to": 0.184375,
+          "n": 42805,
+          "predicted": 0.09563531983047131,
+          "actual": 0.06132461161079313
+        }
+      ],
+      "train_vintages": "2017-2020",
+      "test_vintages": "2021-2023",
+      "by_vintage": [
+        {
+          "orig_year": 2021,
+          "n": 160000,
+          "default_rate": 0.01225,
+          "mean_predicted_pd": 0.02292549084988865,
+          "auc": 0.7558558008434961,
+          "ks": 0.3925294035609688
+        },
+        {
+          "orig_year": 2022,
+          "n": 159963,
+          "default_rate": 0.022030094459343723,
+          "mean_predicted_pd": 0.03082306660536767,
+          "auc": 0.7520278971124066,
+          "ks": 0.391997875691924
+        },
+        {
+          "orig_year": 2023,
+          "n": 108087,
+          "default_rate": 0.02117738488439868,
+          "mean_predicted_pd": 0.03274237922654597,
+          "auc": 0.7586129435099543,
+          "ks": 0.393840885287542
+        }
+      ]
+    },
+    "in_time_holdout": {
+      "n": 106938,
+      "default_rate": 0.023060090893788923,
+      "mean_predicted_pd": 0.02295898041674199,
+      "auc": 0.7591657135092236,
+      "gini": 0.5183314270184471,
+      "pr_auc": 0.07388752500758779,
+      "ks": 0.3981310537297599,
+      "brier": 0.02193835757733214,
+      "deciles": [
+        {
+          "pd_from": 0.00046816479400749064,
+          "pd_to": 0.0032505732632341915,
+          "n": 10694,
+          "predicted": 0.0021636030237742803,
+          "actual": 0.0027118010099121004
+        },
+        {
+          "pd_from": 0.0032505732632341915,
+          "pd_to": 0.00492770628153608,
+          "n": 10694,
+          "predicted": 0.004007352316956589,
+          "actual": 0.005143070880867777
+        },
+        {
+          "pd_from": 0.00492770628153608,
+          "pd_to": 0.0072189676559899964,
+          "n": 10694,
+          "predicted": 0.006083728327914258,
+          "actual": 0.0065457265756498975
+        },
+        {
+          "pd_from": 0.0072189676559899964,
+          "pd_to": 0.010958662176379495,
+          "n": 10693,
+          "predicted": 0.008619044499001105,
+          "actual": 0.009913027214065276
+        },
+        {
+          "pd_from": 0.010958662176379495,
+          "pd_to": 0.014432569195379752,
+          "n": 10694,
+          "predicted": 0.012543028652690557,
+          "actual": 0.011501776697213391
+        },
+        {
+          "pd_from": 0.014432569195379752,
+          "pd_to": 0.018575999118494196,
+          "n": 10694,
+          "predicted": 0.015409428359691116,
+          "actual": 0.016457826818776885
+        },
+        {
+          "pd_from": 0.018575999118494196,
+          "pd_to": 0.026381871648402826,
+          "n": 10693,
+          "predicted": 0.02266932608913664,
+          "actual": 0.020106611802113532
+        },
+        {
+          "pd_from": 0.026381871648402826,
+          "pd_to": 0.03688354040178318,
+          "n": 10694,
+          "predicted": 0.03151390205878434,
+          "actual": 0.03198054984103235
+        },
+        {
+          "pd_from": 0.03688354040178318,
+          "pd_to": 0.05074930225243278,
+          "n": 10694,
+          "predicted": 0.044208588536770926,
+          "actual": 0.044884982233027865
+        },
+        {
+          "pd_from": 0.05074930225243278,
+          "pd_to": 0.1431244153414406,
+          "n": 10694,
+          "predicted": 0.08237043428416206,
+          "actual": 0.081354030297363
+        }
+      ]
+    }
+  },
+  "feature_importance_gain": {
+    "credit_score": 0.41185774597912056,
+    "original_dti": 0.1335048827757157,
+    "property_state": 0.10398224765850624,
+    "rate_spread": 0.08767140373848524,
+    "original_cltv": 0.0710621147526898,
+    "number_of_borrowers": 0.0656070220400785,
+    "original_upb": 0.046184798498110996,
+    "original_ltv": 0.02859559467952841,
+    "loan_purpose": 0.010935749612875053,
+    "channel": 0.010489318924668534,
+    "original_loan_term": 0.009328132502870885,
+    "mi_percent": 0.006318206395973444,
+    "first_time_homebuyer_flag": 0.0046817993329434805,
+    "occupancy_status": 0.003706766123796534,
+    "number_of_units": 0.003429269187856401,
+    "property_type": 0.0026449477967802303
+  },
+  "artifact_sha256": "48fa0e8faa7bb3725a60551aeb37667d3ebaeda696d0e9fa66a6d6ffb9505ffd",
+  "limitations": [
+    "Origination-time model: it cannot see the macro path after origination, so realized default rates move with the credit cycle. Use the regime-aware survival model for forward-looking term structures.",
+    "Calibrated to the average experience of the 2017-2023 vintages, the 2020 shock included. In a calm period it over-predicts: out of time, on 2021-2023 originations, it predicted 2.8% against 1.8% realized. Ranking (AUC, KS) is unaffected.",
+    "Default means the first month 90 or more days past due (or REO, or an adverse termination). COVID-19 forbearance delinquencies count, although most of those loans later cured.",
+    "The property's state is a feature. Geography can stand in for protected characteristics, so a lender using the score in credit decisions must test for disparate impact on its own applicants.",
+    "Trained on agency-conforming fixed-rate mortgages; not validated for other products."
+  ]
+}
