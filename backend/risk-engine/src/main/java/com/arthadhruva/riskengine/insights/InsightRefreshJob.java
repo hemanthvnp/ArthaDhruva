@@ -8,8 +8,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-/** Nightly recompute of every tenant's insights, on exactly one replica (advisory lock), one
- * tenant at a time under that tenant's context so row-level security applies. */
+/** Nightly recompute of every tenant's insights, once per day across all replicas, one tenant at a
+ * time under that tenant's context so row-level security applies. */
 @Component
 class InsightRefreshJob {
 
@@ -27,7 +27,7 @@ class InsightRefreshJob {
 
     @Scheduled(cron = "${insights.refresh-cron:0 0 2 * * *}")
     void run() {
-        lock.runExclusively("insight-refresh", () -> {
+        lock.runOncePerPeriod("insight-refresh", lock.period(DistributedLock.DAILY), () -> {
             for (Long tenantId : organizations.activeIds()) {
                 TenantContext.set(tenantId);
                 try {

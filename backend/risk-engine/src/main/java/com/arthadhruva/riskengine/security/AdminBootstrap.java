@@ -92,7 +92,7 @@ public class AdminBootstrap implements ApplicationRunner {
         if (platformAdminPassword == null || platformAdminPassword.isBlank()) {
             return;
         }
-        Organization platform = organizationService.findOrCreate("platform", "Platform Operations");
+        Organization platform = organizationService.findOrCreate(Organization.PLATFORM_SLUG, "Platform Operations");
         TenantContext.set(platform.getId());
         try {
             if (userRepository.count() == 0) {

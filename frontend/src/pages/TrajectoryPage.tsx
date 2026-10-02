@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { listTrajectoryCatalog, trajectoryScore } from '../api/client';
 import ErrorBanner from '../components/ErrorBanner';
 import type { MonthlyRecord, TrajectoryCatalogEntry, TrajectoryScoreResponse } from '../api/types';
+import { count } from '../format';
 
 const DEFAULT_MONTHS: MonthlyRecord[] = [
   { currentLoanDelinquencyStatus: '0', currentActualUpb: 249500, modificationFlag: 'N' },
@@ -67,18 +69,21 @@ export default function TrajectoryPage() {
 
   return (
     <div>
-      <h2>Loan Trajectory Score</h2>
-      <p className="page-subtitle">
-        LSTM prediction from a loan's first up to 12 months of <em>actual</em> performance
-        (delinquency status, UPB paydown, modification events), not a static origination-time
-        snapshot -- the deep-learning + time-series component of this project. Months are ordered
-        from origination.
-      </p>
+      <div className="page-head-row">
+        <div>
+          <h2>Trajectory</h2>
+          <p className="page-subtitle">
+            A sequence model reads a loan's first twelve months of actual performance (delinquency status, balance paid
+            down, modifications) rather than a snapshot at origination. Months are ordered from origination. This model
+            has no out-of-time validation yet; see <Link to="/models">model governance</Link>.
+          </p>
+        </div>
+      </div>
 
       <div className="card">
-        <h3>Score a real loan's actual trajectory</h3>
+        <h3>An observed payment history</h3>
         <p className="page-subtitle">
-          Real loans' actual first-observed months, sampled from the 2020Q1 origination cohort.
+          The first months of loans originated in the first quarter of 2020, as they actually happened.
         </p>
         <div className="row-inline">
           <div className="field" style={{ minWidth: 300 }}>
@@ -88,7 +93,7 @@ export default function TrajectoryPage() {
               list="traj-catalog-labels"
               value={pickedLabel}
               onChange={(e) => setPickedLabel(e.target.value)}
-              placeholder="Start typing a real Loan ID..."
+              placeholder="Start typing a loan ID"
             />
             <datalist id="traj-catalog-labels">
               {catalog.map((e) => (
@@ -100,7 +105,7 @@ export default function TrajectoryPage() {
             onClick={scorePicked}
             disabled={pickLoading || !catalog.some((e) => e.label === pickedLabel)}
           >
-            {pickLoading ? 'Scoring...' : 'Fetch & score'}
+            {pickLoading ? 'Scoring...' : 'Score'}
           </button>
         </div>
         <ErrorBanner error={pickError} />
@@ -112,13 +117,11 @@ export default function TrajectoryPage() {
             </div>
           </div>
         )}
-        <p className="page-subtitle" style={{ marginTop: '0.75rem' }}>
-          {catalog.length.toLocaleString()} real trajectories available to pick from.
-        </p>
+        <p className="chart-caption">{count(catalog.length)} histories to pick from.</p>
       </div>
 
       <div className="card">
-        <h3>Or score a hypothetical trajectory (manual)</h3>
+        <h3>A history you enter</h3>
         <div className="field" style={{ maxWidth: 240, marginBottom: '1rem' }}>
           <label htmlFor="originalUpb">Original UPB ($)</label>
           <input
@@ -198,10 +201,8 @@ export default function TrajectoryPage() {
               </div>
             </div>
             <p className="warn-banner">
-              Uncalibrated: the model trains with pos_weight-weighted loss and, unlike the PD
-              model, never fits a calibration step afterward. Useful for ranking trajectories
-              relative to each other (a worsening trajectory scores meaningfully higher), not as a
-              dollar-valued probability.
+              This score is not calibrated: it ranks payment histories against each other (a worsening history scores
+              higher), but it is not a probability to price or provision on.
             </p>
           </>
         )}

@@ -1,103 +1,115 @@
 package com.arthadhruva.riskengine.audit;
 
 import com.arthadhruva.riskengine.tenant.TenantContext;
+import jakarta.servlet.http.HttpServletRequest;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
-import tools.jackson.databind.ObjectMapper;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.security.Principal;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * SR 11-7-style audit trail: wraps every model-serving controller method (pointcut matches any
- * class ending in "Controller" under this package, so new endpoints are covered automatically)
- * and persists one immutable {@link ModelInvocationEvent} row per call -- request, response,
- * timing, and outcome, via {@link AuditEventWriter} (which owns the circuit-breaker/retry/
- * fail-open behavior so a Postgres outage can never become a way to break the actual
- * scoring/forecast response).
+ * Audit trail for every API controller call (SR 11-7-style): who called what, with which inputs, what
+ * came back, which model version answered, and how long it took. One append-only
+ * {@link ModelInvocationEvent} per call, written through {@link AuditEventWriter}.
  *
- * {@code AuthController}, {@code AdminUserController}, {@code AccountController}, and
- * {@code ActivationController} are deliberately excluded: the first's request carries a raw
- * password and its response carries a live JWT; the others carry a raw password on several
- * endpoints (creation, admin reset, self-service change, invite activation). This aspect
- * serializes whatever it's given verbatim -- logging any of these into Postgres would mean
- * anyone with audit-trail read access could read plaintext credentials or hijack a session via a
- * logged token. Login attempts and user provisioning still need their own accountability trail,
- * just not a copy of the secret material; that's out of scope for this round (see each excluded
- * controller's own class doc).
- *
- * Bean-validation ({@code @Valid}) rejections happen before the controller method -- and
- * therefore this proxy's advice -- is ever invoked, so those are captured separately by
- * {@link ValidationAuditAdvice}.
- *
- * {@code AssistantController} is excluded too, for a different reason than the credential-carrying
- * controllers above: a free-text question and an LLM's free-text answer aren't the structured,
- * replayable request/response shape this audit trail is designed for, not a secrecy concern.
+ * <p>What is recorded:
+ * <ul>
+ *   <li>request arguments, redacted by {@link AuditRedactor} (credentials never reach the table);</li>
+ *   <li>the response body for state-changing calls only -- reads record that they happened and their
+ *       outcome, not a copy of the data read (which would duplicate it and bloat the trail);</li>
+ *   <li>the actor, HTTP method and path, status, client address, and the model version when the
+ *       endpoint served a model (see {@link AuditContext}).</li>
+ * </ul>
+ * Controllers or methods that carry credentials, or that are high-frequency reads of the caller's own
+ * data, opt out with {@link NotAudited} where they are declared.
  */
 @Aspect
 @Component
 public class AuditAspect {
 
-    private final AuditEventWriter auditEventWriter;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    static final int MAX_REQUEST_CHARS = 16_384;
+    static final int MAX_RESPONSE_CHARS = 16_384;
 
-    public AuditAspect(AuditEventWriter auditEventWriter) {
+    private final AuditEventWriter auditEventWriter;
+    private final AuditRedactor redactor;
+
+    public AuditAspect(AuditEventWriter auditEventWriter, AuditRedactor redactor) {
         this.auditEventWriter = auditEventWriter;
+        this.redactor = redactor;
     }
 
     @Around("execution(* com.arthadhruva.riskengine..*Controller.*(..)) "
-            + "&& !within(com.arthadhruva.riskengine.security.AuthController) "
-            + "&& !within(com.arthadhruva.riskengine.security.AdminUserController) "
-            + "&& !within(com.arthadhruva.riskengine.security.AccountController) "
-            + "&& !within(com.arthadhruva.riskengine.security.ActivationController) "
-            + "&& !within(com.arthadhruva.riskengine.assistant.AssistantController)")
+            + "&& @within(org.springframework.web.bind.annotation.RestController) "
+            + "&& !@within(com.arthadhruva.riskengine.audit.NotAudited) "
+            + "&& !@annotation(com.arthadhruva.riskengine.audit.NotAudited)")
     public Object audit(ProceedingJoinPoint joinPoint) throws Throwable {
-        String endpoint = joinPoint.getSignature().getDeclaringType().getSimpleName()
-                + "." + joinPoint.getSignature().getName();
-        String requestJson = safeWrite(namedArgs(joinPoint));
+        String endpoint = joinPoint.getSignature().getDeclaringType().getSimpleName() + "." + joinPoint.getSignature().getName();
+        HttpServletRequest http = currentRequest();
+        boolean read = http != null && ("GET".equals(http.getMethod()) || "HEAD".equals(http.getMethod()));
+        String requestJson = redactor.toJson(namedArgs(joinPoint), MAX_REQUEST_CHARS);
+        // Captured before proceeding: the controller may clear the tenant context itself (public
+        // endpoints that set it from a token), and the actor must be who made the request.
+        Long tenantAtStart = TenantContext.getOptional().orElse(null);
         long start = System.nanoTime();
-
         try {
             Object result = joinPoint.proceed();
-            persist(endpoint, requestJson, safeWrite(result), true, null, elapsedMs(start));
+            int status = result instanceof ResponseEntity<?> response ? response.getStatusCode().value() : 200;
+            persist(tenantAtStart, endpoint, http, requestJson, read ? null : redactor.toJson(result, MAX_RESPONSE_CHARS),
+                    status < 400, null, status, start);
             return result;
         } catch (Throwable ex) {
-            persist(endpoint, requestJson, null, false, ex.getMessage(), elapsedMs(start));
+            String message = ex.getClass().getSimpleName() + (ex.getMessage() == null ? "" : ": " + ex.getMessage());
+            persist(tenantAtStart, endpoint, http, requestJson, null, false,
+                    message.length() > 500 ? message.substring(0, 500) : message, 500, start);
             throw ex;
         }
     }
 
+    /** Framework plumbing arguments are not request data; an upload is recorded by name and size. */
     private Map<String, Object> namedArgs(ProceedingJoinPoint joinPoint) {
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
-        String[] paramNames = signature.getParameterNames();
+        String[] names = signature.getParameterNames();
         Object[] args = joinPoint.getArgs();
         Map<String, Object> named = new LinkedHashMap<>();
         for (int i = 0; i < args.length; i++) {
-            named.put(paramNames != null && i < paramNames.length ? paramNames[i] : "arg" + i, args[i]);
+            Object arg = args[i];
+            if (arg instanceof jakarta.servlet.ServletRequest || arg instanceof jakarta.servlet.ServletResponse
+                    || arg instanceof Authentication || arg instanceof Principal) {
+                continue;
+            }
+            if (arg instanceof MultipartFile file) {
+                arg = Map.of("filename", String.valueOf(file.getOriginalFilename()), "sizeBytes", file.getSize(),
+                        "contentType", String.valueOf(file.getContentType()));
+            }
+            named.put(names != null && i < names.length ? names[i] : "arg" + i, arg);
         }
         return named;
     }
 
-    private long elapsedMs(long startNanos) {
-        return (System.nanoTime() - startNanos) / 1_000_000;
+    private void persist(Long tenantId, String endpoint, HttpServletRequest http, String requestJson,
+                         String responseJson, boolean success, String errorMessage, int status, long startNanos) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String actor = auth == null || !auth.isAuthenticated() ? null : auth.getName();
+        auditEventWriter.write(new ModelInvocationEvent(tenantId, endpoint, requestJson, responseJson, success,
+                errorMessage, Instant.now(), (System.nanoTime() - startNanos) / 1_000_000)
+                .withContext(actor, http == null ? null : http.getMethod(), http == null ? null : http.getRequestURI(),
+                        status, http == null ? null : http.getRemoteAddr(), AuditContext.modelVersion(http)));
     }
 
-    private void persist(String endpoint, String requestJson, String responseJson,
-                          boolean success, String errorMessage, long latencyMs) {
-        auditEventWriter.write(new ModelInvocationEvent(
-                TenantContext.getOptional().orElse(null),
-                endpoint, requestJson, responseJson, success, errorMessage, Instant.now(), latencyMs));
-    }
-
-    private String safeWrite(Object value) {
-        try {
-            return objectMapper.writeValueAsString(value);
-        } catch (Exception e) {
-            return null;
-        }
+    private static HttpServletRequest currentRequest() {
+        return RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes
+                ? attributes.getRequest() : null;
     }
 }

@@ -42,41 +42,6 @@ const HMM_REGIME = [
   { value: 'unknown', label: 'Unknown' },
 ];
 
-export const DEFAULT_EARLY_WARNING_LOAN: EarlyWarningFeatures = {
-  creditScore: 720,
-  originalDti: 35,
-  originalUpb: 250000,
-  originalCltv: 80,
-  originalLtv: 80,
-  originalInterestRate: 6.5,
-  originalLoanTerm: 360,
-  numberOfBorrowers: 2,
-  numberOfUnits: 1,
-  miPercent: 0,
-  loanAge: 18,
-  eltv: 72,
-  currentInterestRate: 6.5,
-  upbPaydownRatio: 0.04,
-  rateLockSeverity: 0,
-  eltvChange3m: -0.5,
-  upbPaydownChange3m: 0.01,
-  rateLockSeverityChange3m: 0,
-  eltvChange6m: -1.2,
-  upbPaydownChange6m: 0.02,
-  rateLockSeverityChange6m: 0,
-  occupancyStatus: 'P',
-  propertyType: 'SF',
-  loanPurpose: 'P',
-  channel: 'R',
-  firstTimeHomebuyerFlag: 'N',
-  propertyState: 'CA',
-  hmmRegime: 'calm',
-  priorAssistance: false,
-  priorModification: false,
-  priorDisaster: false,
-  upbStalled: false,
-};
-
 interface Props {
   value: EarlyWarningFeatures;
   onChange: (next: EarlyWarningFeatures) => void;

@@ -6,6 +6,9 @@ networks:
   data:
     internal: true
   observability: {}
+  # Carries nothing but promtail's read-only queries to the Docker API proxy.
+  dockerapi:
+    internal: true
 
 x-hardening: &hardening
   security_opt:
@@ -114,13 +117,12 @@ services:
       APP_BASE_DOMAIN: "${APP_BASE_DOMAIN:-}"
       APP_PUBLIC_URL: "${APP_PUBLIC_URL:-http://localhost:8080}"
       FRONTEND_URL: "${FRONTEND_URL:-http://localhost:5173}"
-      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "${TRACE_SAMPLING:-0.1}"
+      # Off unless a collector is running: start with `--profile observability` and TRACE_SAMPLING=0.1.
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "${TRACE_SAMPLING:-0}"
       JAVA_TOOL_OPTIONS: "${JAVA_OPTS:--XX:MaxRAMPercentage=60 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k}"
       AUTH_ORG_SLUG_LOGIN_ENABLED: "${AUTH_ORG_SLUG_LOGIN_ENABLED:-true}"
       STRIPE_SECRET_KEY: "${STRIPE_SECRET_KEY:-}"
       NOTIFICATIONS_DIGEST_CRON: "${NOTIFICATIONS_DIGEST_CRON:-0 0 8 * * *}"
-      RATELIMIT_TENANT_CAPACITY: ${RATELIMIT_TENANT_CAPACITY:-100}
-      RATELIMIT_TENANT_PER_SECOND: ${RATELIMIT_TENANT_PER_SECOND:-50}
     read_only: true
     tmpfs:
       # exec: ONNX Runtime extracts its native library here and dlopen()s it; a default noexec tmpfs blocks that.
@@ -166,8 +168,11 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     command: ["--config", "/app/config.yaml", "--port", "4000"]
 
+  # Data preparation, run on demand (`docker compose run --rm pipeline`): behind a profile so that a
+  # plain `docker compose up` starts the data stores and nothing else.
   pipeline:
     build: .
+    profiles: ["pipeline"]
     volumes:
       - ./historical_data_2020:/app/historical_data_2020:ro
       - ./historical_data_2021:/app/historical_data_2021:ro
@@ -186,6 +191,7 @@ services:
   # same pattern as DB_HOST/REDIS_PORT/etc. elsewhere in this file) since the backend runs on the
   # host today, not as its own compose service.
   prometheus:
+    <<: *hardening
     image: prom/prometheus:v2.55.1
     profiles: ["observability"]
     networks: [observability]
@@ -193,18 +199,23 @@ services:
       - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
     volumes:
       - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/alerts.yml:/etc/prometheus/alerts.yml:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
   grafana:
+    <<: *hardening
     image: grafana/grafana:11.3.0
     profiles: ["observability"]
     networks: [observability]
     ports:
       - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
     environment:
+      # Dashboards open without a login, read-only. Changing them, or searching logs and traces in
+      # Explore, needs the admin account (user `admin`).
       GF_AUTH_ANONYMOUS_ENABLED: "true"
-      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Viewer"
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:-admin}"
     volumes:
       - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
@@ -214,6 +225,7 @@ services:
       - jaeger
 
   loki:
+    <<: *hardening
     image: grafana/loki:3.2.1
     profiles: ["observability"]
     networks: [observability]
@@ -224,17 +236,37 @@ services:
     command: ["-config.file=/etc/loki/local-config.yaml"]
 
   promtail:
+    <<: *hardening
     image: grafana/promtail:3.2.1
     profiles: ["observability"]
-    networks: [observability]
+    networks: [observability, dockerapi]
+    environment:
+      # Which containers to ship logs for: this project's, whatever the checkout directory is called.
+      COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME}
     volumes:
       - ./observability/promtail-config.yml:/etc/promtail/config.yml:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    command: ["-config.file=/etc/promtail/config.yml"]
+    command: ["-config.file=/etc/promtail/config.yml", "-config.expand-env=true"]
     depends_on:
       - loki
+      - docker-socket-proxy
+
+  # Promtail finds containers and reads their logs through the Docker API. Mounting the Docker socket
+  # into it would hand it the whole daemon (a read-only mount does not make the API read-only: starting
+  # a privileged container is one POST away). This proxy is the only thing that touches the socket, and
+  # it answers GET requests about containers and networks and refuses everything else.
+  docker-socket-proxy:
+    <<: *hardening
+    image: tecnativa/docker-socket-proxy:v0.5.0
+    profiles: ["observability"]
+    networks: [dockerapi]
+    environment:
+      CONTAINERS: 1
+      NETWORKS: 1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
 
   jaeger:
+    <<: *hardening
     image: jaegertracing/all-in-one:1.65.0
     profiles: ["observability"]
     networks: [observability]
@@ -270,6 +302,8 @@ services:
     environment:
       BACKEND_HOST: ${BACKEND_HOST:-backend}
       BACKEND_PORT: ${BACKEND_PORT:-8080}
+      # EXPOSE_UPSTREAM=1 adds an X-Upstream response header naming the replica that answered.
+      BACKEND_EXPOSE_UPSTREAM: ${EXPOSE_UPSTREAM:-}
       NGINX_ENVSUBST_FILTER: BACKEND_
     volumes:
       - ./nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
@@ -280,8 +314,11 @@ services:
       - "host.docker.internal:host-gateway"
     entrypoint: ["/bin/sh", "-c", "sh /opt/selfsigned-cert.sh && exec /docker-entrypoint.sh nginx -g 'daemon off;'"]
 
+  # Notebooks, on demand (`docker compose up jupyter`). Reachable from this machine only, and Jupyter
+  # generates an access token at startup: `docker compose logs jupyter` prints the URL that carries it.
   jupyter:
     build: .
+    profiles: ["notebooks"]
     volumes:
       - ./historical_data_2020:/app/historical_data_2020:ro
       - ./historical_data_2021:/app/historical_data_2021:ro
@@ -292,8 +329,8 @@ services:
       - ./data:/app/data
       - ./notebooks:/app/notebooks
     ports:
-      - "8888:8888"
-    command: jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token=''
+      - "127.0.0.1:${JUPYTER_PORT:-8888}:8888"
+    command: jupyter lab --ip=0.0.0.0 --port=8888 --no-browser
 
 volumes:
   pgdata:

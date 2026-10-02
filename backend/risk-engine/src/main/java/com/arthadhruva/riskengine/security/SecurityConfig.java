@@ -15,12 +15,19 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 
 /**
- * Stateless JWT bearer-token auth: no sessions, no cookies, CSRF disabled (there's no
- * cookie-based session for a cross-site request to ride along on -- the standard justification
- * for disabling CSRF protection on a stateless token API). {@code /login}, {@code /activate}
+ * Stateless JWT auth: no server-side {@code HttpSession} (see {@code SessionCreationPolicy.STATELESS}
+ * below). The session token itself does live in a cookie -- the httpOnly {@code ad_session} cookie
+ * JwtAuthenticationFilter reads (see SessionCookie) -- but CSRF is still disabled, because that cookie
+ * is {@code SameSite=Strict}: it is never sent on a cross-site request in the first place, which is a
+ * stronger, simpler defense than Spring's CSRF-token machinery would add on top of it for this app's
+ * request patterns (no third-party site ever has reason to POST to this API). The one genuinely
+ * cross-site leg in the whole app, the SSO identity-provider redirect, never carries this cookie at
+ * all -- it uses its own separate, narrowly-scoped {@code sso_txn} cookie instead (SsoController).
+ * {@code /login}, {@code /activate}
  * (a CLIENT completing an admin-issued invite -- see ActivationController), and the actuator
  * health/prometheus endpoints (Prometheus itself carries no bearer token) are public; {@code
  * /admin/**} requires the ADMIN role; {@code /my/**} (a CLIENT's
@@ -59,9 +66,12 @@ import jakarta.servlet.http.HttpServletResponse;
 @EnableWebSecurity
 public class SecurityConfig {
 
+    /** Work factor 12 (2^12 rounds, four times the library default of 10): slower offline cracking of
+     * a leaked hash at a login cost the per-address throttle keeps bounded. Existing cost-10 hashes still
+     * verify, since each hash records its own cost. */
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+        return new BCryptPasswordEncoder(12);
     }
 
     /**
@@ -112,6 +122,7 @@ public class SecurityConfig {
                                                    com.arthadhruva.riskengine.idempotency.IdempotencyFilter idempotencyFilter) throws Exception {
         http
                 .cors(Customizer.withDefaults())
+                // See the class javadoc: the session cookie's SameSite=Strict is this app's CSRF defense.
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(exceptions -> exceptions
@@ -120,18 +131,26 @@ public class SecurityConfig {
                         .accessDeniedHandler((request, response, accessDeniedException) ->
                                 response.sendError(HttpServletResponse.SC_FORBIDDEN, "Forbidden")))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/v1/login", "/v1/signup", "/v1/sso/**", "/v1/password-reset/request", "/v1/password-reset/complete", "/v1/activate", "/actuator/health", "/actuator/prometheus", "/error").permitAll()
+                        // An ASYNC dispatch is the container resuming a request that already passed these rules
+                        // on its REQUEST dispatch (a streamed export finishing). The token filters do not run a
+                        // second time, so without this every export was denied after its body had been written.
+                        // A client cannot start an ASYNC dispatch; only the server does, for a request it accepted.
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
+                        .requestMatchers("/v1/login", "/v1/access-requests", "/v1/sso/**", "/v1/password-reset/request", "/v1/password-reset/complete", "/v1/activate", "/actuator/health", "/actuator/health/**", "/actuator/prometheus", "/error").permitAll()
                         .requestMatchers("/v1/ingest/**").hasRole("API_INGEST")
                         .requestMatchers("/v1/platform/**").hasRole("PLATFORM_ADMIN")
                         .requestMatchers("/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers("/v1/account/2fa/setup", "/v1/account/2fa/confirm")
-                                .hasAnyRole("TOTP_SETUP", "ANALYST", "ADMIN", "CLIENT")
-                        .requestMatchers("/v1/my/**", "/v1/account/**").hasAnyRole("ANALYST", "ADMIN", "CLIENT")
+                                .hasAnyRole("TOTP_SETUP", "ANALYST", "ADMIN", "CLIENT", "PLATFORM_ADMIN")
+                        .requestMatchers("/v1/account/**").hasAnyRole("ANALYST", "ADMIN", "CLIENT", "PLATFORM_ADMIN")
+                        .requestMatchers("/v1/my/**").hasAnyRole("ANALYST", "ADMIN", "CLIENT")
                         .anyRequest().hasAnyRole("ANALYST", "ADMIN"))
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(apiKeyFilter, JwtAuthenticationFilter.class)
                 .addFilterAfter(rateLimitFilter, com.arthadhruva.riskengine.apikey.ApiKeyAuthenticationFilter.class)
-                .addFilterAfter(idempotencyFilter, com.arthadhruva.riskengine.ratelimit.RateLimitFilter.class);
+                // After authorization, not before it: a stored response is only ever replayed to a caller
+                // who is allowed to call the endpoint in the first place.
+                .addFilterAfter(idempotencyFilter, org.springframework.security.web.access.intercept.AuthorizationFilter.class);
         return http.build();
     }
 }

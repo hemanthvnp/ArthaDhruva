@@ -1,0 +1,101 @@
+name: Security
+
+# Four independent checks. A committed secret, or a pull request that brings in a dependency with a
+# known high-severity vulnerability, fails the build. Code scanning and the container scan report to
+# the repository's Security tab instead, where a finding is triaged: an advisory published against a
+# library overnight should raise an alert, not turn an unrelated commit red.
+on:
+  push:
+    branches: [dev, staging, prod, main]
+  pull_request:
+  schedule:
+    - cron: '17 3 * * 1'   # weekly, so advisories published since the last push are still picked up
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # the whole history: a secret removed by a later commit is still exposed
+
+      # Rules and the reviewed exceptions are in .gitleaks.toml.
+      - name: Scan every commit with gitleaks
+        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 git /repo --redact --no-banner
+
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Refuse new dependencies with known vulnerabilities
+        uses: actions/dependency-review-action@v5.0.0
+        with:
+          fail-on-severity: high
+
+  codeql:
+    name: CodeQL (${{ matrix.language }})
+    # Results are uploaded, which a pull request from a fork is not allowed to do.
+    if: ${{ !github.event.pull_request.head.repo.fork }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [java-kotlin, javascript-typescript, python, actions]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:${{ matrix.language }}
+
+  image:
+    name: Container scan
+    if: ${{ !github.event.pull_request.head.repo.fork }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the backend image
+        run: docker build --pull -t risk-engine:scan backend/risk-engine
+
+      # Only what can be acted on: high and critical findings that already have a fixed version.
+      - name: Scan the image for known vulnerabilities
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD:/out" \
+            aquasec/trivy:0.74.0 image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed \
+            --format sarif --output /out/trivy-image.sarif risk-engine:scan
+
+      - name: Scan the Dockerfiles for misconfigurations
+        run: |
+          docker run --rm -v "$PWD:/src" aquasec/trivy:0.74.0 config --severity MEDIUM,HIGH,CRITICAL \
+            --format sarif --output /src/trivy-config.sarif /src
+
+      - name: Report image findings
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-image
+
+      - name: Report Dockerfile findings
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-config.sarif
+          category: trivy-config

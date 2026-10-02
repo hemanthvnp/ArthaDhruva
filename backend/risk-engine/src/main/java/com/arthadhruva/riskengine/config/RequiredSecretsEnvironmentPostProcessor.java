@@ -1,7 +1,7 @@
 package com.arthadhruva.riskengine.config;
 
+import org.springframework.boot.EnvironmentPostProcessor;
 import org.springframework.boot.SpringApplication;
-import org.springframework.boot.env.EnvironmentPostProcessor;
 import org.springframework.core.env.ConfigurableEnvironment;
 
 import java.util.List;
@@ -20,7 +20,6 @@ import java.util.Map;
  * exists at all -- earlier than any bean (including the ones with the fallback behavior this
  * guards against) is created.
  */
-@SuppressWarnings("deprecation") // still the documented, functioning SPI in Spring Boot 4.1.1; no stable replacement to migrate to yet
 public class RequiredSecretsEnvironmentPostProcessor implements EnvironmentPostProcessor {
 
     private static final String PRODUCTION_PROFILE = "production";

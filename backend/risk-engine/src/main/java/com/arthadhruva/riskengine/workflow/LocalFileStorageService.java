@@ -8,12 +8,17 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.security.DigestInputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.UUID;
 
 /**
- * Writes attachment bytes to local disk under {@code attachments.storage-dir}, one
- * subdirectory per tenant. Fine for a single-instance deployment (this app's current shape);
- * see {@link FileStorageService}'s doc for why this is behind an interface at all.
+ * Attachment bytes on local disk under {@code attachments.storage-dir}, one subdirectory per tenant.
+ * Stored names are random UUIDs: the original filename is metadata in the database only and never
+ * reaches the filesystem, so no user-supplied name can influence where a file lands. Right for a
+ * single-instance deployment; see {@link FileStorageService} for the object-storage seam.
  */
 @Service
 public class LocalFileStorageService implements FileStorageService {
@@ -29,26 +34,37 @@ public class LocalFileStorageService implements FileStorageService {
     public StoredFile store(Long tenantId, String originalFilename, InputStream content) throws IOException {
         Path tenantDir = rootDir.resolve(String.valueOf(tenantId));
         Files.createDirectories(tenantDir);
-
-        // UUID-prefixed so two uploads of the same filename never collide, without needing to
-        // sanitize/reject the original name -- it's kept, just not relied on for uniqueness.
-        String safeName = Path.of(originalFilename).getFileName().toString();
-        Path target = tenantDir.resolve(UUID.randomUUID() + "-" + safeName);
-
-        long sizeBytes = Files.copy(content, target, StandardCopyOption.REPLACE_EXISTING);
-        return new StoredFile(rootDir.relativize(target).toString(), sizeBytes);
+        Path target = tenantDir.resolve(UUID.randomUUID().toString());
+        MessageDigest sha256;
+        try {
+            sha256 = MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+        long size;
+        try (DigestInputStream in = new DigestInputStream(content, sha256)) {
+            size = Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
+        }
+        return new StoredFile(rootDir.relativize(target).toString(), size, HexFormat.of().formatHex(sha256.digest()));
     }
 
     @Override
     public InputStream retrieve(String storagePath) throws IOException {
+        return Files.newInputStream(resolveInsideRoot(storagePath));
+    }
+
+    @Override
+    public void delete(String storagePath) throws IOException {
+        Files.deleteIfExists(resolveInsideRoot(storagePath));
+    }
+
+    /** Storage paths come only from {@link #store}; this guards against a corrupted row pointing outside
+     * the root, which would otherwise read or delete an arbitrary file. */
+    private Path resolveInsideRoot(String storagePath) throws IOException {
         Path resolved = rootDir.resolve(storagePath).normalize();
-        if (!resolved.startsWith(rootDir)) {
-            // storagePath is only ever a value this service itself produced and the caller
-            // persisted verbatim (see FileStorageService's doc) -- this can only fire on data
-            // corruption or a bug elsewhere, not attacker-controlled input, but failing loudly
-            // beats silently reading outside the intended root.
-            throw new IOException("Resolved path escapes storage root: " + storagePath);
+        if (!resolved.startsWith(rootDir) || resolved.equals(rootDir)) {
+            throw new IOException("Resolved path escapes storage root");
         }
-        return Files.newInputStream(resolved);
+        return resolved;
     }
 }

@@ -2,14 +2,19 @@ package com.arthadhruva.riskengine.automation;
 
 import com.arthadhruva.riskengine.event.LoanCaseUpdatedEvent;
 import com.arthadhruva.riskengine.event.LoanScoredEvent;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.util.HashMap;
 import java.util.Map;
 
-/** Observer: reacts to domain events with the tenant's matching rules. Failures are contained by
- * the chain and by the event multicaster's error handler. */
+/**
+ * Observer: reacts to domain events with the tenant's matching rules -- only once the triggering change
+ * has committed. Running rules inside the triggering transaction let a failing rule mark that
+ * transaction rollback-only, and the swallowed error then silently rolled back the score or case change
+ * itself. After commit, the trigger is final no matter what a rule does.
+ */
 @Component
 public class AutomationEventListener {
 
@@ -21,7 +26,7 @@ public class AutomationEventListener {
         this.engine = engine;
     }
 
-    @EventListener
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void onScored(LoanScoredEvent event) {
         if (AutomationEngine.isRunning()) {
             return;
@@ -33,7 +38,7 @@ public class AutomationEventListener {
                 new RuleContext(event.getTenantId(), event.getLoanId(), facts));
     }
 
-    @EventListener
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void onCaseUpdated(LoanCaseUpdatedEvent event) {
         if (AutomationEngine.isRunning()) {
             return;

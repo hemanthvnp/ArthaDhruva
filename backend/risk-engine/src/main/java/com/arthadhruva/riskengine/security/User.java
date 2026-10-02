@@ -29,11 +29,10 @@ import java.util.Set;
  * through {@link com.arthadhruva.riskengine.security.UserRepository#findByOrganizationIdAndUsername}
  * rather than a bare username lookup, which would be ambiguous across tenants.
  *
- * <p>The {@code tenantFilter} below is a defense-in-depth backstop, not the primary guard --
- * explicit {@code tenantId} parameters on every repository method (as above) are what actually
- * enforce isolation; the filter only helps if {@link com.arthadhruva.riskengine.tenant.TenantHibernateFilterInterceptor}
- * has enabled it for the current session, which a native query or a missed interceptor path won't
- * trigger. See {@code TenantContext}'s class doc for the full reasoning. */
+ * <p>Tenant isolation has three layers: explicit {@code tenantId} parameters on every repository
+ * method (primary), the {@code tenantFilter} below (enabled on every EntityManager by
+ * {@link com.arthadhruva.riskengine.tenant.TenantFilterConfig}; applies to queries, not primary-key
+ * lookups), and Postgres row-level security under all of it. */
 @Entity
 @Table(name = "app_user", uniqueConstraints = @UniqueConstraint(columnNames = {"tenant_id", "username"}))
 @FilterDef(name = "tenantFilter", parameters = @ParamDef(name = "tenantId", type = Long.class))
@@ -91,6 +90,28 @@ public class User implements TenantAware {
 
     @Column(name = "totp_enabled", nullable = false)
     private boolean totpEnabled = false;
+
+    /**
+     * Carried in every session token; a token is valid only while it matches. Bumped (logout, password
+     * change or reset, role change, deactivation, 2FA change) to revoke every outstanding session at
+     * once. Read-only in JPA on purpose: it changes only through {@link UserRepository#bumpSessionVersion},
+     * an atomic increment -- a regular entity save could otherwise write back a stale value loaded
+     * before a concurrent revocation and silently un-revoke it.
+     */
+    @Column(name = "session_version", nullable = false, insertable = false, updatable = false)
+    private int sessionVersion;
+
+    /** The TOTP time step of the last accepted code; a code at or before it is a replay (RFC 6238
+     * section 5.2). Read-only in JPA for the same reason as {@link #sessionVersion}. */
+    @Column(name = "totp_last_step", insertable = false, updatable = false)
+    private Long totpLastStep;
+
+    /** The identity-provider subject this account is linked to, once it first signs in via SSO. */
+    @Column(name = "sso_issuer")
+    private String ssoIssuer;
+
+    @Column(name = "sso_subject")
+    private String ssoSubject;
 
     /**
      * Loans a CLIENT account may view via GET /my/loans. Only meaningful for CLIENT, but not
@@ -238,5 +259,36 @@ public class User implements TenantAware {
 
     public void setActivated(boolean activated) {
         this.activated = activated;
+    }
+
+    public int getSessionVersion() {
+        return sessionVersion;
+    }
+
+    public Long getTotpLastStep() {
+        return totpLastStep;
+    }
+
+    public String getSsoIssuer() {
+        return ssoIssuer;
+    }
+
+    public String getSsoSubject() {
+        return ssoSubject;
+    }
+
+    public void linkSsoIdentity(String issuer, String subject) {
+        this.ssoIssuer = issuer;
+        this.ssoSubject = subject;
+    }
+
+    /** Staff roles an analyst workflow can route work to (cases, automation, notifications). */
+    public boolean isStaff() {
+        return role == Role.ANALYST || role == Role.ADMIN;
+    }
+
+    /** Usable right now: enabled, activated and not locked out. */
+    public boolean isUsable() {
+        return enabled && activated && !isCurrentlyLocked();
     }
 }

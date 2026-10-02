@@ -1,35 +1,52 @@
 package com.arthadhruva.riskengine.score;
 
 import java.time.Instant;
+import java.util.List;
 
 /**
- * @param rawProbability         the LightGBM model's raw output -- NOT a trustworthy probability
- *                                (see default_risk_model.ipynb's calibration check: raw output
- *                                overpredicts by ~17.5x on average). Exposed for transparency, not
- *                                for dollar-valued use.
- * @param calibratedProbability  isotonic-corrected probability -- this is the number to actually
- *                                use for risk-based decisions, pricing, or Expected Loss.
+ * A PD score with everything needed to use and defend it.
+ *
+ * @param rawProbability        the model's uncalibrated output -- a ranking score, not a probability
+ * @param calibratedProbability probability of default within {@code horizonMonths} of origination; the
+ *                              number to use for decisions, pricing and expected loss
+ * @param explanation           Shapley attribution of the calibrated PD to each feature, relative to a typical
+ *                              loan of the training population (sums to PD minus {@code baselineProbability})
+ * @param reasonCodes           up to four principal factors that RAISE this loan's risk, in the form of
+ *                              adverse-action reasons
+ * @param warnings              inputs outside the training distribution (the score is an extrapolation)
+ * @param modelVersion          the exact model that produced this score
+ * @param baselineProbability   the PD of the reference loan the explanation is measured from; null when the
+ *                              score is read back without its explanation
  */
 public record ScoreResponse(
         double rawProbability,
         double calibratedProbability,
-        java.util.List<Attribution> explanation
+        List<Attribution> explanation,
+        List<ReasonCode> reasonCodes,
+        List<String> warnings,
+        String modelVersion,
+        int horizonMonths,
+        Double baselineProbability
 ) {
-    /** One feature's local contribution to this loan's calibrated probability: how much the score
-     * moves (positive = raises risk) compared with that feature at its portfolio-typical value. */
+    /** One feature's Shapley contribution to the calibrated PD (positive = raises risk). */
     public record Attribution(String feature, double contribution) {
     }
 
+    /** A principal reason the model rates this loan riskier than a typical one. */
+    public record ReasonCode(String code, String feature, String description, double contribution) {
+    }
+
     public ScoreResponse(double rawProbability, double calibratedProbability) {
-        this(rawProbability, calibratedProbability, java.util.List.of());
+        this(rawProbability, calibratedProbability, List.of(), List.of(), List.of(), null, 0, null);
     }
 
-    public ScoreResponse withExplanation(java.util.List<Attribution> explanation) {
-        return new ScoreResponse(rawProbability, calibratedProbability, explanation);
+    public ScoreResponse with(ExplanationService.Explanation explanation, List<String> warnings, String modelVersion,
+                              int horizonMonths) {
+        return new ScoreResponse(rawProbability, calibratedProbability, explanation.contributions(),
+                explanation.reasonCodes(), warnings, modelVersion, horizonMonths, explanation.baselineProbability());
     }
 
-
-    /** A {@link ScoreResponse} as read back from the cache, with the time it was computed. */
+    /** A {@link ScoreResponse} as read back from the cache or the durable record, with when it was computed. */
     public record CachedScore(ScoreResponse score, Instant computedAt) {
     }
 }

@@ -17,7 +17,7 @@ public class InsightController {
     }
 
     /** Topics over this organization's case notes. {@code refresh=true} recomputes now instead of
-     * serving the last scheduled result. */
+     * serving the last scheduled result (at most once a minute; see {@link InsightService#refreshIfStale}). */
     @GetMapping("/insights/note-topics")
     public Map<String, Object> noteTopics(@RequestParam(defaultValue = "false") boolean refresh) {
         return get(InsightService.NOTE_TOPICS, refresh);
@@ -31,7 +31,7 @@ public class InsightController {
     private Map<String, Object> get(String kind, boolean refresh) {
         Long tenant = TenantContext.get();
         if (refresh) {
-            service.refresh(tenant);
+            service.refreshIfStale(tenant);
         }
         return service.latest(tenant, kind);
     }

@@ -1,5 +1,7 @@
 package com.arthadhruva.riskengine;
 
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.GenericContainer;
@@ -8,10 +10,17 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * Base for tests needing a real Postgres/Redis rather than a live local instance -- containers are
- * started once per JVM (see static block) and torn down by the Testcontainers/Ryuk reaper, so
- * CI needs nothing pre-provisioned beyond a Docker daemon.
+ * Base for tests that need the real Postgres, Redis and Neo4j. The containers are started once per JVM
+ * (see the static block) and torn down by the Testcontainers reaper, so CI needs nothing provisioned
+ * beyond a Docker daemon; every subclass shares one Spring context.
+ *
+ * <p>The application connects exactly as it does in production: as {@code arthadhruva_app}, the
+ * non-owner role that row-level security and the append-only grants apply to, while Flyway migrates as
+ * the owner. Connecting as the owner (as these tests once did) bypasses row-level security entirely and
+ * would let a tenant-isolation bug pass every test.
  */
+@SpringBootTest
+@AutoConfigureMockMvc
 public abstract class AbstractIntegrationTest {
 
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(DockerImageName.parse("postgres:16-alpine"))
@@ -36,8 +45,11 @@ public abstract class AbstractIntegrationTest {
     @DynamicPropertySource
     static void registerProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-        registry.add("spring.datasource.username", POSTGRES::getUsername);
-        registry.add("spring.datasource.password", POSTGRES::getPassword);
+        // The app role is created by migration V11 with this password (flyway placeholder appDbPassword).
+        registry.add("spring.datasource.username", () -> "arthadhruva_app");
+        registry.add("spring.datasource.password", () -> "arthadhruva_app");
+        registry.add("spring.flyway.user", POSTGRES::getUsername);
+        registry.add("spring.flyway.password", POSTGRES::getPassword);
         registry.add("spring.data.redis.host", REDIS::getHost);
         registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
         registry.add("spring.neo4j.uri", NEO4J::getBoltUrl);

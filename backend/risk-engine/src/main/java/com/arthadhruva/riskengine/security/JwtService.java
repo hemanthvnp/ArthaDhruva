@@ -17,90 +17,114 @@ import java.util.Date;
 import java.util.Optional;
 
 /**
- * Issues and validates HMAC-SHA256 JWTs -- either a normal session token (username + role claim)
- * or a narrowly-scoped, purpose-tagged token (username + purpose claim, no role) used to
- * bootstrap either mandatory-2FA enrollment or CLIENT account activation. If {@code jwt.secret}
- * isn't configured, a random signing key is generated at startup and logged as a warning: it's
- * ephemeral, so every restart invalidates all outstanding tokens -- fine for local dev, not for
- * a real deployment, where {@code JWT_SECRET} should be set explicitly (same "sensible local
- * default, real env var for anything that matters" pattern as DB_PASSWORD/NEO4J_PASSWORD).
+ * Issues and validates HMAC-SHA256 JWTs.
+ *
+ * <p><b>Session tokens</b> are short-lived (15 minutes by default) and carry the account's
+ * {@code session_version} ({@code sv}) and the time the user actually authenticated ({@code auth_time}).
+ * An active client refreshes before expiry; a refresh is refused once {@code auth_time} is older than
+ * the absolute session cap (8 hours). Together that gives an idle timeout of one token lifetime, an
+ * absolute timeout, and server-side revocation: bumping the account's session version invalidates
+ * every outstanding token at once (see JwtAuthenticationFilter).
+ *
+ * <p><b>Purpose-scoped tokens</b> (TOTP enrollment, account activation, password reset, SSO state) carry
+ * a {@code purpose} claim and no role; they are never accepted as sessions.
+ *
+ * <p>If {@code jwt.secret} is unset a random key is generated (local development only; the production
+ * profile refuses to start without it, see RequiredSecretsEnvironmentPostProcessor).
  */
 @Service
 public class JwtService {
 
     private static final Logger log = LoggerFactory.getLogger(JwtService.class);
 
-    /** Claim marking a token as scoped to one narrow purpose rather than a real session -- see
-     * JwtAuthenticationFilter, which assigns a distinct ROLE_TOTP_SETUP authority (no real role)
-     * for a totp-setup token. An activation token never reaches JwtAuthenticationFilter at all --
-     * ActivationController parses it directly, since /activate is fully public. */
     private static final String PURPOSE_CLAIM = "purpose";
-    private static final String TOTP_SETUP_PURPOSE = "totp-setup";
-    private static final String ACTIVATION_PURPOSE = "activation";
-    private static final String RESET_PURPOSE = "password-reset";
-    private static final String FINGERPRINT_CLAIM = "ph";
+    private static final String ROLE_CLAIM = "role";
     private static final String ORG_CLAIM = "org";
+    private static final String SESSION_VERSION_CLAIM = "sv";
+    private static final String AUTH_TIME_CLAIM = "auth_time";
+    private static final String FINGERPRINT_CLAIM = "ph";
+
+    static final String TOTP_SETUP_PURPOSE = "totp-setup";
+    static final String ACTIVATION_PURPOSE = "activation";
+    static final String RESET_PURPOSE = "password-reset";
 
     private final SecretKey key;
-    private final Duration expiration;
+    private final Duration accessTokenTtl;
+    private final Duration sessionMax;
     private final Duration setupExpiration;
     private final Duration activationExpiration;
 
     public JwtService(@Value("${jwt.secret}") String configuredSecret,
-                       @Value("${jwt.expiration-hours}") long expirationHours,
-                       @Value("${totp.setup-token-expiration-minutes}") long setupExpirationMinutes,
-                       @Value("${activation.token-expiration-hours}") long activationExpirationHours) {
+                      @Value("${jwt.access-token-minutes:15}") long accessTokenMinutes,
+                      @Value("${jwt.session-max-hours:8}") long sessionMaxHours,
+                      @Value("${totp.setup-token-expiration-minutes}") long setupExpirationMinutes,
+                      @Value("${activation.token-expiration-hours}") long activationExpirationHours) {
         if (configuredSecret == null || configuredSecret.isBlank()) {
             this.key = Jwts.SIG.HS256.key().build();
             log.warn("JWT_SECRET not set -- generated a random signing key for this run. "
                     + "Every existing token becomes invalid on the next restart. Set JWT_SECRET "
                     + "for a real deployment.");
         } else {
-            this.key = Keys.hmacShaKeyFor(configuredSecret.getBytes(StandardCharsets.UTF_8));
+            byte[] bytes = configuredSecret.getBytes(StandardCharsets.UTF_8);
+            if (bytes.length < 32) {
+                throw new IllegalStateException("JWT_SECRET must be at least 32 bytes (256 bits) for HS256");
+            }
+            this.key = Keys.hmacShaKeyFor(bytes);
         }
-        this.expiration = Duration.ofHours(expirationHours);
+        this.accessTokenTtl = Duration.ofMinutes(accessTokenMinutes);
+        this.sessionMax = Duration.ofHours(sessionMaxHours);
         this.setupExpiration = Duration.ofMinutes(setupExpirationMinutes);
         this.activationExpiration = Duration.ofHours(activationExpirationHours);
     }
 
-    public IssuedToken issue(String username, Role role, Long organizationId) {
+    /** A fresh session for a user who has just authenticated. */
+    public IssuedToken issueSession(User user) {
+        return issueSession(user, Instant.now());
+    }
+
+    /**
+     * A session token bound to the given authentication time: expiry is the earlier of now + the access
+     * token lifetime and authTime + the absolute session cap.
+     *
+     * @throws IllegalStateException if the absolute session cap has already passed
+     */
+    public IssuedToken issueSession(User user, Instant authTime) {
         Instant now = Instant.now();
-        Instant expiresAt = now.plus(expiration);
+        Instant cap = authTime.plus(sessionMax);
+        if (!cap.isAfter(now)) {
+            throw new IllegalStateException("Session has reached its maximum lifetime");
+        }
+        Instant expiresAt = now.plus(accessTokenTtl).isBefore(cap) ? now.plus(accessTokenTtl) : cap;
         String token = Jwts.builder()
-                .subject(username)
-                .claim("role", role.name())
-                .claim(ORG_CLAIM, organizationId)
+                .subject(user.getUsername())
+                .claim(ROLE_CLAIM, user.getRole().name())
+                .claim(ORG_CLAIM, user.getTenantId())
+                .claim(SESSION_VERSION_CLAIM, user.getSessionVersion())
+                .claim(AUTH_TIME_CLAIM, authTime.getEpochSecond())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(expiresAt))
                 .signWith(key)
                 .compact();
-        return new IssuedToken(token, expiresAt);
+        return new IssuedToken(token, expiresAt, cap);
     }
 
-    /** A narrowly-scoped, short-lived token for the TOTP bootstrap case: a mandatory-2FA account
-     * that hasn't enrolled yet has proven its password but can't get a real session until
-     * enrollment completes. Carries no role claim -- JwtAuthenticationFilter assigns
-     * ROLE_TOTP_SETUP instead, which SecurityConfig only permits on the two enrollment
-     * endpoints. Still carries the org claim: a resumed setup flow needs to re-resolve tenant the
-     * same way a normal session token does. */
+    public Duration sessionMax() {
+        return sessionMax;
+    }
+
+    /** Short-lived token for mandatory-2FA enrollment; SecurityConfig only admits it to the two
+     * enrollment endpoints. */
     public IssuedToken issueSetupToken(String username, Long organizationId) {
         return issuePurposeScopedToken(username, TOTP_SETUP_PURPOSE, setupExpiration, organizationId);
     }
 
-    /** A narrowly-scoped token for a CLIENT invited via AdminUserController -- the account has no
-     * usable password yet, so this is the only credential that can reach ActivationController
-     * until the client sets one. Longer-lived than a TOTP setup token (days, not minutes): a
-     * shared link takes longer to act on than scanning a QR code on the spot. Carries the org
-     * claim because /activate is fully public and never passes through JwtAuthenticationFilter --
-     * ActivationController must resolve tenant from the token itself, not from a filter-populated
-     * context. */
+    /** Invite link token; never passes JwtAuthenticationFilter, ActivationController parses it directly. */
     public IssuedToken issueActivationToken(String username, Long organizationId) {
         return issuePurposeScopedToken(username, ACTIVATION_PURPOSE, activationExpiration, organizationId);
     }
 
-    /** Password-reset link token. {@code passwordFingerprint} binds it to the account's current
-     * password hash: once the password changes the fingerprint no longer matches, so a used (or
-     * stale) link is dead without any server-side token storage. */
+    /** Password-reset link token bound to the account's current password hash: once the password
+     * changes the fingerprint no longer matches, so a used or stale link is dead without server storage. */
     public IssuedToken issueResetToken(String username, Long organizationId, String passwordFingerprint) {
         Instant now = Instant.now();
         Instant expiresAt = now.plus(Duration.ofMinutes(30));
@@ -113,11 +137,10 @@ public class JwtService {
                 .expiration(Date.from(expiresAt))
                 .signWith(key)
                 .compact();
-        return new IssuedToken(token, expiresAt);
+        return new IssuedToken(token, expiresAt, expiresAt);
     }
 
-    /** A short-lived signed token carrying arbitrary claims for one purpose (e.g. the SSO round trip's
-     * state). The purpose claim keeps it from being accepted as anything else. */
+    /** A short-lived signed token with arbitrary claims for one purpose (e.g. SSO state). */
     public String issueClaimsToken(String purpose, Duration ttl, java.util.Map<String, Object> claims) {
         Instant now = Instant.now();
         var builder = Jwts.builder().claim(PURPOSE_CLAIM, purpose).issuedAt(Date.from(now)).expiration(Date.from(now.plus(ttl)));
@@ -145,33 +168,47 @@ public class JwtService {
                 .expiration(Date.from(expiresAt))
                 .signWith(key)
                 .compact();
-        return new IssuedToken(token, expiresAt);
+        return new IssuedToken(token, expiresAt, expiresAt);
     }
 
-    /** Empty if the token is missing, expired, malformed, or signed with a different key. A
-     * purpose-scoped token has no role claim, so {@link ParsedToken#role()} is null for it --
-     * callers must check {@link ParsedToken#isSetupOnly()} / {@link ParsedToken#isActivationOnly()}
-     * first. */
+    /** Empty if the token is missing, expired, malformed, or signed with a different key. */
     public Optional<ParsedToken> parse(String token) {
         try {
             Claims claims = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
             String purpose = claims.get(PURPOSE_CLAIM, String.class);
-            boolean setupOnly = TOTP_SETUP_PURPOSE.equals(purpose);
-            boolean activationOnly = ACTIVATION_PURPOSE.equals(purpose);
-            boolean resetOnly = RESET_PURPOSE.equals(purpose);
-            Role role = purpose == null ? Role.valueOf(claims.get("role", String.class)) : null;
-            Long organizationId = claims.get(ORG_CLAIM, Long.class);
-            return Optional.of(new ParsedToken(claims.getSubject(), role, setupOnly, activationOnly, organizationId,
-                    resetOnly, claims.get(FINGERPRINT_CLAIM, String.class)));
-        } catch (JwtException | IllegalArgumentException e) {
+            Role role = purpose == null ? Role.valueOf(claims.get(ROLE_CLAIM, String.class)) : null;
+            Long authTime = claims.get(AUTH_TIME_CLAIM, Long.class);
+            return Optional.of(new ParsedToken(claims.getSubject(), role, purpose,
+                    claims.get(ORG_CLAIM, Long.class), claims.get(SESSION_VERSION_CLAIM, Integer.class),
+                    authTime == null ? null : Instant.ofEpochSecond(authTime),
+                    claims.get(FINGERPRINT_CLAIM, String.class)));
+        } catch (JwtException | IllegalArgumentException | NullPointerException e) {
             return Optional.empty();
         }
     }
 
-    public record IssuedToken(String token, Instant expiresAt) {
+    /** @param sessionExpiresAt when the session can no longer be refreshed (equals expiresAt for purpose tokens) */
+    public record IssuedToken(String token, Instant expiresAt, Instant sessionExpiresAt) {
     }
 
-    public record ParsedToken(String username, Role role, boolean isSetupOnly, boolean isActivationOnly, Long organizationId,
-                       boolean isResetOnly, String passwordFingerprint) {
+    public record ParsedToken(String username, Role role, String purpose, Long organizationId, Integer sessionVersion,
+                              Instant authTime, String passwordFingerprint) {
+
+        /** A real session: no purpose, a role, a tenant, a session version and an authentication time. */
+        public boolean isSession() {
+            return purpose == null && role != null && organizationId != null && sessionVersion != null && authTime != null;
+        }
+
+        public boolean isSetupOnly() {
+            return TOTP_SETUP_PURPOSE.equals(purpose);
+        }
+
+        public boolean isActivationOnly() {
+            return ACTIVATION_PURPOSE.equals(purpose);
+        }
+
+        public boolean isResetOnly() {
+            return RESET_PURPOSE.equals(purpose);
+        }
     }
 }

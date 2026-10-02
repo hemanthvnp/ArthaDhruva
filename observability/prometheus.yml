@@ -1,5 +1,10 @@
 global:
   scrape_interval: 10s
+  evaluation_interval: 30s
+
+# What is worth waking someone for. The rules are unit-tested: see alerts.test.yml.
+rule_files:
+  - alerts.yml
 
 scrape_configs:
   - job_name: risk-engine

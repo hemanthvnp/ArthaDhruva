@@ -8,19 +8,23 @@ clients:
   - url: http://loki:3100/loki/api/v1/push
 
 scrape_configs:
-  # Discovers this compose project's running containers via the Docker socket and ships their
+  # Discovers this compose project's running containers through the Docker API and ships their
   # stdout to Loki -- the app's structured JSON console lines (logback-spring.xml) arrive
-  # already-parseable, no per-service scrape config needed as new services are added. Filtered to
-  # this project's own containers (by the compose-project label Docker sets automatically) since
-  # the same Docker daemon on a dev machine may be running unrelated projects too.
+  # already-parseable, no per-service scrape config needed as new services are added.
+  #
+  # The API is reached through docker-socket-proxy, which only answers read-only questions about
+  # containers and networks (see docker-compose.yml). The Docker daemon applies the project filter,
+  # so containers of unrelated projects on the same machine are never listed at all. The project name
+  # comes from the environment (-config.expand-env), so the filter holds whatever the checkout
+  # directory is called.
   - job_name: docker
     docker_sd_configs:
-      - host: unix:///var/run/docker.sock
+      - host: tcp://docker-socket-proxy:2375
         refresh_interval: 5s
+        filters:
+          - name: label
+            values: ["com.docker.compose.project=${COMPOSE_PROJECT_NAME}"]
     relabel_configs:
-      - source_labels: [__meta_docker_container_label_com_docker_compose_project]
-        regex: 'arthadhruva.*'
-        action: keep
       - source_labels: [__meta_docker_container_name]
         regex: '/(.*)'
         target_label: container

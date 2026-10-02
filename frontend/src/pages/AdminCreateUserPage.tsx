@@ -42,12 +42,12 @@ export default function AdminCreateUserPage() {
 
   return (
     <div>
-      <h2>Create User</h2>
+      <h2>Create user</h2>
       <p className="page-subtitle">
-        There's no self-registration on this platform -- every account is provisioned here by an
-        admin. Staff (ANALYST/ADMIN) get a password set directly. A CLIENT account is created
-        pending activation -- attach the loanId(s) they should see on their "My Loan" page, then
-        share the activation link this page gives you; the client sets their own password there.
+        Nobody can register themselves: every account is created here by an administrator. Staff are given a
+        password and enrol a second factor on first sign-in. A borrower's account is created pending activation:
+        attach the loans they should see, then share the activation link this page gives you, and they choose
+        their own password.
       </p>
 
       <div className="card">
@@ -113,8 +113,8 @@ export default function AdminCreateUserPage() {
             {result.activationLink && (
               <>
                 <p className="page-subtitle">
-                  Share this activation link with the client -- there's no email delivery, so copy
-                  it and send it however you normally would.
+                  Share this activation link with the borrower. It is not emailed for you: copy it and
+                  send it however you normally would.
                 </p>
                 <div className="field">
                   <input readOnly value={result.activationLink} onFocus={(e) => e.target.select()} />

@@ -8,8 +8,6 @@ services:
     ports: ["127.0.0.1:5432:5432"]
     volumes:
       - ./postgres/pg_hba.dev.conf:/etc/postgresql/pg_hba.conf:ro
-    volumes:
-      - ./postgres/pg_hba.dev.conf:/etc/postgresql/pg_hba.conf:ro
   redis:
     networks: [data, default]
     ports: ["127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"]

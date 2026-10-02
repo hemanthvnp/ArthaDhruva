@@ -46,7 +46,7 @@ class InsightsAlgorithmsTest {
     }
 
     private static LoanFeatures loan(int credit, double ltv, double upb) {
-        return new LoanFeatures("x", credit, 30.0, upb, ltv, ltv, 6.0, 360, 2, 1, 0.0, "P", "SF", "P", "R", "N", "CA");
+        return new LoanFeatures("x", credit, 30.0, upb, ltv, ltv, 6.0, 360, 2, 1, 0.0, "P", "SF", "P", "R", "N", "CA", null);
     }
 
     @Test

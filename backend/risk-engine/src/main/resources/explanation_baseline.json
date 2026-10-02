@@ -1,0 +1,18 @@
+{
+  "credit_score": 757.0,
+  "original_dti": 37.0,
+  "original_upb": 243000.0,
+  "original_cltv": 79.0,
+  "original_ltv": 79.0,
+  "rate_spread": 0.10999999940395355,
+  "original_loan_term": 360.0,
+  "number_of_borrowers": 1.0,
+  "number_of_units": 1.0,
+  "mi_percent": 0.0,
+  "occupancy_status": "P",
+  "property_type": "SF",
+  "loan_purpose": "P",
+  "channel": "R",
+  "first_time_homebuyer_flag": "N",
+  "property_state": "CA"
+}

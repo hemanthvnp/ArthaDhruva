@@ -23,13 +23,14 @@ public class WebhookController {
         this.service = service;
     }
 
-    public record SubscribeRequest(@NotBlank String url, @NotNull List<WebhookEventType> events) {
+    public record SubscribeRequest(@NotBlank @jakarta.validation.constraints.Size(max = 500) String url,
+                                   @NotNull List<WebhookEventType> events) {
     }
 
+    /** {@code secret} is set only in the response to creating the subscription (stored encrypted after). */
     public record SubscriptionView(Long id, String url, List<WebhookEventType> events, boolean enabled, String secret) {
-        static SubscriptionView of(WebhookSubscription s, boolean revealSecret) {
-            return new SubscriptionView(s.getId(), s.getUrl(), s.getEventTypes(), s.isEnabled(),
-                    revealSecret ? s.getSecret() : null);
+        static SubscriptionView of(WebhookSubscription s, String revealedSecret) {
+            return new SubscriptionView(s.getId(), s.getUrl(), s.getEventTypes(), s.isEnabled(), revealedSecret);
         }
     }
 
@@ -40,8 +41,8 @@ public class WebhookController {
     @PostMapping("/admin/webhooks")
     public ResponseEntity<?> subscribe(@Valid @RequestBody SubscribeRequest r) {
         try {
-            return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(SubscriptionView.of(service.subscribe(TenantContext.get(), r.url(), r.events()), true));
+            WebhookService.Created created = service.subscribe(TenantContext.get(), r.url(), r.events());
+            return ResponseEntity.status(HttpStatus.CREATED).body(SubscriptionView.of(created.subscription(), created.secret()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -49,7 +50,7 @@ public class WebhookController {
 
     @GetMapping("/admin/webhooks")
     public List<SubscriptionView> list() {
-        return service.list(TenantContext.get()).stream().map(s -> SubscriptionView.of(s, false)).toList();
+        return service.list(TenantContext.get()).stream().map(s -> SubscriptionView.of(s, null)).toList();
     }
 
     @DeleteMapping("/admin/webhooks/{id}")

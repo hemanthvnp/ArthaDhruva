@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { totpConfirmWithToken, totpSetupWithToken } from '../api/client';
-import { useAuth } from '../auth/AuthContext';
+import { sessionFrom } from '../auth/session';
+import { useAuth } from '../auth/useAuth';
 import ErrorBanner from '../components/ErrorBanner';
 import BrandMark from '../components/BrandMark';
 
@@ -45,10 +46,8 @@ export default function Setup2faPage() {
     setError(null);
     try {
       const result = await totpConfirmWithToken(setupToken, code);
-      if ('token' in result) {
-        login({ token: result.token, username: result.username, role: result.role });
-        navigate(result.role === 'CLIENT' ? '/my-loan' : '/score', { replace: true });
-      }
+      login(sessionFrom(result));
+      navigate(result.role === 'CLIENT' ? '/my-loan' : '/score', { replace: true });
     } catch (e) {
       setError(e);
     } finally {

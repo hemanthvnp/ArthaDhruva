@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { earlyWarningScore, listEarlyWarningCatalog } from '../api/client';
-import EarlyWarningFeaturesForm, { DEFAULT_EARLY_WARNING_LOAN } from '../components/EarlyWarningFeaturesForm';
+import EarlyWarningFeaturesForm from '../components/EarlyWarningFeaturesForm';
+import { DEFAULT_EARLY_WARNING_LOAN } from '../components/loanDefaults';
 import ErrorBanner from '../components/ErrorBanner';
 import RiskMeter from '../components/RiskMeter';
 import type { EarlyWarningCatalogEntry, EarlyWarningResponse } from '../api/types';
+import { count } from '../format';
 
 export default function EarlyWarningPage() {
   const [loan, setLoan] = useState(DEFAULT_EARLY_WARNING_LOAN);
@@ -52,18 +54,20 @@ export default function EarlyWarningPage() {
 
   return (
     <div>
-      <h2>Early-Warning Delinquency</h2>
-      <p className="page-subtitle">
-        For a currently-performing loan (0 DPD, never delinquent before), the probability it goes
-        30+ days late within the next 3 months -- a first-time early-warning signal, not a
-        recurring-delinquency predictor.
-      </p>
+      <div className="page-head-row">
+        <div>
+          <h2>Early warning</h2>
+          <p className="page-subtitle">
+            For a loan that is current and has never been late: the probability that it goes 30 or more days past due
+            within the next three months. A first-time signal, not a predictor of repeat delinquency.
+          </p>
+        </div>
+      </div>
 
       <div className="card">
-        <h3>Score a real loan snapshot</h3>
+        <h3>An observed snapshot</h3>
         <p className="page-subtitle">
-          Real currently-current-loan snapshots sampled from the natural-rate calibration
-          holdout -- each one's real, later-observed outcome is shown alongside the prediction.
+          Snapshots of performing loans the model was not fitted on, each shown with what the loan went on to do.
         </p>
         <div className="row-inline">
           <div className="field" style={{ minWidth: 320 }}>
@@ -73,7 +77,7 @@ export default function EarlyWarningPage() {
               list="ew-catalog-labels"
               value={pickedLabel}
               onChange={(e) => setPickedLabel(e.target.value)}
-              placeholder="Start typing a real Loan ID..."
+              placeholder="Start typing a loan ID"
             />
             <datalist id="ew-catalog-labels">
               {catalog.map((e) => (
@@ -85,7 +89,7 @@ export default function EarlyWarningPage() {
             onClick={scorePicked}
             disabled={pickLoading || !catalog.some((e) => e.label === pickedLabel)}
           >
-            {pickLoading ? 'Scoring...' : 'Fetch & score'}
+            {pickLoading ? 'Scoring...' : 'Score'}
           </button>
         </div>
         <ErrorBanner error={pickError} />
@@ -102,36 +106,31 @@ export default function EarlyWarningPage() {
                 <div style={{ marginTop: '0.6rem' }}><RiskMeter probability={pickResult.result.calibratedRisk} small /></div>
               </div>
               <div className="stat">
-                <div className="label">Actually went delinquent?</div>
+                <div className="label">What happened</div>
                 <div className="value" style={{ color: pickResult.entry.actuallyWentDelinquent ? 'var(--danger)' : 'var(--ok)' }}>
-                  {pickResult.entry.actuallyWentDelinquent ? 'Yes' : 'No'}
+                  {pickResult.entry.actuallyWentDelinquent ? 'Went late' : 'Stayed current'}
                 </div>
               </div>
             </div>
-            <p className="page-subtitle" style={{ marginTop: '0.5rem' }}>
-              "Actually went delinquent" is the real, later-observed outcome for this exact
-              loan/month -- not something the model saw. It's shown here purely to compare the
-              prediction against reality.
+            <p className="chart-caption">
+              The outcome is what this loan did in the three months after the snapshot. The model never saw it; it is
+              here to set the prediction against what happened.
             </p>
           </>
         )}
-        <p className="page-subtitle" style={{ marginTop: '0.75rem' }}>
-          {catalog.length.toLocaleString()} real snapshots available to pick from.
-        </p>
+        <p className="chart-caption">{count(catalog.length)} snapshots to pick from.</p>
       </div>
 
       <div className="card">
-        <h3>Or score a hypothetical snapshot (manual)</h3>
+        <h3>A snapshot you enter</h3>
         <p className="page-subtitle">
-          Trend and regime features below (eLTV, UPB paydown, rate-lock severity, and their
-          3-/6-month changes, macro regime) describe a loan's actual recent history; this form
-          doesn't compute them for you, the same way expected-loss's EAD isn't a modeled
-          prediction.
+          The trend fields (estimated LTV, balance paid down, rate-lock severity and their three- and six-month changes)
+          describe a loan's recent history. They are inputs here: this form does not derive them from payments.
         </p>
         <EarlyWarningFeaturesForm value={loan} onChange={setLoan} />
         <div className="actions">
           <button onClick={submit} disabled={loading}>
-            {loading ? 'Scoring...' : 'Score early-warning risk'}
+            {loading ? 'Scoring...' : 'Score'}
           </button>
         </div>
         <ErrorBanner error={error} />
@@ -149,11 +148,9 @@ export default function EarlyWarningPage() {
           </div>
         )}
         {result && (
-          <p className="warn-banner">
-            Use calibrated risk for a dollar/decision-meaningful probability. Raw risk is kept at
-            full resolution for ranking multiple loans against each other -- isotonic calibration
-            is a monotonic step function that coarsens resolution at the extreme tail, so two
-            loans can share a calibrated value while still being genuinely different in raw risk.
+          <p className="chart-caption">
+            Use the calibrated risk as the probability. The raw output is kept for ranking: calibration is a step
+            function, so two loans can share a calibrated value and still differ in the raw one.
           </p>
         )}
       </div>

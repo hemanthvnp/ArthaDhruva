@@ -627,8 +627,11 @@ tbody tr:last-child td { border-bottom: none; }
 
 /* ---------- page + widget layout ---------- */
 
-.page-head-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
-.page-head-row .page-subtitle { margin: 0; }
+.page-head-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem 2rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.page-head-row .page-subtitle { margin: 0; max-width: 78ch; }
+/* the heading block gives way to the page's action, which stays on the right instead of wrapping under a long subtitle */
+.page-head-row > :first-child { flex: 1 1 22rem; min-width: 0; }
+.page-head-row > button, .page-head-row > .actions, .page-head-row > .segmented { flex: none; margin-top: 0; }
 
 .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1rem; margin-bottom: 1.25rem; }
 .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.1rem 1.25rem; box-shadow: var(--shadow-sm); }
@@ -649,7 +652,7 @@ tbody tr:last-child td { border-bottom: none; }
 .list-row:last-child { border-bottom: none; }
 .list-row .sub { color: var(--text-muted); font-size: 0.8rem; }
 .list-row .num { font-variant-numeric: tabular-nums; font-weight: 600; }
-.list-row .grow { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list-row .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .empty { color: var(--text-muted); font-size: 0.9rem; padding: 0.75rem 0; }
 
@@ -898,3 +901,57 @@ td code, .card code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, mon
 .chat-input { display: flex; gap: 0.6rem; padding: 0.85rem 1.25rem; border-top: 1px solid var(--border); }
 .chat-input input { flex: 1; }
 @media (max-width: 900px) { .bubble { max-width: 92%; } .chat-context input { width: 100%; } }
+
+/* ---------- risk pages: figures in tables, small multiples, facts, progress ---------- */
+
+.sub { color: var(--text-muted); font-size: 0.8rem; font-weight: 400; }
+/* a unit beside a headline figure is set in the text face, not the display one */
+.kpi .value .sub, .stat .value .sub { font-family: var(--font-ui); letter-spacing: 0; font-size: 0.85rem; }
+.card-head { gap: 0.75rem; flex-wrap: wrap; }
+.card-head .sub { font-variant-numeric: tabular-nums; }
+.card-head select { font-size: 0.85rem; padding: 0.3rem 0.5rem; }
+
+th.num, td.num { text-align: right; white-space: nowrap; }
+.badge, td.mono { white-space: nowrap; }
+td.mono, .mono { font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace; font-size: 0.82rem; }
+tr.selected, tr.selected:hover { background: var(--surface-2); box-shadow: inset 3px 0 0 var(--text); }
+
+/* a button that reads as the text it sits in: for rows that select something */
+button.plain-text { background: none; border: none; box-shadow: none; padding: 0; margin: 0; color: inherit; font: inherit; text-transform: inherit; letter-spacing: inherit; text-align: left; cursor: pointer; border-radius: 4px; }
+button.plain-text:hover { background: none; text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
+
+.swatch { display: inline-block; width: 14px; height: 3px; border-radius: 2px; margin-right: 0.55rem; vertical-align: middle; background: var(--text); }
+
+.section-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; color: var(--text-muted); margin-bottom: 0.4rem; }
+.chart-caption { color: var(--text-muted); font-size: 0.82rem; line-height: 1.5; margin: 0.75rem 0 0; max-width: 90ch; }
+.mini-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem 1.5rem; }
+
+dl.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.9rem 1.5rem; margin: 1.1rem 0 0; padding-top: 1.1rem; border-top: 1px solid var(--border); }
+dl.facts dt { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 650; color: var(--text-muted); }
+dl.facts dd { margin: 0.15rem 0 0; font-variant-numeric: tabular-nums; font-size: 0.93rem; overflow-wrap: anywhere; }
+
+ul.prose { max-width: 84ch; line-height: 1.6; font-size: 0.92rem; }
+ul.prose li { margin: 0.5rem 0; }
+
+.progress { height: 6px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); overflow: hidden; }
+.progress > span { display: block; height: 100%; background: var(--text); border-radius: 999px; transition: width 0.4s ease; }
+
+/* share-of-largest bar inside a list row */
+.list-row .bar { flex: none; width: 96px; height: 6px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.list-row .bar > span { display: block; height: 100%; background: var(--text); border-radius: 999px; }
+@media (max-width: 600px) { .list-row .bar { display: none; } }
+
+/* a banner that stands between cards, not inside one, needs room below as well */
+.error-banner + .card, .warn-banner + .card, .error-banner + .kpi-row, .warn-banner + .kpi-row { margin-top: 1.25rem; }
+
+a.chip { text-decoration: none; color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
+a.chip:hover { background: var(--surface-2); border-color: var(--text-muted); }
+
+/* wide tables scroll inside their card instead of stretching the page */
+.table-scroll { overflow-x: auto; margin: 0 -0.25rem; padding: 0 0.25rem; }
+
+/* a row opened under the one that was selected */
+tr.detail-row, tr.detail-row:hover { background: var(--surface-2); }
+tr.detail-row > td { padding: 1rem 1rem 1.1rem; white-space: normal; }
+tr.detail-row .widget-grid { gap: 1rem; }
+pre.code-block { margin: 0; font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace; font-size: 0.78rem; line-height: 1.5; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.7rem 0.8rem; max-height: 280px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }

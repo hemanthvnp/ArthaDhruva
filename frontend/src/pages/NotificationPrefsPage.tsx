@@ -24,7 +24,7 @@ export default function NotificationPrefsPage() {
 
   return (
     <div>
-      <h2>Notification Preferences</h2>
+      <h2>Notification preferences</h2>
       <p className="page-subtitle">Choose how you hear about each kind of event. Only your own settings change.</p>
       <ErrorBanner error={prefs.error ?? update.error} />
       <div className="card">

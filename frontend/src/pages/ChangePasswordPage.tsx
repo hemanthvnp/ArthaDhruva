@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { changePassword } from '../api/client';
+import { sessionFrom } from '../auth/session';
+import { useAuth } from '../auth/useAuth';
 import ErrorBanner from '../components/ErrorBanner';
 
 export default function ChangePasswordPage() {
@@ -9,6 +11,7 @@ export default function ChangePasswordPage() {
   const [error, setError] = useState<unknown>(null);
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
 
   const submit = async () => {
     setError(null);
@@ -19,7 +22,9 @@ export default function ChangePasswordPage() {
     }
     setLoading(true);
     try {
-      await changePassword(currentPassword, newPassword);
+      // Every session of the account is ended by a password change; this one continues on the new
+      // session the server returns.
+      login(sessionFrom(await changePassword(currentPassword, newPassword)));
       setSuccess(true);
       setCurrentPassword('');
       setNewPassword('');
@@ -33,7 +38,7 @@ export default function ChangePasswordPage() {
 
   return (
     <div>
-      <h2>Change Password</h2>
+      <h2>Change password</h2>
       <p className="page-subtitle">
         Passwords must be at least 10 characters and contain a letter and a digit.
       </p>
@@ -77,7 +82,7 @@ export default function ChangePasswordPage() {
         <ErrorBanner error={error} />
         {success && (
           <p className="page-subtitle" style={{ color: 'var(--ok)', marginTop: '0.8rem' }}>
-            Password updated.
+            Password updated. Every other session of this account has been signed out.
           </p>
         )}
       </div>

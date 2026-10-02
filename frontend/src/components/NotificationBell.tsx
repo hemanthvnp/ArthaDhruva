@@ -3,12 +3,17 @@ import { Link } from 'react-router-dom';
 import { listNotifications, markNotificationRead, unreadNotificationCount } from '../api/client';
 import type { NotificationView } from '../api/types';
 import Icon from './Icon';
+import { dateTime } from '../format';
 
-const POLL_INTERVAL_MS = 30_000;
+const POLL_MS = 30_000;
+const MAX_POLL_MS = 5 * 60_000;
 
-/** ANALYST/ADMIN only, same as the endpoints it calls -- see NotificationController's class doc
- * for why a CLIENT never has anything here yet. Polls the unread count rather than a WebSocket --
- * simple, and a 30s staleness window is fine for "you were assigned a case" style alerts. */
+/** ANALYST/ADMIN only, same as the endpoints it calls. Polls the unread count rather than holding a
+ * WebSocket open: 30 seconds of staleness is fine for "you were assigned a case".
+ *
+ * The polling adapts instead of ticking blindly: a hidden tab does not poll at all and catches up the
+ * moment it is shown again; failures double the interval (up to five minutes) so a struggling server is
+ * not hammered by every open tab; and each interval is jittered so tabs opened together drift apart. */
 export default function NotificationBell() {
   const [count, setCount] = useState(0);
   const [open, setOpen] = useState(false);
@@ -16,12 +21,35 @@ export default function NotificationBell() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const poll = () => {
-      unreadNotificationCount().then(setCount).catch(() => {});
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let delay = POLL_MS;
+    let stopped = false;
+
+    const poll = async () => {
+      if (document.visibilityState === 'visible') {
+        try {
+          setCount(await unreadNotificationCount());
+          delay = POLL_MS;
+        } catch {
+          delay = Math.min(MAX_POLL_MS, delay * 2);
+        }
+      }
+      if (!stopped) timer = setTimeout(poll, delay * (0.85 + Math.random() * 0.3));
     };
-    poll();
-    const interval = setInterval(poll, POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
+    const onVisibility = () => {
+      if (document.visibilityState !== 'visible') return;
+      clearTimeout(timer);
+      delay = POLL_MS;
+      void poll();
+    };
+
+    void poll();
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, []);
 
   const toggleOpen = () => {
@@ -64,11 +92,11 @@ export default function NotificationBell() {
                     {n.message}
                   </Link>
                 ) : (
-                  <span onClick={() => handleClick(n)} style={{ cursor: 'pointer' }}>
+                  <button type="button" className="plain-text" onClick={() => handleClick(n)}>
                     {n.message}
-                  </span>
+                  </button>
                 )}
-                <div className="when">{new Date(n.createdAt).toLocaleString()}</div>
+                <div className="when">{dateTime(n.createdAt)}</div>
               </div>
             ))}
         </div>

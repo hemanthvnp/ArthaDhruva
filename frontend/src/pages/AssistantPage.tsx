@@ -62,7 +62,7 @@ export default function AssistantPage() {
     <div>
       <div className="page-head-row">
         <div>
-          <h2>AI Assistant</h2>
+          <h2>Assistant</h2>
           <p className="page-subtitle">
             Ask about a specific loan or a general question. Each question is independent: the assistant does not remember earlier
             turns yet.
