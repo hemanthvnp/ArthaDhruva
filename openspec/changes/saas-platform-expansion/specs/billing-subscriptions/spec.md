@@ -4,8 +4,8 @@
 Every organization SHALL have exactly one active subscription plan at a time, determining its seat limit and rate-limit tier.
 
 #### Scenario: New organization defaults to a starter plan
-- **WHEN** an organization is created through the self-service signup flow
-- **THEN** it is assigned a default trial or starter plan with a defined seat limit and rate-limit tier
+- **WHEN** a platform administrator provisions an organization from an approved access request without choosing a plan
+- **THEN** it is assigned the trial (pilot) plan with a defined seat limit, rate-limit tier, and trial end date
 
 ### Requirement: Seat limit enforcement
 The system SHALL prevent an organization from provisioning more user accounts than its plan's seat limit allows.
@@ -21,12 +21,28 @@ The system SHALL record billable usage events (e.g., scoring calls, active seats
 - **WHEN** an organization's user successfully scores a loan
 - **THEN** a usage record is incremented for that organization's current billing period
 
-### Requirement: Self-service signup and trial
-A prospective customer SHALL be able to create a new organization and trial account without administrator provisioning.
+### Requirement: Sales-assisted access requests
+A prospective customer SHALL be able to submit a request for access, which SHALL NOT create an organization or user account by itself. Organizations SHALL be provisioned only by a platform administrator reviewing that request, matching how banks procure software (security review and pilot, not self-service card signup).
 
-#### Scenario: Successful self-service signup
-- **WHEN** a prospective customer completes the signup form with a unique organization slug and valid email
-- **THEN** a new organization is created on a trial plan and the signing-up user becomes its first admin
+#### Scenario: Prospect submits an access request
+- **WHEN** a prospective customer submits the request-access form with institution name, contact name, and a valid work email
+- **THEN** a pending access request is recorded and no organization or user account is created
+
+#### Scenario: Platform administrator approves a request
+- **WHEN** a platform administrator approves a pending access request with an available organization slug and an admin username
+- **THEN** the organization is created on the chosen plan (trial by default), its first ADMIN is created as an invited, not-yet-activated account, an activation link is issued to the requester's work email, and the request is marked approved with the reviewer and the organization it produced
+
+#### Scenario: Invited admin activates
+- **WHEN** the invited ADMIN sets a password through the activation link
+- **THEN** no session is issued; the admin is directed to sign in, which requires two-factor enrollment like every ADMIN
+
+#### Scenario: Platform administrator declines a request
+- **WHEN** a platform administrator declines a pending access request
+- **THEN** the request is marked declined with the reviewer, and no organization is created
+
+#### Scenario: Request already reviewed
+- **WHEN** a platform administrator approves or declines a request that is not pending
+- **THEN** the action is rejected with a conflict error
 
 ### Requirement: Plan-tiered rate limiting
 API rate limits SHALL scale with an organization's subscription plan rather than applying a single global limit.
