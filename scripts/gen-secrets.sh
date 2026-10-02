@@ -20,4 +20,10 @@ done
 [ -f secrets/NEO4J_PASSWORD ]   || { openssl rand -base64 24 | tr -d '\r\n=/+' > secrets/NEO4J_PASSWORD;   echo "created secrets/NEO4J_PASSWORD"; }
 [ -f secrets/JWT_SECRET ]       || { openssl rand -base64 48 | clean > secrets/JWT_SECRET;       echo "created secrets/JWT_SECRET"; }
 [ -f secrets/TOTP_ENCRYPTION_KEY ] || { openssl rand -base64 32 | clean > secrets/TOTP_ENCRYPTION_KEY; echo "created secrets/TOTP_ENCRYPTION_KEY"; }
-chmod 600 secrets/*
+# Each file is bind-mounted into a container with its owner and mode intact, and the backend runs there
+# as an unprivileged user that is not this one: with mode 600 it gets "permission denied" on a Linux
+# host (Docker Desktop hides this, it does not enforce host permissions). So the files are readable,
+# and the directory is what keeps other users on the host out: without access to it they cannot reach
+# the files, while a bind mount hands the container the file itself.
+chmod 700 secrets
+chmod 644 secrets/*

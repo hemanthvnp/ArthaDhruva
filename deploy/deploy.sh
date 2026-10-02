@@ -12,7 +12,10 @@ COMPOSE="docker compose -f docker-compose.yml -f docker-compose.prod.yml -f dock
 say() { printf '\n==> %s\n' "$*"; }
 
 [ -f .env ] || { echo "Missing .env. Create it with: cp deploy/.env.example .env  (then edit it)" >&2; exit 1; }
-set -a; . ./.env; set +a
+set -a
+# shellcheck source=/dev/null
+. ./.env
+set +a
 : "${SITE_ADDRESS:?SITE_ADDRESS is not set in .env}"
 
 if [ ! -f secrets/JWT_SECRET ]; then
@@ -32,10 +35,12 @@ docker run --rm --user "$(id -u):$(id -g)" -e npm_config_cache=/tmp/.npm -e VITE
   sh -c "npm ci --no-audit --no-fund && npm run build"
 
 say "Building images and starting the stack"
-$COMPOSE --profile app --profile edge up -d --build --remove-orphans postgres redis neo4j backend nginx caddy
+# --pull: build on the current base image, so operating-system security patches arrive with a deploy.
+$COMPOSE --profile app --profile edge build --pull backend
+$COMPOSE --profile app --profile edge up -d --remove-orphans postgres redis neo4j backend nginx caddy
 
 say "Waiting for the backend to become healthy"
-for i in $(seq 1 90); do
+for _ in $(seq 1 90); do
   state="$(docker inspect -f '{{.State.Health.Status}}' "$($COMPOSE ps -q backend | head -n1)" 2>/dev/null || echo starting)"
   [ "$state" = healthy ] && break
   sleep 5
@@ -47,7 +52,7 @@ if [ "$state" != healthy ]; then
 fi
 
 say "Checking the public endpoint https://$SITE_ADDRESS/"
-for i in $(seq 1 12); do
+for _ in $(seq 1 12); do
   if curl -fsS -o /dev/null --max-time 10 "https://$SITE_ADDRESS/"; then
     echo "OK: https://$SITE_ADDRESS/ is serving."
     docker image prune -f >/dev/null
