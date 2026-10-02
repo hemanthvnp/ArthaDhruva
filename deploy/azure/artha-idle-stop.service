@@ -1,0 +1,10 @@
+[Unit]
+Description=Deallocate the VM when the site has had no visitors
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# How long the site may sit unused before the VM is turned off.
+Environment=IDLE_MINUTES=30
+ExecStart=/usr/local/sbin/artha-idle-stop

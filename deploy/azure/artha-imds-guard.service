@@ -1,0 +1,15 @@
+[Unit]
+Description=Keep containers away from the cloud metadata service
+# The metadata service hands the VM's managed-identity token to anything on the VM that asks. The host
+# needs it (idle-stop.sh); the containers do not, and an application that was ever compromised should
+# not be able to act as the VM. Docker leaves the DOCKER-USER chain for rules like this one.
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'iptables -C DOCKER-USER -d 169.254.169.254/32 -j REJECT 2>/dev/null || iptables -I DOCKER-USER -d 169.254.169.254/32 -j REJECT'
+
+[Install]
+WantedBy=multi-user.target

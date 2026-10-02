@@ -1,0 +1,3 @@
+# A sign-in-only console: there is nothing here for a search engine or a crawler to index.
+User-agent: *
+Disallow: /
