@@ -55,24 +55,39 @@ class SeedError(RuntimeError):
 # ---------------------------------------------------------------------------------------------- HTTP
 
 class Api:
-    """Requests against the API with a default bearer token. A refused request raises with the server's
-    own message; a rate-limited one waits as long as the server asks and tries again."""
+    """Requests against the API with a default session credential, carried as the ad_session cookie --
+    the API only accepts a bearer Authorization header for the narrow 2FA-setup-token flow (pass
+    setup_token for that, never token), everything else is cookie-based now. A refused request raises
+    with the server's own message; a rate-limited one waits as long as the server asks and tries again."""
 
     def __init__(self, token: str | None = None):
         self.token = token
         self.session = requests.Session()
         self.session.verify = VERIFY_TLS
 
-    def call(self, method: str, path: str, body=None, token: str | None = None, allow: frozenset = frozenset(), params=None):
+    def call(self, method: str, path: str, body=None, token: str | None = None, setup_token: str | None = None,
+            allow: frozenset = frozenset(), params=None):
         headers = {"Content-Type": "application/json"}
-        bearer = token if token is not None else self.token
-        if bearer:
-            headers["Authorization"] = f"Bearer {bearer}"
+        cookies = {}
+        if setup_token:
+            # Mutually exclusive with a session cookie on the backend -- never send both, or whichever
+            # identity the server resolves first (observed: the cookie) silently shadows the other.
+            headers["Authorization"] = f"Bearer {setup_token}"
+        else:
+            credential = token if token is not None else self.token
+            if credential:
+                cookies["ad_session"] = credential
         for _ in range(6):
-            response = self.session.request(method, BASE_URL + path, json=body, headers=headers, params=params, timeout=120)
+            response = self.session.request(method, BASE_URL + path, json=body, headers=headers, cookies=cookies,
+                                             params=params, timeout=120)
             if response.status_code != 429:
                 break
             time.sleep(float(response.headers.get("Retry-After", "1")))
+        # Every call states its identity explicitly via token/setup_token above; the session must never
+        # accumulate a Set-Cookie as ambient state, or a later call with a *different* or *no* identity
+        # silently inherits whoever logged in last (this really happened: client 1's own session cookie,
+        # picked up here, outranked the explicit admin cookie on client 2's request and 403'd it).
+        self.session.cookies.clear()
         if not response.ok and response.status_code not in allow:
             raise SeedError(f"{method} {path} -> {response.status_code}: {response.text[:300]}")
         return response
@@ -94,61 +109,66 @@ def totp(secret: str, period: int = 30, digits: int = 6) -> str:
 
 # ------------------------------------------------------------------------------------------ sign-in
 
-def login(api: Api, username: str, password: str, code: str | None = None) -> dict | None:
-    """The login response, or None when the credentials (or the code) were refused."""
+def login(api: Api, username: str, password: str, code: str | None = None) -> tuple[dict | None, str | None]:
+    """The login response and the session cookie value, or (None, None) when the credentials (or the
+    code) were refused. The cookie is None for a setupRequired/mfaRequired response too -- neither
+    issues a session, only the setup-token response field or nothing at all."""
     body = {"orgSlug": ORG_SLUG, "username": username, "password": password}
     if code:
         body["totpCode"] = code
-    response = api.post("/login", body, token="", allow=frozenset({401}))
-    return None if response.status_code == 401 else response.json()
+    response = api.post("/login", body, allow=frozenset({401}))
+    if response.status_code == 401:
+        return None, None
+    return response.json(), response.cookies.get("ad_session")
 
 
-def enrol_second_factor(api: Api, setup_token: str) -> tuple[dict, str]:
-    """Completes enrolment with a setup token. Returns the session and the secret."""
-    secret = api.post("/account/2fa/setup", token=setup_token).json()["secret"]
-    response = api.post("/account/2fa/confirm", {"code": totp(secret)}, token=setup_token, allow=frozenset({401}))
+def enrol_second_factor(api: Api, setup_token: str) -> tuple[dict, str, str]:
+    """Completes enrolment with a setup token. Returns the response body, the secret and the new
+    session's cookie value."""
+    secret = api.post("/account/2fa/setup", setup_token=setup_token).json()["secret"]
+    response = api.post("/account/2fa/confirm", {"code": totp(secret)}, setup_token=setup_token, allow=frozenset({401}))
     if response.status_code == 401:   # the code was computed at the very end of its 30 seconds
         time.sleep(1)
-        response = api.post("/account/2fa/confirm", {"code": totp(secret)}, token=setup_token)
-    session = response.json()
-    if "token" not in session:
-        raise SeedError(f"Enrolment did not return a session: {session}")
-    return session, secret
+        response = api.post("/account/2fa/confirm", {"code": totp(secret)}, setup_token=setup_token)
+    cookie = response.cookies.get("ad_session")
+    if not cookie:
+        raise SeedError(f"Enrolment did not return a session: {response.text[:300]}")
+    return response.json(), secret, cookie
 
 
 def admin_session(api: Api) -> tuple[str, str | None]:
-    """A session token for the administrator, and the second-factor secret if this run created it."""
+    """A session cookie value for the administrator, and the second-factor secret if this run created it."""
     if os.environ.get("ADMIN_TOKEN"):
         return os.environ["ADMIN_TOKEN"], None
     password = os.environ.get("ADMIN_PASSWORD")
     if not password:
         raise SeedError("Set ADMIN_TOKEN, or ADMIN_PASSWORD (see the top of this file).")
     secret = os.environ.get("ADMIN_TOTP_SECRET")
-    outcome = login(api, ADMIN_USERNAME, password, totp(secret) if secret else None)
+    outcome, cookie = login(api, ADMIN_USERNAME, password, totp(secret) if secret else None)
     if outcome is None:
         raise SeedError("The administrator's sign-in was refused. If the account is already enrolled in two-factor "
                         "authentication, pass ADMIN_TOTP_SECRET as well, or pass ADMIN_TOKEN instead.")
     if outcome.get("setupRequired"):
-        session, new_secret = enrol_second_factor(api, outcome["setupToken"])
-        return session["token"], new_secret
-    if "token" in outcome:
-        return outcome["token"], None
+        _, new_secret, cookie = enrol_second_factor(api, outcome["setupToken"])
+        return cookie, new_secret
+    if cookie:
+        return cookie, None
     raise SeedError(f"Unexpected sign-in response for the administrator: {outcome}")
 
 
 def provision_analyst(api: Api) -> dict:
     created = api.post("/admin/users", {"username": ANALYST_USERNAME, "password": DEMO_PASSWORD, "role": "ANALYST"},
                        allow=frozenset({409}))
-    outcome = login(api, ANALYST_USERNAME, DEMO_PASSWORD)
+    outcome, _ = login(api, ANALYST_USERNAME, DEMO_PASSWORD)
     if outcome is None:
         # Enrolled by an earlier run, whose secret was never kept: enrol again through the same recovery
         # path a lost phone would take.
         api.post(f"/admin/users/{ANALYST_USERNAME}/reset-2fa")
-        outcome = login(api, ANALYST_USERNAME, DEMO_PASSWORD)
+        outcome, _ = login(api, ANALYST_USERNAME, DEMO_PASSWORD)
     if not outcome or not outcome.get("setupRequired"):
         raise SeedError(f"Could not start two-factor enrolment for {ANALYST_USERNAME}: {outcome}")
-    session, secret = enrol_second_factor(api, outcome["setupToken"])
-    return {"username": ANALYST_USERNAME, "password": DEMO_PASSWORD, "secret": secret, "token": session["token"],
+    _, secret, cookie = enrol_second_factor(api, outcome["setupToken"])
+    return {"username": ANALYST_USERNAME, "password": DEMO_PASSWORD, "secret": secret, "token": cookie,
             "existed": created.status_code == 409}
 
 
