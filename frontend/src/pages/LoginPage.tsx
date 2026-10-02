@@ -2,7 +2,8 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { login as loginRequest, ssoLoginUrl } from '../api/client';
 import BrandMark from '../components/BrandMark';
-import { landingPathFor, useAuth } from '../auth/AuthContext';
+import { landingPathFor, sessionFrom } from '../auth/session';
+import { useAuth } from '../auth/useAuth';
 import ErrorBanner from '../components/ErrorBanner';
 import type { LoginOutcome } from '../api/types';
 
@@ -39,7 +40,7 @@ export default function LoginPage() {
       setMfaRequired(true);
       return;
     }
-    login({ token: result.token, username: result.username, role: result.role, sandbox: result.sandbox });
+    login(sessionFrom(result));
     navigate(landingPathFor(result.role), { replace: true });
   };
 
@@ -110,7 +111,7 @@ export default function LoginPage() {
         </div>
         {mfaRequired && (
           <p className="page-subtitle" style={{ marginTop: '-0.2rem', marginBottom: '0.6rem' }}>
-            This account has 2FA enabled -- enter your code above and sign in again.
+            This account uses two-factor authentication. Enter your code above and sign in again.
           </p>
         )}
 
@@ -130,7 +131,7 @@ export default function LoginPage() {
         )}
         {ssoError && <p role="alert" style={{ color: 'var(--danger)' }}>{ssoError}</p>}
         <p className="auth-foot">
-          <Link to="/forgot-password">Forgot password?</Link> &middot; <Link to="/signup">Create an organization</Link>
+          <Link to="/forgot-password">Forgot password?</Link> &middot; <Link to="/signup">Request access</Link>
         </p>
       </form>
       </div>

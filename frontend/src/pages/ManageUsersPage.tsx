@@ -1,12 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { activateUser, deactivateUser, listUsers, resetUserPassword, resetUserTotp } from '../api/client';
 import ErrorBanner from '../components/ErrorBanner';
-import type { UserSummary } from '../api/types';
+import { dateOnly } from '../format';
 
 export default function ManageUsersPage() {
-  const [users, setUsers] = useState<UserSummary[]>([]);
-  const [listError, setListError] = useState<unknown>(null);
-  const [listLoading, setListLoading] = useState(true);
+  const users = useQuery({ queryKey: ['users'], queryFn: listUsers });
   const [search, setSearch] = useState('');
 
   const [username, setUsername] = useState('');
@@ -15,17 +14,6 @@ export default function ManageUsersPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const loadUsers = () => {
-    setListLoading(true);
-    setListError(null);
-    listUsers()
-      .then(setUsers)
-      .catch(setListError)
-      .finally(() => setListLoading(false));
-  };
-
-  useEffect(loadUsers, []);
-
   const run = async (action: () => Promise<{ message?: string; enabled?: boolean }>) => {
     setError(null);
     setStatus(null);
@@ -33,7 +21,7 @@ export default function ManageUsersPage() {
     try {
       const result = await action();
       setStatus(result.message ?? `"${username}" is now ${result.enabled ? 'enabled' : 'disabled'}.`);
-      loadUsers();
+      void users.refetch();
     } catch (e) {
       setError(e);
     } finally {
@@ -41,14 +29,14 @@ export default function ManageUsersPage() {
     }
   };
 
-  const filtered = users.filter((u) => u.username.toLowerCase().includes(search.toLowerCase()));
+  const filtered = (users.data ?? []).filter((u) => u.username.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div>
-      <h2>Manage Users</h2>
+      <h2>Manage users</h2>
       <p className="page-subtitle">
-        Every account in the system. Click a row to select it below, then act on it -- deactivating
-        takes effect immediately, even for a token issued before the change.
+        Every account in your organization. Select a row, then act on it below. Deactivating an account takes
+        effect at once: its open sessions stop working on their next request.
       </p>
 
       <div className="card">
@@ -57,12 +45,13 @@ export default function ManageUsersPage() {
             <label htmlFor="userSearch">Search</label>
             <input id="userSearch" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Filter by username..." />
           </div>
-          <button className="secondary" onClick={loadUsers} disabled={listLoading}>
-            {listLoading ? 'Loading...' : 'Refresh'}
+          <button className="secondary" onClick={() => users.refetch()} disabled={users.isFetching}>
+            {users.isFetching ? 'Loading...' : 'Refresh'}
           </button>
         </div>
-        <ErrorBanner error={listError} />
-        {!listLoading && filtered.length > 0 && (
+        <ErrorBanner error={users.error} />
+        {users.isPending && <div className="skeleton" style={{ height: 120 }} />}
+        {filtered.length > 0 && (
           <table>
             <thead>
               <tr>
@@ -76,11 +65,7 @@ export default function ManageUsersPage() {
             </thead>
             <tbody>
               {filtered.map((u) => (
-                <tr
-                  key={u.username}
-                  onClick={() => setUsername(u.username)}
-                  style={{ cursor: 'pointer', background: username === u.username ? 'var(--accent-soft)' : undefined }}
-                >
+                <tr key={u.username} className={username === u.username ? 'selected' : ''} onClick={() => setUsername(u.username)} style={{ cursor: 'pointer' }}>
                   <td>{u.username}</td>
                   <td><span className={`badge ${u.role === 'ADMIN' ? 'badge-accent' : ''}`}>{u.role.toLowerCase()}</span></td>
                   <td>
@@ -91,13 +76,13 @@ export default function ManageUsersPage() {
                   </td>
                   <td>{u.totpEnabled ? <span className="badge badge-low">Enrolled</span> : <span className="badge">Off</span>}</td>
                   <td>{u.loanIds.length || '-'}</td>
-                  <td>{new Date(u.createdAt).toLocaleDateString()}</td>
+                  <td>{dateOnly(u.createdAt)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
-        {!listLoading && filtered.length === 0 && <p className="page-subtitle">No matching users.</p>}
+        {users.data && filtered.length === 0 && <p className="empty">No matching users.</p>}
       </div>
 
       <div className="card">

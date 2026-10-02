@@ -7,8 +7,8 @@ interface Props {
   format: (n: number) => string;
 }
 
-/** A small track showing a bootstrap confidence interval with the point estimate marked --
- * the visual point of the CVaR endpoint: a range, not a single number. */
+/** A small track showing a confidence interval with the point estimate marked: a simulated figure is
+ * a range, not a single number. */
 export default function RangeBar({ label, point, lower, upper, color, format }: Props) {
   const span = Math.max(upper - lower, 1e-9);
   const pct = (v: number) => ((v - lower) / span) * 100;

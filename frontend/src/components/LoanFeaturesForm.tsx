@@ -36,32 +36,15 @@ const PROPERTY_STATE = [
   'TX', 'UT', 'VA', 'VI', 'VT', 'WA', 'WI', 'WV', 'WY',
 ];
 
-export const DEFAULT_LOAN: LoanFeatures = {
-  creditScore: 720,
-  originalDti: 35,
-  originalUpb: 250000,
-  originalCltv: 80,
-  originalLtv: 80,
-  originalInterestRate: 6.5,
-  originalLoanTerm: 360,
-  numberOfBorrowers: 2,
-  numberOfUnits: 1,
-  miPercent: 0,
-  occupancyStatus: 'P',
-  propertyType: 'SF',
-  loanPurpose: 'P',
-  channel: 'R',
-  firstTimeHomebuyerFlag: 'N',
-  propertyState: 'CA',
-};
-
 interface Props {
   value: LoanFeatures;
   onChange: (next: LoanFeatures) => void;
   showLoanId?: boolean;
+  /** Also ask when the loan was originated (the models need it for a loan that is not brand new). */
+  showOrigination?: boolean;
 }
 
-export default function LoanFeaturesForm({ value, onChange, showLoanId }: Props) {
+export default function LoanFeaturesForm({ value, onChange, showLoanId, showOrigination }: Props) {
   const set = <K extends keyof LoanFeatures>(key: K, v: LoanFeatures[K]) =>
     onChange({ ...value, [key]: v });
 
@@ -140,6 +123,17 @@ export default function LoanFeaturesForm({ value, onChange, showLoanId }: Props)
           {numberField('miPercent', 'MI percent (%)', 0.1)}
           {selectField('loanPurpose', 'Loan purpose', LOAN_PURPOSE)}
           {selectField('channel', 'Channel', CHANNEL)}
+          {showOrigination && (
+            <div className="field">
+              <label htmlFor="originationMonth">Originated (empty = new application)</label>
+              <input
+                id="originationMonth"
+                type="month"
+                value={value.originationMonth ?? ''}
+                onChange={(e) => set('originationMonth', e.target.value || undefined)}
+              />
+            </div>
+          )}
         </>,
       )}
       {section(

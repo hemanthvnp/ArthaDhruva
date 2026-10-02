@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { listSegments, segmentNeighbors } from '../api/client';
+import { segmentGraph, segmentNeighbors } from '../api/client';
 import ErrorBanner from '../components/ErrorBanner';
 import type { SegmentNeighbor } from '../api/types';
 
@@ -24,27 +24,10 @@ export default function SegmentGraphPage() {
   useEffect(() => {
     (async () => {
       try {
-        const stateList = await listSegments();
-        setStates(stateList);
-        if (stateList.length > 0) setSource(stateList[0]);
-
-        // /segments has no "list all edges" endpoint -- build the base graph by asking every
-        // state for its direct (1-hop) neighbors and deduping (the graph is undirected, so each
-        // edge appears from both endpoints).
-        const perState = await Promise.all(stateList.map((s) => segmentNeighbors(s, 1)));
-        const seen = new Set<string>();
-        const edgeList: [string, string][] = [];
-        perState.forEach((result, i) => {
-          const a = stateList[i];
-          result.forEach(({ state: b }) => {
-            const key = [a, b].sort().join('-');
-            if (!seen.has(key)) {
-              seen.add(key);
-              edgeList.push([a, b]);
-            }
-          });
-        });
-        setEdges(edgeList);
+        const graph = await segmentGraph();
+        setStates(graph.states);
+        if (graph.states.length > 0) setSource(graph.states[0]);
+        setEdges(graph.edges);
       } catch (e) {
         setGraphError(e);
       } finally {
@@ -83,12 +66,11 @@ export default function SegmentGraphPage() {
 
   return (
     <div>
-      <h2>Segment-Correlation Graph</h2>
+      <h2>Segment graph</h2>
       <p className="page-subtitle">
-        Nodes are states, edges are genuine pairwise correlation of monthly delinquency-rate time
-        series (r &ge; 0.95) -- not a shared-label shortcut. The multi-hop query below ("which
-        states are within N hops of this one via correlated risk") is the actual justification
-        for a graph representation here rather than a plain table.
+        States whose monthly delinquency rates have moved together (correlation of 0.95 or more) are joined by an
+        edge. Pick a state to see which others are within a few steps of it: where trouble in one market has
+        tended to show up next.
       </p>
 
       <div className="card">

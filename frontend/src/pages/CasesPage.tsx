@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { downloadLoanCasesCsv, listLoanCases, listRecentNotes } from '../api/client';
-import { useAuth } from '../auth/AuthContext';
+import { useAuth } from '../auth/useAuth';
 import ErrorBanner from '../components/ErrorBanner';
-import type { LoanCaseSummary, RecentNoteView } from '../api/types';
+import { dateTime } from '../format';
 
 type Filter = 'ALL' | 'MINE' | 'FLAGGED';
 
@@ -23,10 +24,12 @@ const ago = (iso: string) => {
  */
 export default function CasesPage() {
   const { auth } = useAuth();
-  const [cases, setCases] = useState<LoanCaseSummary[]>([]);
-  const [notes, setNotes] = useState<RecentNoteView[]>([]);
-  const [error, setError] = useState<unknown>(null);
-  const [loading, setLoading] = useState(true);
+  const caseList = useQuery({ queryKey: ['loan-cases'], queryFn: listLoanCases });
+  const noteList = useQuery({ queryKey: ['recent-notes'], queryFn: listRecentNotes });
+  const cases = caseList.data ?? [];
+  const notes = noteList.data ?? [];
+  const error = caseList.error ?? noteList.error;
+  const loading = caseList.isFetching || noteList.isFetching;
   const [filter, setFilter] = useState<Filter>('MINE');
   const [exportError, setExportError] = useState<unknown>(null);
 
@@ -36,18 +39,9 @@ export default function CasesPage() {
   };
 
   const load = () => {
-    setLoading(true);
-    setError(null);
-    Promise.all([listLoanCases(), listRecentNotes()])
-      .then(([c, n]) => {
-        setCases(c);
-        setNotes(n);
-      })
-      .catch(setError)
-      .finally(() => setLoading(false));
+    void caseList.refetch();
+    void noteList.refetch();
   };
-
-  useEffect(load, []);
 
   const counts: Record<Filter, number> = {
     MINE: cases.filter((c) => c.assignedTo === auth?.username).length,
@@ -116,7 +110,7 @@ export default function CasesPage() {
                     </td>
                     <td><span className={`badge badge-${c.status.toLowerCase()}`}>{c.status.toLowerCase()}</span></td>
                     <td>{c.assignedTo ?? <span className="sub" style={{ color: 'var(--text-muted)' }}>Unassigned</span>}</td>
-                    <td style={{ color: 'var(--text-muted)' }} title={new Date(c.updatedAt).toLocaleString()}>{ago(c.updatedAt)}</td>
+                    <td style={{ color: 'var(--text-muted)' }} title={dateTime(c.updatedAt)}>{ago(c.updatedAt)}</td>
                   </tr>
                 ))}
               </tbody>

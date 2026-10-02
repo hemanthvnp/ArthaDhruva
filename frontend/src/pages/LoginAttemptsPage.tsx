@@ -1,68 +1,53 @@
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { loginAttempts } from '../api/client';
 import ErrorBanner from '../components/ErrorBanner';
-import type { LoginAttemptEntry } from '../api/types';
+import { dateTime } from '../format';
 
 export default function LoginAttemptsPage() {
-  const [entries, setEntries] = useState<LoginAttemptEntry[]>([]);
-  const [error, setError] = useState<unknown>(null);
-  const [loading, setLoading] = useState(true);
-
-  const load = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      setEntries(await loginAttempts(100));
-    } catch (e) {
-      setError(e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    load();
-  }, []);
+  const attempts = useQuery({ queryKey: ['login-attempts'], queryFn: () => loginAttempts(100) });
 
   return (
     <div>
-      <h2>Login Attempts</h2>
-      <p className="page-subtitle">
-        A credential-free record of every login attempt -- username and outcome only, never the
-        password. 5 failed attempts against the same account within a short window locks it for
-        15 minutes. Admin-only.
-      </p>
+      <div className="page-head-row">
+        <div>
+          <h2>Sign-in attempts</h2>
+          <p className="page-subtitle">
+            Every attempt to sign in, with the username and the outcome and never the password. Repeated failures
+            against one account lock it for a while. Like the audit log, this record cannot be edited.
+          </p>
+        </div>
+        <button className="secondary" onClick={() => attempts.refetch()} disabled={attempts.isFetching}>
+          {attempts.isFetching ? 'Refreshing...' : 'Refresh'}
+        </button>
+      </div>
 
       <div className="card">
-        <div className="actions" style={{ marginTop: 0, marginBottom: '0.9rem' }}>
-          <button className="secondary" onClick={load} disabled={loading}>
-            {loading ? 'Refreshing...' : 'Refresh'}
-          </button>
-        </div>
-        <ErrorBanner error={error} />
-        <div style={{ overflowX: 'auto' }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Occurred at</th>
-                <th>Username</th>
-                <th>Success</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entries.map((e) => (
-                <tr key={e.id}>
-                  <td>{new Date(e.occurredAt).toLocaleString()}</td>
-                  <td>{e.username}</td>
-                  <td style={{ color: e.success ? 'var(--ok)' : 'var(--danger)' }}>
-                    {e.success ? 'yes' : 'no'}
-                  </td>
+        <ErrorBanner error={attempts.error} />
+        {attempts.isPending && <div className="skeleton" style={{ height: 120 }} />}
+        {attempts.data && attempts.data.length === 0 && <p className="empty">No sign-in attempts yet.</p>}
+        {attempts.data && attempts.data.length > 0 && (
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>Username</th>
+                  <th>Outcome</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {!loading && entries.length === 0 && <p className="page-subtitle">No login attempts yet.</p>}
+              </thead>
+              <tbody>
+                {attempts.data.map((e) => (
+                  <tr key={e.id}>
+                    <td>{dateTime(e.occurredAt)}</td>
+                    <td>{e.username}</td>
+                    <td><span className={`badge ${e.success ? 'badge-low' : 'badge-high'}`}>{e.success ? 'Signed in' : 'Refused'}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {attempts.data && attempts.data.length > 0 && <p className="chart-caption">The latest {attempts.data.length} attempts.</p>}
       </div>
     </div>
   );

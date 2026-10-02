@@ -2,9 +2,10 @@ import { memo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getDashboardConfig, listLoanCases, listLoanScores, listRecentNotes, saveDashboardConfig } from '../api/client';
-import { useAuth } from '../auth/AuthContext';
+import { useAuth } from '../auth/useAuth';
 import ErrorBanner from '../components/ErrorBanner';
-import RiskBadge, { riskBand } from '../components/RiskBadge';
+import RiskBadge from '../components/RiskBadge';
+import { riskBand } from '../components/risk';
 import RiskMeter from '../components/RiskMeter';
 
 const LABELS: Record<string, string> = {

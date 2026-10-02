@@ -27,6 +27,9 @@ const PATHS: Record<string, ReactNode> = {
   moon: <><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z" /></>,
   panel: <><rect x="3" y="4" width="18" height="16" rx="2.5" /><path d="M9 4v16" /></>,
   home: <><path d="m3 11 9-7 9 7" /><path d="M5 10v10h14V10" /></>,
+  curve: <><path d="M3 20h18" /><path d="M3 20V4" /><path d="M5 17c4 0 6-2 8-6s4-6 8-6" /></>,
+  layers: <><path d="m12 3 9 5-9 5-9-5z" /><path d="m3 13 9 5 9-5" /><path d="m3 17.5 9 5 9-5" /></>,
+  shield: <><path d="M12 3 5 6v6c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6z" /><path d="m9 12 2 2 4-4" /></>,
 };
 
 export default function Icon({ name, size = 18 }: { name: string; size?: number }) {

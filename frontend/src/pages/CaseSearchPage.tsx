@@ -5,6 +5,7 @@ import { bulkUpdateCases, searchCases } from '../api/client';
 import ErrorBanner from '../components/ErrorBanner';
 import { useDebounced } from '../hooks/useDebounced';
 import type { BulkItemResult, LoanCaseStatus } from '../api/types';
+import { count, dateTime } from '../format';
 
 const STATUSES: LoanCaseStatus[] = ['NEW', 'REVIEWED', 'ESCALATED', 'CLEARED'];
 
@@ -17,6 +18,7 @@ export default function CaseSearchPage() {
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkResult, setBulkResult] = useState<BulkItemResult[] | null>(null);
+  const [reason, setReason] = useState('');
 
   // Text boxes are debounced: one request when typing pauses, not one per keystroke.
   const dAssignee = useDebounced(assignedTo);
@@ -37,11 +39,14 @@ export default function CaseSearchPage() {
   const query = useQuery({ queryKey: ['case-search', params], queryFn: () => searchCases(params), placeholderData: keepPreviousData });
 
   const bulk = useMutation({
-    mutationFn: (change: { status?: LoanCaseStatus; flagged?: boolean }) => bulkUpdateCases([...selected], change),
+    mutationFn: (change: { status?: LoanCaseStatus; flagged?: boolean }) =>
+      bulkUpdateCases([...selected], { ...change, reason: reason.trim() || undefined }),
     onSuccess: (results) => {
       setBulkResult(results);
       setSelected(new Set());
+      setReason('');
       queryClient.invalidateQueries({ queryKey: ['case-search'] });
+      queryClient.invalidateQueries({ queryKey: ['loan-cases'] });
     },
   });
 
@@ -62,8 +67,12 @@ export default function CaseSearchPage() {
 
   return (
     <div>
-      <h2>Case Search</h2>
-      <p className="page-subtitle">Combine any filters; results are always limited to your organization.</p>
+      <div className="page-head-row">
+        <div>
+          <h2>Case search</h2>
+          <p className="page-subtitle">Combine any filters, then act on many cases at once. Each case is changed on its own: one that breaks a workflow rule is reported and the rest go through.</p>
+        </div>
+      </div>
 
       <div className="card" style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
         <div className="field">
@@ -94,26 +103,29 @@ export default function CaseSearchPage() {
       <ErrorBanner error={query.error ?? bulk.error} />
 
       {selected.size > 0 && (
-        <div className="card" style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+        <div className="card" style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <strong>{selected.size} selected</strong>
-          <button onClick={() => bulk.mutate({ flagged: true })} disabled={bulk.isPending}>Flag</button>
-          <button onClick={() => bulk.mutate({ flagged: false })} disabled={bulk.isPending}>Unflag</button>
-          <button onClick={() => bulk.mutate({ status: 'REVIEWED' })} disabled={bulk.isPending}>Mark reviewed</button>
-          <button onClick={() => bulk.mutate({ status: 'CLEARED' })} disabled={bulk.isPending}>Clear</button>
+          <button className="secondary" onClick={() => bulk.mutate({ flagged: true })} disabled={bulk.isPending}>Flag</button>
+          <button className="secondary" onClick={() => bulk.mutate({ flagged: false })} disabled={bulk.isPending}>Remove flag</button>
+          <button className="secondary" onClick={() => bulk.mutate({ status: 'REVIEWED' })} disabled={bulk.isPending}>Mark reviewed</button>
+          <button className="secondary" onClick={() => bulk.mutate({ status: 'ESCALATED' })} disabled={bulk.isPending || !reason.trim()}>Escalate</button>
+          <button className="secondary" onClick={() => bulk.mutate({ status: 'CLEARED' })} disabled={bulk.isPending}>Clear</button>
+          <input aria-label="Reason" value={reason} maxLength={500} onChange={(e) => setReason(e.target.value)}
+            placeholder="Reason: needed to escalate, to clear an escalation, or to reopen" style={{ flex: 1, minWidth: 260 }} />
         </div>
       )}
       {bulkResult && (
-        <p role="status">
-          {bulkResult.filter((r) => r.ok).length} updated
-          {bulkResult.some((r) => !r.ok) && `, ${bulkResult.filter((r) => !r.ok).map((r) => `${r.loanId}: ${r.error}`).join('; ')}`}
-        </p>
+        <div className={bulkResult.some((r) => !r.ok) ? 'warn-banner' : 'card'} role="status" style={{ marginBottom: '1.25rem' }}>
+          {bulkResult.filter((r) => r.ok).length} updated.
+          {bulkResult.filter((r) => !r.ok).map((r) => <div key={r.loanId}>{r.loanId}: {r.error}</div>)}
+        </div>
       )}
 
       <div className="card">
         {!data ? (
-          <p>Loading...</p>
+          <div className="skeleton" style={{ height: 120 }} />
         ) : data.items.length === 0 ? (
-          <p>No cases match.</p>
+          <p className="empty">No cases match.</p>
         ) : (
           <table>
             <thead>
@@ -124,10 +136,10 @@ export default function CaseSearchPage() {
                 <tr key={c.loanId}>
                   <td><input type="checkbox" aria-label={`select ${c.loanId}`} checked={selected.has(c.loanId)} onChange={() => toggle(c.loanId)} /></td>
                   <td><Link to={`/loans/${encodeURIComponent(c.loanId)}`}>{c.loanId}</Link></td>
-                  <td>{c.status}</td>
-                  <td>{c.assignedTo ?? '-'}</td>
-                  <td>{c.flagged ? 'Yes' : ''}</td>
-                  <td>{new Date(c.updatedAt).toLocaleString()}</td>
+                  <td><span className={`badge badge-${c.status.toLowerCase()}`}>{c.status.toLowerCase()}</span></td>
+                  <td>{c.assignedTo ?? <span className="sub">Unassigned</span>}</td>
+                  <td>{c.flagged && <span className="badge badge-high">Flagged</span>}</td>
+                  <td>{dateTime(c.updatedAt)}</td>
                 </tr>
               ))}
             </tbody>
@@ -135,9 +147,9 @@ export default function CaseSearchPage() {
         )}
         {data && (
           <div className="actions">
-            <button onClick={() => setPage(page - 1)} disabled={page === 0}>Previous</button>
-            <span style={{ margin: '0 0.8rem' }}>Page {data.page + 1} of {Math.max(1, Math.ceil(data.total / data.size))} ({data.total} total)</span>
-            <button onClick={() => setPage(page + 1)} disabled={!data.hasMore}>Next</button>
+            <button className="secondary" onClick={() => setPage(page - 1)} disabled={page === 0}>Previous</button>
+            <span className="sub">Page {data.page + 1} of {Math.max(1, Math.ceil(data.total / data.size))} &middot; {count(data.total)} cases</span>
+            <button className="secondary" onClick={() => setPage(page + 1)} disabled={!data.hasMore}>Next</button>
           </div>
         )}
       </div>

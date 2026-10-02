@@ -1,34 +1,23 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
-import type { Role } from '../api/types';
-
-export interface AuthState {
-  token: string;
-  username: string;
-  role: Role;
-  sandbox?: boolean;
-}
-
-interface AuthContextValue {
-  auth: AuthState | null;
-  login: (state: AuthState) => void;
-  logout: () => void;
-}
-
-const STORAGE_KEY = 'arthadhruva-auth';
-
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
-
-function loadStoredAuth(): AuthState | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as AuthState) : null;
-  } catch {
-    return null;
-  }
-}
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { CHANGED, STORAGE_KEY, getStoredAuth, type AuthState } from './session';
+import { AuthContext } from './useAuth';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [auth, setAuth] = useState<AuthState | null>(loadStoredAuth);
+  const [auth, setAuth] = useState<AuthState | null>(getStoredAuth);
+
+  // The API client refreshes the token on its own, and another tab may sign out: follow both.
+  useEffect(() => {
+    const sync = () => setAuth(getStoredAuth());
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY) sync();
+    };
+    window.addEventListener(CHANGED, sync);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener(CHANGED, sync);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
 
   const login = (state: AuthState) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -42,25 +31,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(() => ({ auth, login, logout }), [auth]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-export function useAuth(): AuthContextValue {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
-  return ctx;
-}
-
-/** For the API client, which isn't a React component and can't use the hook. */
-export function getStoredToken(): string | null {
-  return loadStoredAuth()?.token ?? null;
-}
-
-export function clearStoredAuth(): void {
-  localStorage.removeItem(STORAGE_KEY);
-}
-
-/** Single source of truth for "where does this role land after login" -- shared by LoginPage
- * (post-login redirect) and App's index-route redirect, so they can't drift out of sync again. */
-export function landingPathFor(role: Role): string {
-  return role === 'CLIENT' ? '/my-loan' : role === 'PLATFORM_ADMIN' ? '/account/password' : '/dashboard';
 }
