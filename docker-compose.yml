@@ -165,7 +165,7 @@ services:
       # Unset by default -- the assistant feature degrades to "unavailable" (see
       # assistant.LlmClient) rather than the app failing to start. Set a real key to actually
       # get answers back.
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
     command: ["--config", "/app/config.yaml", "--port", "4000"]
 
   # Data preparation, run on demand (`docker compose run --rm pipeline`): behind a profile so that a

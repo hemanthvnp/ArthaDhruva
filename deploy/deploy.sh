@@ -37,7 +37,7 @@ docker run --rm --user "$(id -u):$(id -g)" -e npm_config_cache=/tmp/.npm -e VITE
 say "Building images and starting the stack"
 # --pull: build on the current base image, so operating-system security patches arrive with a deploy.
 $COMPOSE --profile app --profile edge build --pull backend
-$COMPOSE --profile app --profile edge up -d --remove-orphans postgres redis neo4j backend nginx caddy
+$COMPOSE --profile app --profile edge up -d --remove-orphans postgres redis neo4j backend nginx caddy litellm
 
 say "Waiting for the backend to become healthy"
 for _ in $(seq 1 90); do
