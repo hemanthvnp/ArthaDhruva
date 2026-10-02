@@ -1,0 +1,14 @@
+# Secret scanning (the Security workflow). gitleaks' own rules, plus the findings that were looked at
+# and are not secrets. Each exception matches one specific line, so nothing else is waved through.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "The alphabet random bootstrap passwords are drawn from, not a password (AdminBootstrap)."
+regexTarget = "line"
+regexes = ['''PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"''']
+
+[[allowlists]]
+description = "Local-development Neo4j default in an early commit. Deployments read the password from a Docker secret and refuse this default."
+regexTarget = "line"
+regexes = ['''NEO4J_AUTH: neo4j/arthadhruva$''']

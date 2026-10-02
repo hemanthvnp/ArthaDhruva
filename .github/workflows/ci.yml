@@ -40,6 +40,14 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Unit tests
+        working-directory: frontend
+        run: npm test
+
       - name: Type-check and build
         working-directory: frontend
         run: npm run build
@@ -47,6 +55,31 @@ jobs:
       - name: Enforce initial-bundle budget
         working-directory: frontend
         run: npm run check:bundle
+
+  deployment-files:
+    # The deployment files are code too. A compose file that does not parse, an alert rule that cannot
+    # fire or a script with a syntax error is found here, not on the server.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compose files parse in every layout
+        run: |
+          docker compose --profile app --profile edge --profile observability --profile notebooks --profile pipeline config -q
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml config -q
+          SITE_ADDRESS=example.test docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.deploy.yml \
+            --profile app --profile edge config -q
+
+      - name: Alert rules pass their unit tests
+        run: |
+          docker run --rm -v "$PWD/observability:/w:ro" --entrypoint promtool prom/prometheus:v2.55.1 check config /w/prometheus.yml
+          docker run --rm -v "$PWD/observability:/w:ro" --entrypoint promtool prom/prometheus:v2.55.1 test rules /w/alerts.test.yml
+
+      - name: Shell scripts are sound
+        run: docker run --rm -v "$PWD:/mnt:ro" -w /mnt koalaman/shellcheck:v0.11.0 deploy/*.sh deploy/azure/*.sh scripts/*.sh
+
+      - name: The wake function passes its unit tests
+        run: node --test deploy/azure/wake.test.js
 
   loadtest:
     # Performance gate: boots the real containerised stack and fails the build if p95 latency or the
@@ -65,8 +98,8 @@ jobs:
 
       - name: Wait for the backend to be healthy
         run: |
-          for i in $(seq 1 60); do
-            [ "$(docker inspect -f '{{.State.Health.Status}}' $(docker compose ps -q backend))" = healthy ] && exit 0
+          for _ in $(seq 1 60); do
+            [ "$(docker inspect -f '{{.State.Health.Status}}' "$(docker compose ps -q backend)")" = healthy ] && exit 0
             sleep 5
           done
           docker compose logs backend | tail -50
@@ -78,7 +111,13 @@ jobs:
           now=$(date +%s)
           H=$(printf '{"alg":"HS256"}' | b64)
           ORG=$(docker compose exec -T postgres psql -U arthadhruva -d arthadhruva -Atc "select id from organization where slug='legacy'")
-          P=$(printf '{"sub":"admin","role":"ADMIN","org":%s,"iat":%s,"exp":%s}' "$ORG" "$now" "$((now+3600))" | b64)
+          # The test drives 40 requests a second through one account. On the default plan one caller is
+          # allowed 25 a second, so the rate limiter would refuse a third of them: that is the limiter
+          # working, not a regression to gate on. The largest plan leaves room for the load.
+          docker compose exec -T postgres psql -U arthadhruva -d arthadhruva -c "update organization set plan_id = (select id from plan where code = 'PRO') where slug = 'legacy'"
+          # A session token carries the account's session version (0 for a fresh account) and when the user
+          # authenticated; the API refuses one without them.
+          P=$(printf '{"sub":"admin","role":"ADMIN","org":%s,"sv":0,"auth_time":%s,"iat":%s,"exp":%s}' "$ORG" "$now" "$now" "$((now+3600))" | b64)
           S=$(printf '%s.%s' "$H" "$P" | openssl dgst -sha256 -hmac "$JWT_SECRET" -binary | b64)
           echo "TOKEN=$H.$P.$S" >> "$GITHUB_ENV"
 
