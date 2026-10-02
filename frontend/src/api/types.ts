@@ -679,8 +679,10 @@ export interface ValidationErrorBody {
   fields: Record<string, string>;
 }
 
+/** The token itself never appears here -- it travels only as the httpOnly ad_session cookie, which
+ * this client never reads (that's the point). This is session metadata to display and to schedule
+ * this client's own refresh calls against, not a credential. */
 export interface LoginResponse {
-  token: string;
   username: string;
   role: Role;
   /** When this access token expires. */
@@ -690,10 +692,10 @@ export interface LoginResponse {
   sandbox?: boolean;
 }
 
-/** Password change and 2FA changes end every other session and hand the caller a new one. */
-export interface SessionRotated {
+/** Password change and 2FA changes end every other session and hand the caller a new one, flattened
+ * alongside the confirmation message rather than nested under it. */
+export interface SessionRotated extends LoginResponse {
   message: string;
-  session: LoginResponse;
 }
 
 export interface MfaRequiredResponse {
@@ -707,10 +709,6 @@ export interface SetupRequiredResponse {
 }
 
 export type LoginOutcome = LoginResponse | MfaRequiredResponse | SetupRequiredResponse;
-
-/** /account/2fa/confirm returns a real session (bootstrap flow, via a setup token) or just a
- * confirmation message (voluntary opt-in flow, caller already has a normal session). */
-export type TotpConfirmOutcome = LoginResponse | SessionRotated;
 
 export interface TotpStatusResponse {
   enabled: boolean;

@@ -84,6 +84,7 @@ public class SsoController {
     private final OutboundHttp http;
     private final JdbcTemplate jdbc;
     private final AuthThrottle throttle;
+    private final com.arthadhruva.riskengine.security.SessionCookie sessionCookie;
     private final String publicUrl;
     private final String frontendUrl;
     private final ObjectMapper mapper = new ObjectMapper();
@@ -96,6 +97,7 @@ public class SsoController {
 
     public SsoController(OrganizationService organizations, UserService users, SsoConfigService configs, JwtService jwt,
                          UrlGuard urlGuard, OutboundHttp http, JdbcTemplate jdbc, AuthThrottle throttle,
+                         com.arthadhruva.riskengine.security.SessionCookie sessionCookie,
                          @Value("${app.public-url:http://localhost:8080}") String publicUrl,
                          @Value("${app.frontend-url}") String frontendUrl) {
         this.organizations = organizations;
@@ -106,6 +108,7 @@ public class SsoController {
         this.http = http;
         this.jdbc = jdbc;
         this.throttle = throttle;
+        this.sessionCookie = sessionCookie;
         this.publicUrl = publicUrl;
         this.frontendUrl = frontendUrl;
     }
@@ -292,7 +295,9 @@ public class SsoController {
             if (user == null || !organizations.isActive(orgId)) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Account unavailable"));
             }
-            return ResponseEntity.ok(AuthController.LoginResponse.of(user, jwt.issueSession(user)));
+            JwtService.IssuedToken issued = jwt.issueSession(user);
+            return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, sessionCookie.issue(issued).toString())
+                    .body(AuthController.LoginResponse.of(user, issued));
         } finally {
             TenantContext.clear();
         }

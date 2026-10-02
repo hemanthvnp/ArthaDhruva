@@ -56,8 +56,9 @@ How the models were built, validated and where they should not be trusted: [MODE
 - **Model integrity.** A model card that declares a checksum is binding: at start-up the artifact is
   hashed and a mismatch stops the service. Exports are reproducible bit for bit.
 - **Sessions.** Fifteen-minute tokens refreshed while the user is active, an eight-hour cap, and a
-  session version that revokes every outstanding token at once. TOTP is mandatory for staff, with
-  replay protection.
+  session version that revokes every outstanding token at once. The token itself lives only in an
+  httpOnly, SameSite=Strict cookie -- never in a bearer header or anywhere JavaScript can read it. TOTP
+  is mandatory for staff, with replay protection.
 - **Outbound calls.** Webhooks through an outbox with leases and HMAC signatures; every URL a tenant
   supplies is checked against private address ranges at connection time, not just at registration.
 - **Operations that were rehearsed.** Prometheus alert rules with unit tests, including two that are

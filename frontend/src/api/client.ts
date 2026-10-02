@@ -1,4 +1,4 @@
-import { clearStoredAuth, getStoredAuth, getStoredToken, sessionFrom, storeAuth, type AuthState } from '../auth/session';
+import { clearStoredAuth, getStoredAuth, sessionFrom, storeAuth } from '../auth/session';
 import type {
   AssistantChatRequest,
   AssistantChatResponse,
@@ -63,7 +63,6 @@ import type {
   RegimeForecast,
   ScoreResponse,
   SegmentNeighbor,
-  TotpConfirmOutcome,
   TotpSetupResponse,
   TotpStatusResponse,
   TrajectoryCatalogEntry,
@@ -105,12 +104,11 @@ export class ApiError extends Error {
 const REFRESH_AFTER_MS = 60_000;
 let refreshing: Promise<void> | null = null;
 
-async function refreshSession(auth: AuthState): Promise<void> {
+async function refreshSession(): Promise<void> {
   try {
-    const res = await fetch(`${API_BASE}/account/session/refresh`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${auth.token}` },
-    });
+    // credentials:'include' is what carries the ad_session cookie here and lets the browser store the
+    // fresh one the response sets back -- there's no token for this client to read or attach itself.
+    const res = await fetch(`${API_BASE}/account/session/refresh`, { method: 'POST', credentials: 'include' });
     if (res.ok) storeAuth(sessionFrom((await res.json()) as LoginResponse));
   } catch {
     // Offline or the server is down: the request that follows reports it.
@@ -123,7 +121,7 @@ async function ensureFreshSession(): Promise<void> {
   if (!auth?.expiresAt || !auth.obtainedAt) return;
   const expired = Date.parse(auth.expiresAt) <= Date.now();
   if (expired || Date.now() - auth.obtainedAt < REFRESH_AFTER_MS) return; // gone (the request will say so), or fresh
-  refreshing ??= refreshSession(auth).finally(() => {
+  refreshing ??= refreshSession().finally(() => {
     refreshing = null;
   });
   await refreshing;
@@ -135,22 +133,18 @@ function sessionExpired(): never {
   throw new ApiError(401, 'Your session has expired. Please sign in again.');
 }
 
-/** Ends the session on the server (every device), then locally. Never blocks sign-out on the network. */
+/** Ends the session on the server (every device): revokes it and clears the cookie there, since this
+ * client can't clear an httpOnly cookie itself. Local state is AuthContext's job (it calls this and
+ * clears local state separately) -- never blocks sign-out on the network either way. */
 export async function signOut(): Promise<void> {
-  const token = getStoredToken();
-  clearStoredAuth();
-  if (token) {
-    await fetch(`${API_BASE}/account/logout`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
-  }
+  await fetch(`${API_BASE}/account/logout`, { method: 'POST', credentials: 'include' }).catch(() => {});
 }
 
 /** @param background true for polling the user did not initiate: it does not extend the session. */
 async function authorizedFetch(path: string, options?: RequestInit, background = false): Promise<Response> {
   if (!background) await ensureFreshSession();
-  const token = getStoredToken();
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (token) headers.Authorization = `Bearer ${token}`;
-  return fetch(`${API_BASE}${path}`, { ...options, headers: { ...headers, ...options?.headers } });
+  return fetch(`${API_BASE}${path}`, { ...options, credentials: 'include', headers: { ...headers, ...options?.headers } });
 }
 
 async function errorFrom(res: Response): Promise<ApiError> {
@@ -215,7 +209,7 @@ async function secondFactorRequest<T>(path: string, code: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export function totpConfirm(code: string): Promise<TotpConfirmOutcome> {
+export function totpConfirm(code: string): Promise<SessionRotated> {
   return secondFactorRequest('/account/2fa/confirm', code);
 }
 
@@ -234,7 +228,7 @@ export function totpSetupWithToken(token: string): Promise<TotpSetupResponse> {
   return setupRequest(token, '/account/2fa/setup', { method: 'POST' });
 }
 
-export function totpConfirmWithToken(token: string, code: string): Promise<TotpConfirmOutcome> {
+export function totpConfirmWithToken(token: string, code: string): Promise<SessionRotated> {
   return setupRequest(token, '/account/2fa/confirm', { method: 'POST', body: JSON.stringify({ code }) });
 }
 
@@ -514,15 +508,12 @@ export function listAttachments(loanId: string): Promise<AttachmentView[]> {
  * explicitly. */
 export async function uploadAttachment(loanId: string, file: File): Promise<AttachmentView> {
   await ensureFreshSession();
-  const token = getStoredToken();
-  const headers: Record<string, string> = {};
-  if (token) headers.Authorization = `Bearer ${token}`;
   const formData = new FormData();
   formData.append('file', file);
 
   const res = await fetch(`${API_BASE}/loans/${encodeURIComponent(loanId)}/attachments`, {
     method: 'POST',
-    headers,
+    credentials: 'include',
     body: formData,
   });
   if (res.status === 401) sessionExpired();
@@ -530,9 +521,9 @@ export async function uploadAttachment(loanId: string, file: File): Promise<Atta
   return res.json();
 }
 
-/** Fetches a binary/attachment response with the auth header (a plain `<a href>` can't carry a
- * bearer token) and triggers a browser download via a temporary object URL. Used for both
- * attachment downloads and CSV exports. */
+/** Fetches a binary/attachment response via JS (a plain `<a href>` would need its own round of
+ * figuring out the filename from Content-Disposition) and triggers a browser download via a
+ * temporary object URL. Used for both attachment downloads and CSV exports. */
 async function downloadBlob(path: string, fallbackFilename: string): Promise<void> {
   const res = await authorizedFetch(path);
   if (res.status === 401) sessionExpired();
@@ -573,6 +564,7 @@ export function downloadLoanCasesCsv(): Promise<void> {
 async function publicPost<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
+    credentials: 'include',   // activate/sso-exchange set the session cookie in their response
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });

@@ -6,6 +6,7 @@ import com.arthadhruva.riskengine.tenant.OrganizationService;
 import com.arthadhruva.riskengine.tenant.TenantContext;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -56,6 +57,7 @@ public class AuthController {
     private final long lockoutMinutes;
     private final com.arthadhruva.riskengine.tenant.TenantSubdomainResolver subdomainResolver;
     private final com.arthadhruva.riskengine.sso.SsoConfigService ssoConfigs;
+    private final SessionCookie sessionCookie;
 
     public AuthController(AuthenticationManager authenticationManager, UserService userService,
                           OrganizationService organizationService, JwtService jwtService,
@@ -63,7 +65,7 @@ public class AuthController {
                           @Value("${auth.max-failed-attempts}") int maxFailedAttempts,
                           @Value("${auth.lockout-minutes}") long lockoutMinutes,
                           com.arthadhruva.riskengine.tenant.TenantSubdomainResolver subdomainResolver,
-                          com.arthadhruva.riskengine.sso.SsoConfigService ssoConfigs) {
+                          com.arthadhruva.riskengine.sso.SsoConfigService ssoConfigs, SessionCookie sessionCookie) {
         this.authenticationManager = authenticationManager;
         this.userService = userService;
         this.organizationService = organizationService;
@@ -75,6 +77,7 @@ public class AuthController {
         this.lockoutMinutes = lockoutMinutes;
         this.subdomainResolver = subdomainResolver;
         this.ssoConfigs = ssoConfigs;
+        this.sessionCookie = sessionCookie;
     }
 
     /** {@code orgId::username}: Spring Security's UserDetailsService contract carries a single string,
@@ -189,7 +192,9 @@ public class AuthController {
         user.recordSuccessfulLogin();
         userService.save(user);
         logAttempt(user.getUsername(), true);
-        return ResponseEntity.ok(LoginResponse.of(user, jwtService.issueSession(user)));
+        JwtService.IssuedToken issued = jwtService.issueSession(user);
+        return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, sessionCookie.issue(issued).toString())
+                .body(LoginResponse.of(user, issued));
     }
 
     /** A nonexistent username has nothing to increment; it is still logged. */
@@ -206,13 +211,16 @@ public class AuthController {
     }
 
     /**
+     * The token itself never appears here -- it travels only as the httpOnly {@code ad_session} cookie
+     * (see SessionCookie). This is session metadata the frontend needs to display and to schedule its
+     * own refresh calls against, not a credential.
+     *
      * @param expiresAt        when this access token expires (refresh before it)
      * @param sessionExpiresAt when the session reaches its absolute limit and a new login is required
      */
-    public record LoginResponse(String token, String username, String role, Instant expiresAt,
-                                Instant sessionExpiresAt, boolean sandbox) {
+    public record LoginResponse(String username, String role, Instant expiresAt, Instant sessionExpiresAt, boolean sandbox) {
         public static LoginResponse of(User user, JwtService.IssuedToken issued) {
-            return new LoginResponse(issued.token(), user.getUsername(), user.getRole().name(), issued.expiresAt(),
+            return new LoginResponse(user.getUsername(), user.getRole().name(), issued.expiresAt(),
                     issued.sessionExpiresAt(), user.getOrganization().isSandbox());
         }
     }

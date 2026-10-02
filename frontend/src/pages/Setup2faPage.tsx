@@ -46,10 +46,8 @@ export default function Setup2faPage() {
     setError(null);
     try {
       const result = await totpConfirmWithToken(setupToken, code);
-      if ('token' in result) {
-        login(sessionFrom(result));
-        navigate(result.role === 'CLIENT' ? '/my-loan' : '/score', { replace: true });
-      }
+      login(sessionFrom(result));
+      navigate(result.role === 'CLIENT' ? '/my-loan' : '/score', { replace: true });
     } catch (e) {
       setError(e);
     } finally {

@@ -28,7 +28,9 @@ Deploying to a real server for free? Follow the step-by-step guide in [DEPLOY.md
 - nginx terminates TLS 1.2/1.3 (self-signed locally), sets HSTS, CSP, X-Frame-Options, nosniff, and
   rate-limits `/v1` at the edge (per-IP token bucket).
 - Backend honours `X-Forwarded-*` only from private-range peers; CORS is an explicit allow-list
-  (`CORS_ALLOWED_ORIGINS`, empty when frontend and API share an origin).
+  (`CORS_ALLOWED_ORIGINS`, empty when frontend and API share an origin) with credentials allowed, since
+  the session cookie needs that to be sent and read across the split-origin dev setup -- never a
+  wildcard, which browsers refuse to combine with credentialed CORS anyway.
 
 ## Container hardening
 Non-root user, `cap_drop: ALL` (+ only the caps each image needs), `no-new-privileges`, read-only

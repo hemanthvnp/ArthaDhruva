@@ -24,7 +24,7 @@ export default function ChangePasswordPage() {
     try {
       // Every session of the account is ended by a password change; this one continues on the new
       // session the server returns.
-      login(sessionFrom((await changePassword(currentPassword, newPassword)).session));
+      login(sessionFrom(await changePassword(currentPassword, newPassword)));
       setSuccess(true);
       setCurrentPassword('');
       setNewPassword('');

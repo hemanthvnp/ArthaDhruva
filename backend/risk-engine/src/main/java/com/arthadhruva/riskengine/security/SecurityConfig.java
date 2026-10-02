@@ -19,9 +19,15 @@ import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 
 /**
- * Stateless JWT bearer-token auth: no sessions, no cookies, CSRF disabled (there's no
- * cookie-based session for a cross-site request to ride along on -- the standard justification
- * for disabling CSRF protection on a stateless token API). {@code /login}, {@code /activate}
+ * Stateless JWT auth: no server-side {@code HttpSession} (see {@code SessionCreationPolicy.STATELESS}
+ * below). The session token itself does live in a cookie -- the httpOnly {@code ad_session} cookie
+ * JwtAuthenticationFilter reads (see SessionCookie) -- but CSRF is still disabled, because that cookie
+ * is {@code SameSite=Strict}: it is never sent on a cross-site request in the first place, which is a
+ * stronger, simpler defense than Spring's CSRF-token machinery would add on top of it for this app's
+ * request patterns (no third-party site ever has reason to POST to this API). The one genuinely
+ * cross-site leg in the whole app, the SSO identity-provider redirect, never carries this cookie at
+ * all -- it uses its own separate, narrowly-scoped {@code sso_txn} cookie instead (SsoController).
+ * {@code /login}, {@code /activate}
  * (a CLIENT completing an admin-issued invite -- see ActivationController), and the actuator
  * health/prometheus endpoints (Prometheus itself carries no bearer token) are public; {@code
  * /admin/**} requires the ADMIN role; {@code /my/**} (a CLIENT's
@@ -116,6 +122,7 @@ public class SecurityConfig {
                                                    com.arthadhruva.riskengine.idempotency.IdempotencyFilter idempotencyFilter) throws Exception {
         http
                 .cors(Customizer.withDefaults())
+                // See the class javadoc: the session cookie's SameSite=Strict is this app's CSRF defense.
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(exceptions -> exceptions

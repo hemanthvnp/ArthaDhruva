@@ -92,9 +92,20 @@ class ApiIntegrationTest extends AbstractIntegrationTest {
         }
     }
 
+    private static jakarta.servlet.http.Cookie sessionCookie(String token) {
+        return new jakarta.servlet.http.Cookie(com.arthadhruva.riskengine.security.SessionCookie.NAME, token);
+    }
+
+    /** The token itself travels only as the Set-Cookie response header now, never the JSON body. */
+    private static String sessionTokenFrom(MvcResult result) {
+        var cookie = result.getResponse().getCookie(com.arthadhruva.riskengine.security.SessionCookie.NAME);
+        assertNotNull(cookie, "expected a Set-Cookie session cookie on the response");
+        return cookie.getValue();
+    }
+
     private MvcResult call(MockHttpServletRequestBuilder request, String token, Object body) throws Exception {
         if (token != null) {
-            request.header("Authorization", "Bearer " + token);
+            request.cookie(sessionCookie(token));
         }
         if (body != null) {
             request.contentType(MediaType.APPLICATION_JSON).content(body instanceof String s ? s : json.writeValueAsString(body));
@@ -185,7 +196,7 @@ class ApiIntegrationTest extends AbstractIntegrationTest {
         login.put("totpCode", code);
         MvcResult ok = call(post("/v1/login"), null, login);
         assertEquals(200, status(ok));
-        String session = body(ok).get("token").asString();
+        String session = sessionTokenFrom(ok);
         assertEquals("ANALYST", body(ok).get("role").asString());
         assertNotNull(body(ok).get("sessionExpiresAt"));
 
@@ -195,7 +206,7 @@ class ApiIntegrationTest extends AbstractIntegrationTest {
         assertEquals(200, status(call(get("/v1/loans?limit=1"), session, null)));
         MvcResult refreshed = call(post("/v1/account/session/refresh"), session, null);
         assertEquals(200, status(refreshed));
-        String renewed = body(refreshed).get("token").asString();
+        String renewed = sessionTokenFrom(refreshed);
         assertEquals(200, status(call(get("/v1/loans?limit=1"), renewed, null)));
 
         assertEquals(200, status(call(post("/v1/account/logout"), renewed, null)));
@@ -555,22 +566,22 @@ class ApiIntegrationTest extends AbstractIntegrationTest {
         String key = "note-" + run;
         Map<String, Object> note = Map.of("text", "Called the borrower; payment promised for Friday.");
 
-        MvcResult first = mvc.perform(post("/v1/loans/" + loanId + "/notes").header("Authorization", "Bearer " + ana)
+        MvcResult first = mvc.perform(post("/v1/loans/" + loanId + "/notes").cookie(sessionCookie(ana))
                 .header("Idempotency-Key", key).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(note))).andReturn();
         assertEquals(200, status(first));
-        MvcResult retry = mvc.perform(post("/v1/loans/" + loanId + "/notes").header("Authorization", "Bearer " + ana)
+        MvcResult retry = mvc.perform(post("/v1/loans/" + loanId + "/notes").cookie(sessionCookie(ana))
                 .header("Idempotency-Key", key).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(note))).andReturn();
         assertEquals(200, status(retry));
         assertEquals("true", retry.getResponse().getHeader("Idempotent-Replay"));
         assertEquals(first.getResponse().getContentAsString(), retry.getResponse().getContentAsString());
         assertEquals(1, body(call(get("/v1/loans/" + loanId + "/case"), ana, null)).get("notes").size(), "the note exists once");
 
-        MvcResult different = mvc.perform(post("/v1/loans/" + loanId + "/notes").header("Authorization", "Bearer " + ana)
+        MvcResult different = mvc.perform(post("/v1/loans/" + loanId + "/notes").cookie(sessionCookie(ana))
                 .header("Idempotency-Key", key).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("text", "another note")))).andReturn();
         assertEquals(422, status(different), "the same key with a different request is an error, not a replay");
 
         // A key belongs to its caller: a colleague using the same value is making a new request.
-        MvcResult colleague = mvc.perform(post("/v1/loans/" + loanId + "/notes").header("Authorization", "Bearer " + ben)
+        MvcResult colleague = mvc.perform(post("/v1/loans/" + loanId + "/notes").cookie(sessionCookie(ben))
                 .header("Idempotency-Key", key).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(note))).andReturn();
         assertEquals(200, status(colleague));
         assertEquals(null, colleague.getResponse().getHeader("Idempotent-Replay"));

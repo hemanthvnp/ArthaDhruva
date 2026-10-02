@@ -14,8 +14,10 @@ import java.util.List;
  * Cross-origin access is an explicit allow-list from {@code app.cors-allowed-origins}
  * (comma-separated). The default is the Vite dev server only; in the containerised deployment the
  * frontend and API share one origin behind nginx, so set it empty there and no cross-origin
- * request is permitted at all. Never a wildcard: the API authenticates with bearer tokens a
- * wildcard-permitted page could otherwise be handed by a script running on any site.
+ * request is permitted at all. Never a wildcard: the session cookie is credentialed
+ * ({@code allowCredentials(true)}, required so the browser will send/accept it at all for the
+ * cross-origin dev setup), and a wildcard origin combined with credentials is both what browsers
+ * refuse to honor and what would hand a cookie-bearing request to a script running on any site.
  *
  * <p>Exposed as a {@link CorsConfigurationSource} bean (rather than a {@code WebMvcConfigurer}
  * mapping) so Spring Security's CORS filter picks it up and answers preflight before auth runs.
@@ -31,6 +33,7 @@ public class CorsConfig {
 
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(origins);
+        configuration.setAllowCredentials(true);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key", "X-API-Key"));
         // Headers a cross-origin page may read: download names, where to poll a started job, how long to

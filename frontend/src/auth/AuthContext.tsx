@@ -19,10 +19,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Persistence itself is session.ts's job (storeAuth/clearStoredAuth) for every sign-in path, including
-  // this one: the token is short-lived and rotated roughly every minute (AuthState.expiresAt/obtainedAt
-  // and the API client's refresh logic), so localStorage's XSS exposure window is one rotation, not the
-  // session lifetime. An httpOnly cookie would trade that for CSRF handling this API doesn't otherwise need.
+  // The token itself never reaches here: it travels only as the httpOnly ad_session cookie the backend
+  // sets directly. What login() persists (via session.ts's storeAuth/clearStoredAuth, the same helpers
+  // every sign-in path uses) is operational metadata only -- who's signed in, when to next refresh.
   const login = (state: AuthState) => {
     storeAuth(state);
     setAuth(state);

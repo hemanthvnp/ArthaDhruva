@@ -1,7 +1,9 @@
 import type { LoginResponse, Role } from '../api/types';
 
+/** The token itself lives only in the httpOnly ad_session cookie -- never in here, never readable by
+ * this code. Everything below is operational metadata: who's signed in, and when this client should
+ * next ask the server to refresh the session. */
 export interface AuthState {
-  token: string;
   username: string;
   role: Role;
   sandbox?: boolean;
@@ -27,10 +29,6 @@ export function getStoredAuth(): AuthState | null {
   }
 }
 
-export function getStoredToken(): string | null {
-  return getStoredAuth()?.token ?? null;
-}
-
 /** Replaces the stored session from outside React and tells the provider. */
 export function storeAuth(state: AuthState): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -45,7 +43,6 @@ export function clearStoredAuth(): void {
 /** The session a login-style response carries. */
 export function sessionFrom(response: LoginResponse): AuthState {
   return {
-    token: response.token,
     username: response.username,
     role: response.role,
     sandbox: response.sandbox,

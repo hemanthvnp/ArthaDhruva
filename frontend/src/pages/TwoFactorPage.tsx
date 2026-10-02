@@ -44,8 +44,7 @@ export default function TwoFactorPage() {
     setLoading(true);
     try {
       // Enabling 2FA signs every other session out; this one continues on the session returned.
-      const outcome = await totpConfirm(confirmCode);
-      login(sessionFrom('session' in outcome ? outcome.session : outcome));
+      login(sessionFrom(await totpConfirm(confirmCode)));
       setQrCodeDataUri(null);
       setSecret(null);
       setConfirmCode('');
@@ -62,7 +61,7 @@ export default function TwoFactorPage() {
     setError(null);
     setLoading(true);
     try {
-      login(sessionFrom((await totpDisable(disableCode)).session));
+      login(sessionFrom(await totpDisable(disableCode)));
       setDisableCode('');
       setInfo('2FA disabled. Other sessions have been signed out.');
       loadStatus();

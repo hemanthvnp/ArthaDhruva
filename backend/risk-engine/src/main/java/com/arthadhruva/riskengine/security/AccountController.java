@@ -3,18 +3,20 @@ package com.arthadhruva.riskengine.security;
 import com.arthadhruva.riskengine.audit.NotAudited;
 import com.arthadhruva.riskengine.tenant.TenantContext;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Instant;
 import java.util.Map;
 
 /**
@@ -36,10 +38,11 @@ public class AccountController {
     private final SecondFactor secondFactor;
     private final JwtService jwtService;
     private final AuthThrottle throttle;
+    private final SessionCookie sessionCookie;
 
     public AccountController(UserService userService, PasswordEncoder passwordEncoder, TotpService totpService,
                              TotpSecretCipher totpSecretCipher, SecondFactor secondFactor, JwtService jwtService,
-                             AuthThrottle throttle) {
+                             AuthThrottle throttle, SessionCookie sessionCookie) {
         this.userService = userService;
         this.passwordEncoder = passwordEncoder;
         this.totpService = totpService;
@@ -47,21 +50,26 @@ public class AccountController {
         this.secondFactor = secondFactor;
         this.jwtService = jwtService;
         this.throttle = throttle;
+        this.sessionCookie = sessionCookie;
     }
 
     private User currentUser(Authentication authentication) {
         return userService.findByOrganizationAndUsername(TenantContext.get(), authentication.getName()).orElseThrow();
     }
 
-    /** Revokes every session of the account (including the caller's) and issues the caller a new one. */
-    private AuthController.LoginResponse rotateSession(User user) {
+    /** Revokes every session of the account (including the caller's) and issues the caller a new one,
+     * setting it as the response's session cookie. */
+    private SessionRotated rotateSession(String message, User user, HttpServletResponse response) {
         userService.revokeSessions(user);
         User fresh = userService.reload(user).orElseThrow();
-        return AuthController.LoginResponse.of(fresh, jwtService.issueSession(fresh));
+        JwtService.IssuedToken issued = jwtService.issueSession(fresh);
+        response.addHeader(HttpHeaders.SET_COOKIE, sessionCookie.issue(issued).toString());
+        return SessionRotated.of(message, AuthController.LoginResponse.of(fresh, issued));
     }
 
     @PostMapping("/account/password")
-    public ResponseEntity<?> changePassword(@Valid @RequestBody ChangePasswordRequest request, Authentication authentication) {
+    public ResponseEntity<?> changePassword(@Valid @RequestBody ChangePasswordRequest request, Authentication authentication,
+                                            HttpServletResponse response) {
         User user = currentUser(authentication);
         if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Current password is incorrect"));
@@ -71,8 +79,7 @@ public class AccountController {
         }
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         userService.save(user);
-        return ResponseEntity.ok(Map.of("message", "Password updated. Other sessions have been signed out.",
-                "session", rotateSession(user)));
+        return ResponseEntity.ok(rotateSession("Password updated. Other sessions have been signed out.", user, response));
     }
 
     /**
@@ -81,14 +88,16 @@ public class AccountController {
      * token expire, which is the idle timeout.
      */
     @PostMapping("/account/session/refresh")
-    public ResponseEntity<?> refresh(Authentication authentication, HttpServletRequest http) {
+    public ResponseEntity<?> refresh(Authentication authentication, HttpServletRequest http, HttpServletResponse response) {
         Object attribute = http.getAttribute(JwtAuthenticationFilter.PARSED_TOKEN_ATTRIBUTE);
         if (!(attribute instanceof JwtService.ParsedToken parsed) || !parsed.isSession()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Not a session token"));
         }
         User user = currentUser(authentication);
         try {
-            return ResponseEntity.ok(AuthController.LoginResponse.of(user, jwtService.issueSession(user, parsed.authTime())));
+            JwtService.IssuedToken issued = jwtService.issueSession(user, parsed.authTime());
+            return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, sessionCookie.issue(issued).toString())
+                    .body(AuthController.LoginResponse.of(user, issued));
         } catch (IllegalStateException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", "Your session has reached its maximum length. Please sign in again."));
@@ -96,10 +105,13 @@ public class AccountController {
     }
 
     /** Ends every session of the account (all devices): session versioning has no per-token state to
-     * revoke individually, and signing out everywhere is the safe default for a banking console. */
+     * revoke individually, and signing out everywhere is the safe default for a banking console. Also
+     * clears this browser's cookie directly, rather than leaving an already-revoked token sitting in it
+     * until it naturally expires. */
     @PostMapping("/account/logout")
-    public ResponseEntity<?> logout(Authentication authentication) {
+    public ResponseEntity<?> logout(Authentication authentication, HttpServletResponse response) {
         userService.revokeSessions(currentUser(authentication));
+        response.addHeader(HttpHeaders.SET_COOKIE, sessionCookie.clear().toString());
         return ResponseEntity.ok(Map.of("message", "Signed out."));
     }
 
@@ -131,7 +143,7 @@ public class AccountController {
 
     @PostMapping("/account/2fa/confirm")
     public ResponseEntity<?> confirm(@Valid @RequestBody TotpCodeRequest request, Authentication authentication,
-                                     HttpServletRequest http) {
+                                     HttpServletRequest http, HttpServletResponse response) {
         var throttled = throttle.check(AuthThrottle.Kind.SECOND_FACTOR, http);
         if (throttled.isPresent()) {
             return throttled.get();
@@ -145,20 +157,13 @@ public class AccountController {
         }
         user.setTotpEnabled(true);
         userService.save(user);
-
-        boolean viaSetupToken = authentication.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority).anyMatch("ROLE_TOTP_SETUP"::equals);
-        AuthController.LoginResponse session = rotateSession(user);
-        if (viaSetupToken) {
-            return ResponseEntity.ok(session);
-        }
-        return ResponseEntity.ok(Map.of("message", "2FA enabled. Other sessions have been signed out.", "session", session));
+        return ResponseEntity.ok(rotateSession("2FA enabled. Other sessions have been signed out.", user, response));
     }
 
     /** Requires a valid current code; blocked for mandatory-2FA roles (an administrator resets instead). */
     @PostMapping("/account/2fa/disable")
     public ResponseEntity<?> disable(@Valid @RequestBody TotpCodeRequest request, Authentication authentication,
-                                     HttpServletRequest http) {
+                                     HttpServletRequest http, HttpServletResponse response) {
         var throttled = throttle.check(AuthThrottle.Kind.SECOND_FACTOR, http);
         if (throttled.isPresent()) {
             return throttled.get();
@@ -174,8 +179,16 @@ public class AccountController {
         user.clearTotp();
         userService.save(user);
         userService.clearTotpStep(user);
-        return ResponseEntity.ok(Map.of("message", "2FA disabled. Other sessions have been signed out.",
-                "session", rotateSession(user)));
+        return ResponseEntity.ok(rotateSession("2FA disabled. Other sessions have been signed out.", user, response));
+    }
+
+    /** A password or 2FA change's response: the confirmation message, flattened alongside the fresh
+     * session's fields rather than nesting them -- the frontend reads this exactly like a LoginResponse. */
+    public record SessionRotated(String message, String username, String role, Instant expiresAt,
+                                 Instant sessionExpiresAt, boolean sandbox) {
+        static SessionRotated of(String message, AuthController.LoginResponse r) {
+            return new SessionRotated(message, r.username(), r.role(), r.expiresAt(), r.sessionExpiresAt(), r.sandbox());
+        }
     }
 
     public record ChangePasswordRequest(@NotBlank String currentPassword, @NotBlank @StrongPassword String newPassword) {

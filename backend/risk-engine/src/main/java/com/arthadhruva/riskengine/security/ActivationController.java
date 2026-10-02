@@ -5,6 +5,7 @@ import com.arthadhruva.riskengine.tenant.TenantContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -28,13 +29,15 @@ public class ActivationController {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthThrottle throttle;
+    private final SessionCookie sessionCookie;
 
     public ActivationController(UserService userService, PasswordEncoder passwordEncoder, JwtService jwtService,
-                                AuthThrottle throttle) {
+                                AuthThrottle throttle, SessionCookie sessionCookie) {
         this.userService = userService;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.throttle = throttle;
+        this.sessionCookie = sessionCookie;
     }
 
     @PostMapping("/activate")
@@ -73,7 +76,9 @@ public class ActivationController {
         if (user.getRole().requiresTotp()) {
             return ResponseEntity.ok(new SignInRequiredResponse(true, user.getOrganization().getSlug(), user.getUsername()));
         }
-        return ResponseEntity.ok(AuthController.LoginResponse.of(user, jwtService.issueSession(user)));
+        JwtService.IssuedToken issued = jwtService.issueSession(user);
+        return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, sessionCookie.issue(issued).toString())
+                .body(AuthController.LoginResponse.of(user, issued));
     }
 
     private static ResponseEntity<?> invalid() {
