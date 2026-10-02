@@ -31,23 +31,51 @@ public class SegmentGraphService {
         }
     }
 
+    /** Every state and every correlation between two of them, each edge once (smaller code first). */
+    public record Graph(List<String> states, List<List<String>> edges) {
+    }
+
+    /** The whole graph in one read, for drawing it: the page used to ask each state for its neighbours. */
+    public Graph graph() {
+        try (var session = driver.session()) {
+            return session.executeRead(tx -> {
+                List<String> states = new ArrayList<>();
+                Result nodes = tx.run("MATCH (s:State) RETURN s.code AS code ORDER BY code");
+                while (nodes.hasNext()) {
+                    states.add(nodes.next().get("code").asString());
+                }
+                List<List<String>> edges = new ArrayList<>();
+                Result pairs = tx.run("MATCH (a:State)-[:CORRELATES]-(b:State) WHERE a.code < b.code "
+                        + "RETURN DISTINCT a.code AS a, b.code AS b ORDER BY a, b");
+                while (pairs.hasNext()) {
+                    Record record = pairs.next();
+                    edges.add(List.of(record.get("a").asString(), record.get("b").asString()));
+                }
+                return new Graph(states, edges);
+            });
+        }
+    }
+
     /**
-     * Fixed-hop-count traversal, the direct Cypher equivalent of the notebook's
-     * {@code hops_away()} (which wraps {@code nx.single_source_shortest_path_length}): every
-     * state reachable within {@code maxHops} of {@code state}, with its shortest hop distance.
+     * Every state reachable within {@code maxHops} of {@code state}, with its shortest hop distance:
+     * the Cypher equivalent of the notebook's {@code hops_away()} (which wraps
+     * {@code nx.single_source_shortest_path_length}).
      *
-     * Neo4j does not support parameterizing the range bounds of a variable-length relationship
-     * pattern (e.g. {@code *1..$maxHops} is a syntax error) -- {@code maxHops} is inlined into
-     * the query text instead. This is safe here because it's a plain int already range-checked
-     * by the controller (@Min(1) @Max(5)), not user-supplied query text.
+     * <p>{@code shortestPath} runs a breadth-first search per target. The earlier form matched every
+     * path of up to {@code maxHops} edges and took the minimum length, which enumerates paths: on a
+     * graph this dense their number grows with the degree to the power of the hop limit.
+     *
+     * <p>Neo4j does not support parameterizing the bounds of a variable-length pattern
+     * ({@code *..$maxHops} is a syntax error), so {@code maxHops} is inlined into the query text. That is
+     * safe because it is an int range-checked by the controller (@Min(1) @Max(5)), not user text.
      */
     public List<SegmentNeighbor> neighbors(String state, int maxHops) {
         try (var session = driver.session()) {
             return session.executeRead(tx -> {
                 Result result = tx.run(
-                        "MATCH p=(a:State {code: $source})-[:CORRELATES*1.." + maxHops + "]-(b:State) "
-                                + "WHERE b.code <> $source "
-                                + "RETURN b.code AS state, min(length(p)) AS hops "
+                        "MATCH (a:State {code: $source}), (b:State) WHERE b.code <> $source "
+                                + "MATCH p = shortestPath((a)-[:CORRELATES*.." + maxHops + "]-(b)) "
+                                + "RETURN b.code AS state, length(p) AS hops "
                                 + "ORDER BY hops, state",
                         Map.of("source", state));
                 List<SegmentNeighbor> neighbors = new ArrayList<>();

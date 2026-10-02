@@ -1,5 +1,7 @@
 # Deployment and networking notes
 
+Deploying to a real server for free? Follow the step-by-step guide in [DEPLOY.md](DEPLOY.md). This file describes the run modes and network design.
+
 ## Run modes
 | Goal | Command |
 |---|---|
@@ -7,7 +9,8 @@
 | Two backend replicas behind nginx | add `--scale backend=2` and set one shared `JWT_SECRET` / `TOTP_ENCRYPTION_KEY` (each replica otherwise generates its own random key, so a token from one would be rejected by the other) |
 | Production credentials | `sh scripts/gen-secrets.sh`, then `-f docker-compose.yml -f docker-compose.prod.yml` (Docker secrets, `production` profile, no defaults) |
 | IDE / `mvnw spring-boot:run` on the host | `-f docker-compose.yml -f docker-compose.dev.yml up -d postgres redis neo4j` (localhost-only DB ports, plain-TCP pg_hba) |
-| Observability | `--profile observability` (Prometheus, Grafana, Loki, Promtail, Jaeger) |
+| Observability | `--profile observability` (Prometheus with alert rules, Grafana, Loki, Promtail, Jaeger), and `TRACE_SAMPLING=0.1` to record traces |
+| See which replica answered | `EXPOSE_UPSTREAM=1` adds an `X-Upstream` response header at nginx (off by default) |
 
 ## Network design
 ```
@@ -25,9 +28,24 @@
 - nginx terminates TLS 1.2/1.3 (self-signed locally), sets HSTS, CSP, X-Frame-Options, nosniff, and
   rate-limits `/v1` at the edge (per-IP token bucket).
 - Backend honours `X-Forwarded-*` only from private-range peers; CORS is an explicit allow-list
-  (`CORS_ALLOWED_ORIGINS`, empty when frontend and API share an origin).
+  (`CORS_ALLOWED_ORIGINS`, empty when frontend and API share an origin) with credentials allowed, since
+  the session cookie needs that to be sent and read across the split-origin dev setup -- never a
+  wildcard, which browsers refuse to combine with credentialed CORS anyway.
 
 ## Container hardening
 Non-root user, `cap_drop: ALL` (+ only the caps each image needs), `no-new-privileges`, read-only
 root filesystem with `exec` tmpfs only where ONNX Runtime needs it, CPU/memory limits, healthchecks
 with `depends_on: service_healthy`.
+
+## Observability
+- **Alerts.** `observability/alerts.yml` holds 15 rules: availability, the same error-rate and latency
+  bars the CI load test enforces, pool and heap saturation, open circuit breakers, and four that are
+  about integrity rather than uptime (a decision served without its audit record, lost usage counts,
+  abandoned webhook deliveries, replicas serving different binaries of one model). Each rule has a
+  unit test in `alerts.test.yml`, run by CI. No Alertmanager is shipped: firing alerts show in
+  Prometheus and Grafana, and where they page is left to the deployment.
+- **Logs.** Promtail ships this project's container logs to Loki. It reads the Docker API through a
+  proxy that only answers read-only container and network queries, on its own internal network,
+  instead of holding the Docker socket.
+- **Grafana** opens dashboards read-only without a login; changes need the admin account
+  (`GRAFANA_ADMIN_PASSWORD`). Every observability port is published on 127.0.0.1 only.

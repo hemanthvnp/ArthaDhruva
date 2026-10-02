@@ -1,0 +1,21 @@
+# Public TLS terminator. For a real hostname Caddy obtains a Let's Encrypt certificate automatically
+# (needs ports 80 and 443 reachable from the internet) and renews it before expiry.
+# For SITE_ADDRESS=localhost it uses its own local CA instead, which is how the deployment path is
+# rehearsed on a laptop without a domain.
+{$SITE_ADDRESS} {
+	# nginx sits behind us on the private edge network and serves TLS with a self-signed certificate,
+	# so the hop is encrypted but not verified. That is acceptable because nothing but this container
+	# can reach nginx: it publishes no ports (see docker-compose.deploy.yml).
+	reverse_proxy https://nginx:443 {
+		transport http {
+			tls_insecure_skip_verify
+		}
+		# Caddy sets X-Forwarded-For/-Proto/-Host itself and discards any value a client sent, so the
+		# real client address that nginx's rate limit keys on cannot be spoofed from outside.
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

@@ -22,6 +22,8 @@ export interface LoanFeatures {
   channel: string;
   firstTimeHomebuyerFlag: string;
   propertyState: string;
+  /** YYYY-MM. Omit for a new application being priced at today's rates. */
+  originationMonth?: string | null;
 }
 
 export interface Attribution {
@@ -29,10 +31,25 @@ export interface Attribution {
   contribution: number;
 }
 
+/** A principal reason the model rates this loan riskier than a typical one. */
+export interface ReasonCode {
+  code: string;
+  feature: string;
+  description: string;
+  contribution: number;
+}
+
 export interface ScoreResponse {
   rawProbability: number;
   calibratedProbability: number;
   explanation?: Attribution[];
+  reasonCodes?: ReasonCode[];
+  /** Inputs outside the training distribution: the score is an extrapolation. */
+  warnings?: string[];
+  modelVersion?: string | null;
+  horizonMonths?: number;
+  /** PD of the reference loan the explanation is measured from; null when read back without one. */
+  baselineProbability?: number | null;
 }
 
 /** One row of GET /loan-scores -- every loan anyone has scored so far, most recent first. */
@@ -41,6 +58,7 @@ export interface LoanScoreSummary {
   rawProbability: number;
   calibratedProbability: number;
   computedAt: string;
+  modelVersion?: string | null;
 }
 
 export interface CachedScore {
@@ -48,11 +66,24 @@ export interface CachedScore {
   computedAt: string;
 }
 
+export interface RegimeProbabilities {
+  calm: number;
+  stressed: number;
+}
+
 export interface RegimeForecast {
   asOfMonth: string;
   forecastMonth: string;
   monthsAhead: number;
-  regimeProbabilities: { calm: number; stressed: number };
+  regimeProbabilities: RegimeProbabilities;
+  currentRegime: 'calm' | 'stressed';
+  /** The distribution in every month up to the forecast month. */
+  path: { month: string; regimeProbabilities: RegimeProbabilities }[];
+  /** Long-run share of months in each regime. */
+  stationary: RegimeProbabilities;
+  expectedDurationMonths: { calm: number | null; stressed: number | null };
+  /** Months between the last decoded month and today. */
+  dataAgeMonths: number;
 }
 
 export interface LoanRiskProfile {
@@ -66,6 +97,19 @@ export interface CvarRequest {
   loans: LoanRiskProfile[];
   confidenceLevel?: number;
   numScenarios?: number;
+  /** Share of each loan's fate driven by the common factor; 0 makes defaults independent. */
+  assetCorrelation?: number;
+  seed?: number;
+  importanceSampling?: boolean;
+  contributions?: boolean;
+}
+
+export interface CvarContribution {
+  loanId: string | null;
+  index: number;
+  contribution: number;
+  share: number;
+  expectedLoss: number;
 }
 
 export interface CvarResult {
@@ -73,17 +117,478 @@ export interface CvarResult {
   conditionalValueAtRisk: number;
   valueAtRiskConfidenceInterval: [number, number];
   conditionalValueAtRiskConfidenceInterval: [number, number];
-  meanLoss: number;
+  expectedLoss: number;
+  unexpectedLoss: number;
+  /** Closed-form VaR of an infinitely fine-grained portfolio with the same loans. */
+  asrfValueAtRisk: number;
+  granularityAddOn: number;
+  totalExposure: number;
+  effectiveLoans: number;
   numLoans: number;
   numScenarios: number;
   confidenceLevel: number;
+  assetCorrelation: number;
+  importanceSampling: boolean;
+  factorShift: number;
+  systematicVarianceShare: number;
+  seed: number;
+  topContributions: CvarContribution[];
+  exceedanceCurve: { loss: number; probability: number }[];
+  elapsedMillis: number;
 }
 
 export interface ExpectedLossResponse {
+  /** 12-month PD (survival model, baseline). */
   pd: number;
   lgd: number;
+  /** Exposure today: the amortized balance. */
   ead: number;
+  /** 12-month expected credit loss, discounted. */
   expectedLoss: number;
+  pdLifetime: number;
+  expectedLossLifetime: number;
+  stage: number;
+  eclIfrs9: number;
+  expectedLifeMonths: number;
+  modelVersion: string;
+  warnings: string[];
+}
+
+// ---- lifetime risk -------------------------------------------------------------------------
+
+export interface Scenario {
+  name: string;
+  description: string;
+  stressedMonths: number;
+  unemploymentShockPp: number;
+  unemploymentShockMonths: number;
+  unemploymentRecoveryMonths: number;
+  hpiShockPct: number;
+  hpiShockMonths: number;
+  hpiAnnualGrowthPct: number;
+  rateShockBp: number;
+}
+
+export interface MonthPoint {
+  month: string;
+  loanAge: number;
+  survival: number;
+  marginalDefault: number;
+  marginalPrepay: number;
+  cumulativeDefault: number;
+  cumulativePrepay: number;
+  defaultHazard: number;
+  prepayHazard: number;
+  stressedProbability: number;
+  exposure: number;
+  lgd: number;
+  expectedLoss: number;
+  discountedExpectedLoss: number;
+  unemployment: number;
+  housePriceIndex: number;
+  mtmLtv: number;
+}
+
+export interface TermSummary {
+  pd12m: number;
+  pd24m: number;
+  pdLifetime: number;
+  prepayLifetime: number;
+  expectedLifeMonths: number;
+  maturityProbability: number;
+}
+
+export interface Ecl {
+  stage: number;
+  stageReason: string;
+  exposure: number;
+  lgd: number;
+  lgdPeak: number;
+  ecl12m: number;
+  eclLifetime: number;
+  eclIfrs9: number;
+  eclCecl: number;
+  referencePd12m: number | null;
+}
+
+/** A driver the scenario pushes outside the range the model was trained on. */
+export interface Extrapolation {
+  driver: string;
+  direction: 'below' | 'above';
+  trainedLimit: number;
+  extreme: number;
+  months: number;
+  firstMonth: string;
+}
+
+export interface TermAssumptions {
+  forecastOrigin: string;
+  rateAsOf: string;
+  regimeAsOf: string;
+  originationMonth: string;
+  rateSpread: number;
+  marketRate: number;
+  startUnemployment: number;
+  defaultOverlay: number;
+  prepayOverlay: number;
+  liquidationHaircut: number;
+  discountRate: number;
+}
+
+export interface TermStructure {
+  scenario: string;
+  modelVersion: string;
+  monthsOnBook: number;
+  remainingMonths: number;
+  summary: TermSummary;
+  ecl: Ecl;
+  months: MonthPoint[];
+  extrapolations: Extrapolation[];
+  assumptions: TermAssumptions;
+}
+
+export interface LifetimeRiskInput {
+  loan: LoanFeatures;
+  monthsOnBook?: number;
+  currentBalance?: number;
+  daysPastDue?: number;
+  originationPd12m?: number;
+  months?: number;
+}
+
+export interface TermStructureResponse {
+  termStructure: TermStructure;
+  warnings: string[];
+}
+
+export interface ScenarioCurve {
+  scenario: string;
+  description: string;
+  summary: TermSummary;
+  ecl: Ecl;
+  cumulativeDefault: number[];
+  cumulativePrepay: number[];
+  survival: number[];
+  discountedExpectedLoss: number[];
+  extrapolations: Extrapolation[];
+}
+
+export interface ScenarioComparison {
+  modelVersion: string;
+  monthsOnBook: number;
+  remainingMonths: number;
+  months: string[];
+  scenarios: ScenarioCurve[];
+  warnings: string[];
+}
+
+// ---- portfolio risk ------------------------------------------------------------------------
+
+export type RunStatus = 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+
+export interface PortfolioRun {
+  id: string;
+  status: RunStatus;
+  scenarios: string[];
+  loansTotal: number;
+  loansDone: number;
+  requestedBy: string;
+  requestedAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  error: string | null;
+}
+
+export interface StageBreakdown {
+  stage: number;
+  loans: number;
+  exposure: number;
+  ecl: number;
+}
+
+export interface StateRisk {
+  state: string;
+  loans: number;
+  exposure: number;
+  eclLifetime: number;
+  eclIfrs9: number;
+}
+
+export interface LoanRisk {
+  loanId: string | null;
+  state: string;
+  exposure: number;
+  pd12m: number;
+  pdLifetime: number;
+  eclLifetime: number;
+  stage: number;
+}
+
+export interface RunoffSeries {
+  months: string[];
+  balanceAtRisk: number[];
+  defaults: number[];
+  prepayments: number[];
+  expectedLoss: number[];
+}
+
+export interface ScenarioRisk {
+  scenario: string;
+  description: string;
+  loans: number;
+  exposure: number;
+  pd12m: number;
+  pdLifetime: number;
+  ecl12m: number;
+  eclLifetime: number;
+  eclIfrs9: number;
+  eclCecl: number;
+  coverage: number;
+  stages: StageBreakdown[];
+  series: RunoffSeries;
+  states: StateRisk[];
+  topLoans: LoanRisk[];
+  extrapolatedLoans: Record<string, number>;
+  eclRelativeStandardError: number | null;
+  /** The one-year loss distribution around the 12-month ECL; on the baseline only, null if it could not be simulated. */
+  lossDistribution: CvarResult | null;
+}
+
+/** One loan's baseline result in the latest run: a row of the listing behind the totals. */
+export interface LoanResult {
+  loanId: string;
+  state: string;
+  exposure: number;
+  pd12m: number;
+  pdLifetime: number;
+  lgd: number;
+  ecl12m: number;
+  eclLifetime: number;
+  eclIfrs9: number;
+  stage: number;
+  stageReason: string;
+  /** How many portfolio loans the row stands for: 1 unless the portfolio was sampled. */
+  weight: number;
+}
+
+export interface LoanResultPage {
+  /** The date of the run the loans belong to; null when there has been none. */
+  asOf: string | null;
+  total: number;
+  loans: LoanResult[];
+}
+
+export type LoanResultSort = 'eclLifetime' | 'eclIfrs9' | 'pd12m' | 'exposure' | 'loanId';
+
+export interface LossParameters {
+  confidenceLevel?: number;
+  numScenarios?: number;
+  assetCorrelation?: number;
+  seed?: number;
+  importanceSampling?: boolean;
+}
+
+/** The portfolio's one-year loss distribution, simulated from the loans of its latest run. */
+export interface PortfolioLossDistribution {
+  asOf: string | null;
+  loans: number;
+  sampled: boolean;
+  result: CvarResult;
+}
+
+export interface PortfolioSnapshot {
+  asOf: string;
+  scenario: string;
+  loans: number;
+  loansExcluded: number;
+  projectedLoans: number;
+  exposure: number;
+  pd12m: number;
+  pdLifetime: number;
+  ecl12m: number;
+  eclLifetime: number;
+  eclIfrs9: number;
+  stage1: number;
+  stage2: number;
+  stage3: number;
+  modelVersion: string;
+  computedAt: string;
+  /** Present on the latest snapshots, absent in the history list. */
+  detail: ScenarioRisk | null;
+}
+
+export interface PortfolioView {
+  snapshots: PortfolioSnapshot[];
+  run: PortfolioRun | null;
+  /** Loans in the portfolio now, which may no longer be the number the snapshots cover. */
+  portfolioLoans: number;
+}
+
+// ---- model governance ----------------------------------------------------------------------
+
+export interface ModelEntry {
+  id: string;
+  name: string;
+  purpose: string;
+  tier: number;
+  validated: boolean;
+  version: string;
+  artifact: string | null;
+  sha256: string | null;
+  checksumVerified: boolean | null;
+  trainedAt: string | null;
+  algorithm: string | null;
+  headline: Record<string, number | string>;
+  gaps: string[];
+}
+
+export interface DriftBin {
+  label: string;
+  expected: number;
+  actual: number;
+}
+
+export interface FeatureDrift {
+  feature: string;
+  psi: number;
+  noiseFloor: number;
+  status: 'STABLE' | 'MODERATE' | 'SIGNIFICANT' | 'NO_DATA';
+  observations: number;
+  bins: DriftBin[];
+}
+
+export interface DriftReport {
+  modelVersion: string;
+  loans: number;
+  features: FeatureDrift[];
+  score: FeatureDrift | null;
+  computedAt: string;
+}
+
+export interface DecileRow {
+  decile: number;
+  predicted: number;
+  actual: number;
+}
+
+export interface SurvivalBacktest {
+  monthly: {
+    month: string;
+    all_vintages: boolean;
+    exposure: number;
+    predicted_default: number;
+    actual_default: number;
+    predicted_prepay: number;
+    actual_prepay: number;
+  }[];
+  vintages: {
+    orig_year: number;
+    n_loans: number;
+    ages: number[];
+    predicted_default: number[];
+    empirical_default: number[];
+    predicted_prepay: number[];
+    empirical_prepay: number[];
+  }[];
+  calibration: {
+    held_out_window: [string, string];
+    held_out: Record<'default' | 'prepay', { deciles: DecileRow[]; top_percentile: DecileRow; actual_over_predicted: number }>;
+    out_of_time_window: [string, string];
+    out_of_time: Record<'default' | 'prepay', DecileRow[]>;
+  };
+}
+
+/** A model card as the training script exported it. Snake case: it is the file, served as is. */
+export interface ModelCard {
+  version: string;
+  trained_at: string;
+  target?: string;
+  population?: string;
+  algorithm?: string;
+  limitations?: string[];
+  artifact_sha256?: string;
+  [key: string]: unknown;
+}
+
+export interface PdValidation {
+  n: number;
+  default_rate: number;
+  mean_predicted_pd: number;
+  auc: number;
+  gini: number;
+  pr_auc: number;
+  ks: number;
+  brier: number;
+  deciles: { pd_from: number; pd_to: number; n: number; predicted: number; actual: number }[];
+}
+
+export interface PdCard extends ModelCard {
+  horizon_months: number;
+  validation: {
+    out_of_time: PdValidation & {
+      train_vintages: string;
+      test_vintages: string;
+      by_vintage: { orig_year: number; n: number; default_rate: number; mean_predicted_pd: number; auc: number; ks: number }[];
+    };
+    in_time_holdout: PdValidation;
+  };
+  feature_importance_gain: Record<string, number>;
+  /** +1: the score may only rise with the input; -1: only fall. */
+  monotone_constraints: Record<string, number>;
+}
+
+/** What a drift overlay did when tried out of time: estimated on the first months, judged on the later ones. */
+export interface OverlayTrial {
+  overlay: number;
+  actual_over_predicted_before: number;
+  actual_over_predicted_after: number;
+  eligible: boolean;
+}
+
+/** The overlay in production for one cause, and the evidence it rests on. */
+export interface OverlayCause {
+  scalar: number;
+  applied: boolean;
+  actual_over_predicted: number;
+  standard_error: number;
+  events: number;
+  eligible: boolean;
+}
+
+export interface SurvivalCard extends ModelCard {
+  training: {
+    rows: number;
+    loans: number;
+    months: [string, string];
+    months_left_out: string[];
+    all_vintages_through: string;
+    held_out_loans: number;
+    /** Range of each time-varying driver in the training rows (0.5th to 99.5th percentile). */
+    envelope: Record<string, [number, number]>;
+  };
+  validation: {
+    out_of_time: {
+      rows: number;
+      weighted_log_loss: number;
+      age_only_baseline_log_loss: number;
+      default_auc: number;
+      prepay_auc: number;
+      test_months: [string, string];
+      train_months: [string, string];
+    };
+    overlay_protocol: {
+      estimated_on: [string, string];
+      judged_on: [string, string];
+      default: OverlayTrial;
+      prepay: OverlayTrial;
+    };
+  };
+  overlay: {
+    window: [string, string];
+    default: OverlayCause;
+    prepay: OverlayCause;
+    rule: string;
+  };
 }
 
 export interface MonthlyRecord {
@@ -174,12 +679,23 @@ export interface ValidationErrorBody {
   fields: Record<string, string>;
 }
 
+/** The token itself never appears here -- it travels only as the httpOnly ad_session cookie, which
+ * this client never reads (that's the point). This is session metadata to display and to schedule
+ * this client's own refresh calls against, not a credential. */
 export interface LoginResponse {
-  token: string;
   username: string;
   role: Role;
+  /** When this access token expires. */
   expiresAt: string;
+  /** When the session reaches its absolute limit. */
+  sessionExpiresAt: string;
   sandbox?: boolean;
+}
+
+/** Password change and 2FA changes end every other session and hand the caller a new one, flattened
+ * alongside the confirmation message rather than nested under it. */
+export interface SessionRotated extends LoginResponse {
+  message: string;
 }
 
 export interface MfaRequiredResponse {
@@ -193,10 +709,6 @@ export interface SetupRequiredResponse {
 }
 
 export type LoginOutcome = LoginResponse | MfaRequiredResponse | SetupRequiredResponse;
-
-/** /account/2fa/confirm returns a real session (bootstrap flow, via a setup token) or just a
- * confirmation message (voluntary opt-in flow, caller already has a normal session). */
-export type TotpConfirmOutcome = LoginResponse | MessageResponse;
 
 export interface TotpStatusResponse {
   enabled: boolean;
@@ -217,6 +729,12 @@ export interface AuditLogEntry {
   errorMessage: string | null;
   occurredAt: string;
   latencyMs: number;
+  actor?: string | null;
+  httpMethod?: string | null;
+  path?: string | null;
+  statusCode?: number | null;
+  clientIp?: string | null;
+  modelVersion?: string | null;
 }
 
 export interface LoginAttemptEntry {
@@ -279,13 +797,30 @@ export interface LoanNoteView {
   createdAt: string;
 }
 
+/** One entry of a case's immutable history. */
+export interface CaseEventView {
+  actor: string;
+  fromStatus: LoanCaseStatus | null;
+  toStatus: LoanCaseStatus;
+  fromAssignee: string | null;
+  toAssignee: string | null;
+  fromFlagged: boolean | null;
+  toFlagged: boolean;
+  reason: string | null;
+  occurredAt: string;
+}
+
 export interface LoanCaseView {
   loanId: string;
   status: LoanCaseStatus;
   assignedTo: string | null;
   flagged: boolean;
   updatedAt: string;
+  /** Sent back with an update so a change based on a stale view is refused instead of overwriting. */
+  version: number;
+  escalatedBy: string | null;
   notes: LoanNoteView[];
+  history: CaseEventView[];
 }
 
 /** One row of GET /loan-cases -- every loan case across the system. */
@@ -295,6 +830,7 @@ export interface LoanCaseSummary {
   assignedTo: string | null;
   flagged: boolean;
   updatedAt: string;
+  version: number;
 }
 
 /** One row of GET /loan-notes/recent -- the cross-loan activity feed. */
@@ -333,6 +869,8 @@ export interface AttachmentView {
   sizeBytes: number;
   uploadedBy: string;
   uploadedAt: string;
+  /** SHA-256 of the stored bytes; null for files uploaded before checksums were recorded. */
+  sha256: string | null;
 }
 
 export interface PageResult<T> {
@@ -358,12 +896,19 @@ export interface BulkItemResult {
   error: string | null;
 }
 
-export interface SignupRequest {
-  organizationName: string;
-  slug: string;
-  adminUsername: string;
-  email: string;
-  password: string;
+export interface AccessRequestSubmission {
+  companyName: string;
+  contactName: string;
+  workEmail: string;
+  jobTitle: string;
+  message: string;
+}
+
+/** Activation outcome for roles with mandatory 2FA: no session is issued; the user signs in next. */
+export interface ActivationSignInRequired {
+  signInRequired: true;
+  organization: string;
+  username: string;
 }
 
 export type NotificationType = 'CASE_ASSIGNED' | 'NOTE_ADDED' | 'AUTOMATION';

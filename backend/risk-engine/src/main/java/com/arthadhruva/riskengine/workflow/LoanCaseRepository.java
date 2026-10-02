@@ -9,4 +9,7 @@ public interface LoanCaseRepository extends JpaRepository<LoanCase, LoanCaseId>,
     /** Every case in a tenant that's ever had status/assignment/flag set explicitly, most
      * recently updated first. */
     Page<LoanCase> findAllByIdTenantIdOrderByUpdatedAtDesc(Long tenantId, Pageable pageable);
+
+    /** Keyset page for exports: every case, in a stable order, without OFFSET cost. */
+    java.util.List<LoanCase> findByIdTenantIdAndIdLoanIdGreaterThanOrderByIdLoanIdAsc(Long tenantId, String afterLoanId, Pageable pageable);
 }

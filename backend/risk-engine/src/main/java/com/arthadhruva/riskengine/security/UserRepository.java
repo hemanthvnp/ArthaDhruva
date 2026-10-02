@@ -50,4 +50,26 @@ public interface UserRepository extends JpaRepository<User, Long> {
             + "where u.organization.id = :organizationId and u.username = :username")
     int recordFailedLogin(@Param("organizationId") Long organizationId, @Param("username") String username,
                           @Param("maxAttempts") int maxAttempts, @Param("lockUntil") Instant lockUntil);
+
+    /** Atomic increment: every session token carrying the previous value stops validating at once. */
+    @Transactional
+    @Modifying(clearAutomatically = true)
+    @Query(value = "UPDATE app_user SET session_version = session_version + 1 WHERE id = :id", nativeQuery = true)
+    int bumpSessionVersion(@Param("id") Long id);
+
+    /** Accepts a TOTP time step only if it is newer than the last one accepted: two concurrent logins
+     * presenting the same code cannot both succeed, and a code cannot be replayed within its window. */
+    @Transactional
+    @Modifying(clearAutomatically = true)
+    @Query(value = "UPDATE app_user SET totp_last_step = :step WHERE id = :id "
+            + "AND (totp_last_step IS NULL OR totp_last_step < :step)", nativeQuery = true)
+    int claimTotpStep(@Param("id") Long id, @Param("step") long step);
+
+    /** Forgets the replay marker when 2FA is reset or re-enrolled with a new secret. */
+    @Transactional
+    @Modifying(clearAutomatically = true)
+    @Query(value = "UPDATE app_user SET totp_last_step = NULL WHERE id = :id", nativeQuery = true)
+    int clearTotpStep(@Param("id") Long id);
+
+    Optional<User> findByOrganizationIdAndSsoIssuerAndSsoSubject(Long organizationId, String ssoIssuer, String ssoSubject);
 }

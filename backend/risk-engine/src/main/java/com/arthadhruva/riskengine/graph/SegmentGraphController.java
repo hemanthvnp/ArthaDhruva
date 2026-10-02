@@ -40,6 +40,16 @@ public class SegmentGraphController {
         return segmentGraphService.listStates();
     }
 
+    /** States and edges together, so the page draws the graph from one request instead of one per state. */
+    @GetMapping("/segments/graph")
+    public SegmentGraphService.Graph graph() {
+        return cacheService.get("segment-graph", SegmentGraphService.Graph.class).orElseGet(() -> {
+            SegmentGraphService.Graph graph = segmentGraphService.graph();
+            cacheService.put("segment-graph", graph, NEIGHBORS_CACHE_TTL);
+            return graph;
+        });
+    }
+
     @GetMapping("/segments/{state}/neighbors")
     public List<SegmentNeighbor> neighbors(
             @PathVariable String state,

@@ -1,6 +1,8 @@
 import { lazy, Suspense, type ReactElement } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, landingPathFor, useAuth } from './auth/AuthContext';
+import { AuthProvider } from './auth/AuthContext';
+import { landingPathFor } from './auth/session';
+import { useAuth } from './auth/useAuth';
 import type { Role } from './api/types';
 import Layout from './Layout';
 import LoginPage from './pages/LoginPage';
@@ -35,6 +37,9 @@ const InsightsPage = lazy(() => import('./pages/InsightsPage'));
 const NotificationPrefsPage = lazy(() => import('./pages/NotificationPrefsPage'));
 const AutomationRulesPage = lazy(() => import('./pages/AutomationRulesPage'));
 const IntegrationsPage = lazy(() => import('./pages/IntegrationsPage'));
+const LifetimeRiskPage = lazy(() => import('./pages/LifetimeRiskPage'));
+const PortfolioRiskPage = lazy(() => import('./pages/PortfolioRiskPage'));
+const ModelGovernancePage = lazy(() => import('./pages/ModelGovernancePage'));
 
 function ProtectedRoute({ children }: { children: ReactElement }) {
   const { auth } = useAuth();
@@ -111,6 +116,30 @@ function AppRoutes() {
           element={
             <RoleRoute allow={['ANALYST', 'ADMIN']}>
               <ScorePage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/lifetime-risk"
+          element={
+            <RoleRoute allow={['ANALYST', 'ADMIN']}>
+              <LifetimeRiskPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/portfolio-risk"
+          element={
+            <RoleRoute allow={['ANALYST', 'ADMIN']}>
+              <PortfolioRiskPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/models"
+          element={
+            <RoleRoute allow={['ANALYST', 'ADMIN']}>
+              <ModelGovernancePage />
             </RoleRoute>
           }
         />

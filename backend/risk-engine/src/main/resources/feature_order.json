@@ -5,7 +5,7 @@
     "original_upb",
     "original_cltv",
     "original_ltv",
-    "original_interest_rate",
+    "rate_spread",
     "original_loan_term",
     "number_of_borrowers",
     "number_of_units",
@@ -25,7 +25,7 @@
     "original_upb",
     "original_cltv",
     "original_ltv",
-    "original_interest_rate",
+    "rate_spread",
     "original_loan_term",
     "number_of_borrowers",
     "number_of_units",
@@ -36,5 +36,21 @@
     "channel",
     "first_time_homebuyer_flag",
     "property_state"
-  ]
+  ],
+  "derived": {
+    "rate_spread": "original_interest_rate minus the PMMS 30-year rate 2 months before the origination month (approximate rate-lock month)"
+  },
+  "rate_lock_lag_months": 2,
+  "feature_decimals": {
+    "credit_score": 0,
+    "original_dti": 0,
+    "original_upb": 0,
+    "original_cltv": 0,
+    "original_ltv": 0,
+    "rate_spread": 3,
+    "original_loan_term": 0,
+    "number_of_borrowers": 0,
+    "number_of_units": 0,
+    "mi_percent": 0
+  }
 }

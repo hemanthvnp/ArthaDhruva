@@ -6,7 +6,7 @@ ArthaDhruva has grown from a single-tenant risk-scoring tool into a multi-tenant
 
 - Add self-service password reset backed by real email delivery (SMTP) — today a forgotten password requires an admin to intervene, and no email infrastructure exists at all.
 - Add enterprise identity features: SSO/SAML/OIDC login, tenant-scoped API keys for programmatic access, a platform-level (cross-tenant) admin console distinct from today's tenant-scoped `ADMIN` role, and a sandbox/demo-org mode for prospects to trial the product on non-production data.
-- Add billing and monetization: subscription plans, usage metering, seat limits, a self-service signup/trial flow, and per-tenant rate limiting tied to plan tier (today's rate limiting is global and login-only).
+- Add billing and monetization: subscription plans, usage metering, seat limits, a sales-assisted access-request flow (a prospect requests access; a platform admin provisions the organization after security review and pilot terms), and per-tenant rate limiting tied to plan tier (today's rate limiting is global and login-only). The customers are banks, which procure through RFPs, security review, and pilots rather than self-service card signup, so a self-serve trial is deliberately not offered.
 - Add outbound webhooks (case flagged, loan scored, etc.) delivered via a transactional outbox for at-least-once guarantees, plus batch/API integration points for a bank's core loan origination/servicing system.
 - Add a case automation rules engine ("when X happens, do Y" — auto-flag, auto-assign, auto-notify) so `workflow` stops being purely reactive.
 - Add an advanced, composable query/filter language across loans, cases, and notes, plus bulk case operations (bulk-assign/update).
@@ -22,7 +22,7 @@ ArthaDhruva has grown from a single-tenant risk-scoring tool into a multi-tenant
 ### New Capabilities
 - `account-recovery`: self-service password reset and the email-delivery infrastructure it depends on.
 - `enterprise-identity`: SSO/SAML/OIDC, tenant API keys, platform-level admin console, sandbox/demo-org mode.
-- `billing-subscriptions`: plans, usage metering, seat limits, self-service signup/trial, plan-tiered rate limiting.
+- `billing-subscriptions`: plans, usage metering, seat limits, sales-assisted access requests with platform-admin provisioning, plan-tiered rate limiting.
 - `webhooks-integration`: outbound webhook delivery (transactional outbox) and core banking/LOS integration points.
 - `case-automation-rules`: condition/action automation engine on loan cases.
 - `advanced-search`: composable query/filter language and bulk operations across loans/cases/notes.

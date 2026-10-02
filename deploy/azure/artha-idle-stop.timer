@@ -1,0 +1,10 @@
+[Unit]
+Description=Check every five minutes whether the site is idle
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=5min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

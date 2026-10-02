@@ -4,23 +4,20 @@ import java.io.IOException;
 import java.io.InputStream;
 
 /**
- * A deliberate seam between {@link LoanAttachmentController} and wherever attachment bytes
- * actually live -- {@link LocalFileStorageService} is the only implementation today (local disk,
- * fine for a single-instance deployment), but swapping to S3-compatible object storage later is
- * a new implementation of this interface, not a rewrite of every caller. Same "pluggable, sensible
- * local default" philosophy already used for the LLM provider (via LiteLLM) and every secret in
- * application.properties.
+ * The seam between attachments and wherever their bytes live. {@link LocalFileStorageService} (local
+ * disk) is the implementation today; S3-compatible object storage would be another implementation, not
+ * a change to any caller. Storage paths are opaque keys the caller persists and passes back.
  */
 public interface FileStorageService {
 
-    /** @return an opaque storage path/key the caller must persist and pass back to {@link
-     * #retrieve} -- callers must not assume anything about its structure (e.g. that it's a
-     * filesystem path), since a future object-storage implementation would return an object key
-     * instead. */
+    /** Stores the content and returns its opaque key, size and SHA-256. */
     StoredFile store(Long tenantId, String originalFilename, InputStream content) throws IOException;
 
     InputStream retrieve(String storagePath) throws IOException;
 
-    record StoredFile(String storagePath, long sizeBytes) {
+    /** Removes stored content; a missing object is not an error. */
+    void delete(String storagePath) throws IOException;
+
+    record StoredFile(String storagePath, long sizeBytes, String sha256) {
     }
 }

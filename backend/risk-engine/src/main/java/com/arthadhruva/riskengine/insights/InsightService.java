@@ -19,6 +19,7 @@ public class InsightService {
     public static final String BORROWER_SEGMENTS = "BORROWER_SEGMENTS";
     private static final long SEED = 42L;
     private static final int MAX_NOTES = 2000;
+    static final java.time.Duration REFRESH_COOLDOWN = java.time.Duration.ofSeconds(60);
 
     private final JdbcTemplate jdbc;
     private final LoanCaseService cases;
@@ -29,6 +30,23 @@ public class InsightService {
         this.jdbc = jdbc;
         this.cases = cases;
         this.catalog = catalog;
+    }
+
+    /**
+     * Recomputes on request, unless the stored result is younger than the cooldown: clustering a
+     * portfolio and topic-modelling its notes is real CPU, and a refresh button (or a script) pressed
+     * repeatedly would otherwise recompute the same answer each time.
+     *
+     * @return whether it recomputed
+     */
+    public boolean refreshIfStale(Long tenantId) {
+        Integer fresh = jdbc.queryForObject("SELECT COUNT(*) FROM insight_snapshot WHERE tenant_id = ? AND computed_at > ?",
+                Integer.class, tenantId, java.sql.Timestamp.from(Instant.now().minus(REFRESH_COOLDOWN)));
+        if (fresh != null && fresh > 0) {
+            return false;
+        }
+        refresh(tenantId);
+        return true;
     }
 
     /** Recomputes and stores every insight for one tenant. */

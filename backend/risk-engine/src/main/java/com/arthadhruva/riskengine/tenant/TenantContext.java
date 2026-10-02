@@ -3,12 +3,12 @@ package com.arthadhruva.riskengine.tenant;
 import java.util.Optional;
 
 /**
- * The current request's tenant, as a ThreadLocal -- safe here because this app is classic
- * servlet-per-thread Spring MVC (no WebFlux, no {@code @Async} offloading anywhere in the
- * codebase). Populated by JwtAuthenticationFilter (from the JWT's {@code org} claim) or directly
- * by AuthController/ActivationController for the handful of endpoints that run before a JWT
- * exists; always cleared in a {@code finally} by whichever of those set it, so a thread returned
- * to a pool (or reused for the next request) never leaks a stale tenant into unrelated work.
+ * The current request's tenant, as a ThreadLocal -- safe because this app is servlet-per-thread
+ * Spring MVC. The one place work leaves the request thread, {@code @Async} event listeners, copies it
+ * across with a TaskDecorator (see event.AsyncConfig); scheduled jobs set it per tenant themselves.
+ * Populated by JwtAuthenticationFilter (from the JWT's {@code org} claim), ApiKeyAuthenticationFilter,
+ * or directly by the few public endpoints that run before a session exists; always cleared in a
+ * {@code finally} by whichever set it, so a pooled thread never leaks a stale tenant.
  *
  * <p>{@link #get()} fails closed (throws) rather than silently returning null/zero -- a
  * tenant-scoped repository call made with no tenant in context is a bug, and it should fail
@@ -16,11 +16,9 @@ import java.util.Optional;
  * for the genuinely tenant-less paths (e.g. a login attempt against an unresolvable org slug,
  * which is still worth recording).
  *
- * <p>If this app ever adopts virtual-thread-per-request scheduling that hands a request off
- * mid-flight, {@code @Async} offloading, or reactive (WebFlux) controllers, this ThreadLocal
- * approach must be revisited (e.g. propagated via a {@code TaskDecorator}, or migrated to a
- * proper request-scoped context) -- not a concern with the current architecture, but worth
- * knowing why this would silently stop working if that changes.
+ * <p>Any new hand-off to another thread (an executor, a parallel stream, reactive code) must propagate
+ * the tenant the way AsyncConfig does, or the work runs with no tenant -- which row-level security
+ * turns into "sees nothing", a failure that is safe but silent.
  */
 public final class TenantContext {
 

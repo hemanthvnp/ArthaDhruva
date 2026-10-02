@@ -1,0 +1,49 @@
+# Weekly dependency updates against `dev`, grouped so that routine minor and patch bumps arrive as one
+# pull request per ecosystem instead of a dozen. Each one runs the full CI, including the load test.
+version: 2
+updates:
+  - package-ecosystem: maven
+    directory: /backend/risk-engine
+    target-branch: dev
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    target-branch: dev
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # Base images of the backend and pipeline images.
+  - package-ecosystem: docker
+    directories: ["/", "/backend/risk-engine"]
+    target-branch: dev
+    schedule:
+      interval: weekly
+
+  # Image tags in the compose files.
+  - package-ecosystem: docker-compose
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+    groups:
+      compose-images:
+        patterns: ["*"]

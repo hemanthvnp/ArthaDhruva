@@ -8,9 +8,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-/** Folds each user's queued (digest-mode) notifications into one summary. Runs on exactly one
- * replica per tick ({@link DistributedLock}) and visits tenants one at a time under that tenant's
- * context, so row-level security applies to every query it makes. */
+/** Folds each user's queued (digest-mode) notifications into one summary. Runs once per day across all
+ * replicas ({@link DistributedLock#runOncePerPeriod}) and visits tenants one at a time under that
+ * tenant's context, so row-level security applies to every query it makes. */
 @Component
 class NotificationDigestJob {
 
@@ -28,7 +28,7 @@ class NotificationDigestJob {
 
     @Scheduled(cron = "${notifications.digest-cron:0 0 8 * * *}")
     void run() {
-        lock.runExclusively("notification-digest", () -> {
+        lock.runOncePerPeriod("notification-digest", lock.period(DistributedLock.DAILY), () -> {
             int total = 0;
             for (Long tenantId : organizations.activeIds()) {
                 TenantContext.set(tenantId);

@@ -62,7 +62,7 @@ export default function AutomationRulesPage() {
     <div>
       <div className="page-head-row">
         <div>
-          <h2>Automation Rules</h2>
+          <h2>Automation rules</h2>
           <p className="page-subtitle">
             When something happens and a condition matches, do something automatically. Rules run in order; a failing rule never
             blocks the others.

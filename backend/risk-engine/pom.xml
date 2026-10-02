@@ -28,7 +28,12 @@
 	</scm>
 	<properties>
 		<java.version>17</java.version>
-		<testcontainers.version>1.20.4</testcontainers.version>
+		<testcontainers.version>1.21.4</testcontainers.version>
+		<!-- Security patch releases ahead of the versions Spring Boot 4.1.1 manages (the container scan
+		     in the Security workflow reports them). Drop each override once Boot's own version catches up. -->
+		<tomcat.version>11.0.26</tomcat.version>
+		<jackson-bom.version>3.1.7</jackson-bom.version>
+		<jackson-2-bom.version>2.21.7</jackson-2-bom.version>
 	</properties>
 	<dependencyManagement>
 		<dependencies>
@@ -76,6 +81,12 @@
 			<artifactId>resilience4j-spring-boot4</artifactId>
 			<version>2.4.0</version>
 		</dependency>
+		<!-- Outbound HTTP to tenant-supplied URLs (webhooks, OIDC): its pluggable DnsResolver lets the SSRF
+		     check run on the exact addresses the socket connects to, closing the DNS-rebinding gap. -->
+		<dependency>
+			<groupId>org.apache.httpcomponents.client5</groupId>
+			<artifactId>httpclient5</artifactId>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-neo4j</artifactId>
@@ -104,7 +115,9 @@
 		<dependency>
 			<groupId>com.microsoft.onnxruntime</groupId>
 			<artifactId>onnxruntime</artifactId>
-			<version>1.22.0</version>
+			<!-- The version the export scripts verify ONNX-vs-LightGBM parity with. 1.22 took over ten minutes
+			     to build a session for the survival model (218k category-equality nodes); this takes under a second. -->
+			<version>1.29.0</version>
 		</dependency>
 		<dependency>
 			<groupId>dev.samstevens.totp</groupId>

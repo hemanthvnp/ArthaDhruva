@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { borrowerSegments, noteTopics } from '../api/client';
 import ErrorBanner from '../components/ErrorBanner';
+import { count, dateTime } from '../format';
 
 export default function InsightsPage() {
   const queryClient = useQueryClient();
@@ -17,7 +18,7 @@ export default function InsightsPage() {
     <div>
       <div className="page-head-row">
         <div>
-          <h2>ML Insights</h2>
+          <h2>Insights</h2>
           <p className="page-subtitle">
             Unsupervised clustering, recomputed nightly and on demand. Topics group your case notes by what they talk
             about; segments group loans by their own characteristics.
@@ -29,7 +30,7 @@ export default function InsightsPage() {
 
       <div className="card">
         <h3>Case-note topics</h3>
-        {topics.data && <p className="page-subtitle">{topics.data.noteCount} notes &middot; computed {new Date(topics.data.computedAt).toLocaleString()}</p>}
+        {topics.data && <p className="page-subtitle">{topics.data.noteCount} notes &middot; computed {dateTime(topics.data.computedAt)}</p>}
         {topics.data?.topics.length === 0 && <p>Not enough notes yet to find topics.</p>}
         {topics.data?.topics.map((t, i) => (
           <div key={i} className="topic">
@@ -44,7 +45,7 @@ export default function InsightsPage() {
 
       <div className="card">
         <h3>Borrower segments</h3>
-        {segments.data && <p className="page-subtitle">{segments.data.loanCount} loans &middot; computed {new Date(segments.data.computedAt).toLocaleString()}</p>}
+        {segments.data && <p className="page-subtitle">{segments.data.loanCount} loans &middot; computed {dateTime(segments.data.computedAt)}</p>}
         <table>
           <thead><tr><th>Loans</th><th>Defining traits</th><th>Avg credit score</th><th>Avg LTV</th><th>Avg balance</th></tr></thead>
           <tbody>
@@ -54,7 +55,7 @@ export default function InsightsPage() {
                 <td>{s.definingTraits.map((t) => <span key={t.feature} className="badge" style={{ marginRight: 4 }}>{t.direction} {t.feature}</span>)}</td>
                 <td>{Math.round(s.averages.creditScore)}</td>
                 <td>{s.averages.originalLtv.toFixed(1)}</td>
-                <td>{Math.round(s.averages.originalUpb).toLocaleString()}</td>
+                <td>{count(Math.round(s.averages.originalUpb))}</td>
               </tr>
             ))}
           </tbody>

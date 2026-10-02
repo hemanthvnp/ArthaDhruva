@@ -50,12 +50,16 @@ public class LoanAttachment implements TenantAware {
     @Column(name = "uploaded_at", nullable = false)
     private Instant uploadedAt;
 
+    /** SHA-256 of the stored bytes, for integrity checks and de-duplication. */
+    @Column(name = "content_sha256")
+    private String contentSha256;
+
     protected LoanAttachment() {
         // required by JPA
     }
 
     public LoanAttachment(Long tenantId, String loanId, String filename, String contentType,
-                           long sizeBytes, String storagePath, String uploadedBy) {
+                          long sizeBytes, String storagePath, String uploadedBy, String contentSha256) {
         this.tenantId = tenantId;
         this.loanId = loanId;
         this.filename = filename;
@@ -63,7 +67,12 @@ public class LoanAttachment implements TenantAware {
         this.sizeBytes = sizeBytes;
         this.storagePath = storagePath;
         this.uploadedBy = uploadedBy;
+        this.contentSha256 = contentSha256;
         this.uploadedAt = Instant.now();
+    }
+
+    public String getContentSha256() {
+        return contentSha256;
     }
 
     public Long getId() {

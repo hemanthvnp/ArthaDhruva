@@ -1,41 +1,32 @@
 package com.arthadhruva.riskengine.regime;
 
-import com.arthadhruva.riskengine.cache.CacheService;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.Duration;
-
 @RestController
+@Validated
 public class RegimeForecastController {
 
-    private static final Duration FORECAST_CACHE_TTL = Duration.ofHours(1);
-
     private final RegimeForecastService regimeForecastService;
-    private final CacheService cacheService;
 
-    public RegimeForecastController(RegimeForecastService regimeForecastService, CacheService cacheService) {
+    public RegimeForecastController(RegimeForecastService regimeForecastService) {
         this.regimeForecastService = regimeForecastService;
-        this.cacheService = cacheService;
     }
 
     /**
-     * Forecasts the regime-probability distribution N months ahead, via a Markov chain forecast
-     * on the HMM fitted in hmm_regime_detector.ipynb. Example: /regime-forecast?monthsAhead=6
+     * The regime-probability distribution month by month up to N months ahead, a Markov chain forecast on
+     * the fitted HMM. Example: /regime-forecast?monthsAhead=6
      *
-     * Cache-aside: the forecast is deterministic for a given monthsAhead until the HMM is
-     * refit, so repeated calls are served from Redis instead of recomputing.
+     * <p>Not cached: the whole forecast is a few hundred multiplications, far cheaper than the round trip
+     * to Redis that used to "save" it.
      */
     @GetMapping("/regime-forecast")
     public RegimeForecastService.RegimeForecast forecast(
-            @RequestParam(defaultValue = "6") int monthsAhead) {
-        String key = "regime-forecast:" + monthsAhead;
-        return cacheService.get(key, RegimeForecastService.RegimeForecast.class)
-                .orElseGet(() -> {
-                    RegimeForecastService.RegimeForecast forecast = regimeForecastService.forecast(monthsAhead);
-                    cacheService.put(key, forecast, FORECAST_CACHE_TTL);
-                    return forecast;
-                });
+            @RequestParam(defaultValue = "6") @Min(0) @Max(RegimeForecastService.MAX_MONTHS_AHEAD) int monthsAhead) {
+        return regimeForecastService.forecast(monthsAhead);
     }
 }

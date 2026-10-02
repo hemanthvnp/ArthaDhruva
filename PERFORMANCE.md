@@ -34,8 +34,50 @@ Roughly 3.6x throughput and 13x lower average latency from one setting. Two more
   for the same 1.5 CPUs. A long-running instance with spare cores would flip this; measure before
   changing. That is why the image ships `-XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k
   -XX:MaxRAMPercentage=60`.
-- Tracing every request cost a measurable ~13% throughput; the default sample rate is now 10%
-  (`TRACE_SAMPLING`, see application.properties).
+- Tracing every request cost a measurable ~13% throughput. Tracing is now off unless a collector is
+  running (`TRACE_SAMPLING=0.1` with the observability profile): with nothing listening, each sampled
+  request only produced a failed export and an error line.
+- **The C1-only choice was re-tested against the risk engines**, which did not exist when it was made.
+  Same container limits (1.5 CPU, 1 GiB), k6 at 40 requests a second, then a 400-loan portfolio run
+  under three scenarios:
+
+  | | C1 only (the default) | Full tiered JIT |
+  |---|---|---|
+  | Start-up | 20.6 s | 27.5 s |
+  | p95 from a cold start: score / search / catalog | 36 / 19 / 19 ms | 208 / 103 / 101 ms |
+  | p95 once warm | 34 / 17 / 17 ms | 34 / 16 / 17 ms |
+  | Portfolio run, 1,200 projections | 48 s | 49 s |
+  | Memory after the run | 650 MiB | 745 MiB |
+
+  Once warm the two are indistinguishable; from cold, C1 answers five times faster, starts sooner and
+  uses about 95 MiB less. The portfolio run does not care, because its time is inside ONNX Runtime's
+  native tree evaluation, not in JIT-compiled Java. The one thing C1 costs is the loss simulation, pure
+  Java, about 1.4x slower in isolation ([BENCHMARKS.md](backend/risk-engine/BENCHMARKS.md)). As
+  shipped, simulating the 400-loan book takes 100 to 130 ms, so that cost is not one a user would
+  notice. The default stays.
+
+## 1a. The cost of the risk engines
+
+Measured with JMH on the real model artifacts (one idle desktop core, full tiered JIT):
+
+| Computation | Time |
+|---|---|
+| PD score | 0.030 ms |
+| Shapley explanation of that score | 6.6 ms |
+| One loan's term structure to maturity (720 model rows) | 52.6 ms |
+| Loss simulation, 1,000 loans x 20,000 scenarios, 1 thread / 4 threads | 145 ms / 53 ms |
+
+A projection is about 73 microseconds per model row, nearly all inside ONNX Runtime, so a new 30-year
+loan under three scenarios costs around 150 ms and a portfolio of thousands costs minutes of CPU. That
+arithmetic is the design: a portfolio run is a background job with a progress row and a heartbeat, a
+worker pool bounded below the core count keeps it from starving request threads, portfolios above 5,000
+loans are sampled with a reported standard error, and the rate limiter charges twenty tokens to start
+one. In the 1.5-CPU container, 400 loans under three scenarios (1,200 projections) take 48 s on its
+single worker.
+
+The loss distribution, by contrast, is cheap once the loans are projected: the portfolio run stores each
+loan's result, and a simulation at any confidence level or correlation reuses them in about 100 ms
+without projecting again.
 
 ## 2. Algorithmic and query fixes (time/space complexity)
 

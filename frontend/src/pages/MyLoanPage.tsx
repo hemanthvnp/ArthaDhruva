@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { myLoans } from '../api/client';
 import ErrorBanner from '../components/ErrorBanner';
 import type { MyLoanView } from '../api/types';
+import { dateTime } from '../format';
 
 export default function MyLoanPage() {
   const [loans, setLoans] = useState<MyLoanView[]>([]);
@@ -22,7 +23,7 @@ export default function MyLoanPage() {
 
   return (
     <div>
-      <h2>My Loan</h2>
+      <h2>My loan</h2>
       <p className="page-subtitle">Your loan's most recently computed risk score.</p>
 
       <ErrorBanner error={error} />
@@ -51,7 +52,7 @@ export default function MyLoanPage() {
                 <div className="stat">
                   <div className="label">Last updated</div>
                   <div className="value" style={{ fontSize: '0.95rem' }}>
-                    {loan.computedAt ? new Date(loan.computedAt).toLocaleString() : '-'}
+                    {loan.computedAt ? dateTime(loan.computedAt) : '-'}
                   </div>
                 </div>
               </div>

@@ -8,10 +8,12 @@ RUN mvn -q -B dependency:go-offline
 COPY src src
 RUN mvn -q -B -DskipTests package && mv target/risk-engine-*.jar app.jar
 
-# Stage 2: runtime. JRE-only image, non-root user, nothing but the jar -- no compiler,
-# no Maven, no shell tooling beyond busybox, a fraction of the build image's size and attack surface.
+# Stage 2: runtime. JRE-only image, non-root user, nothing but the jar -- no compiler and no Maven,
+# a fraction of the build image's size and attack surface.
 # glibc-based (Ubuntu) rather than Alpine/musl: the ONNX Runtime JNI library ships glibc-built only.
 FROM eclipse-temurin:17-jre-jammy
+# The base image is rebuilt less often than Ubuntu publishes security patches, so they are applied here.
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 RUN groupadd -r app && useradd -r -g app -M -s /usr/sbin/nologin app && mkdir -p /data/attachments && chown app:app /data/attachments
 WORKDIR /app
 COPY --from=build /build/app.jar app.jar

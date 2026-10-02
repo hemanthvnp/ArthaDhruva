@@ -1,28 +1,25 @@
-"""Exports a browsable catalog of real loans (origination features only, matching LoanFeatures /
-the PD model's 16-field input) so an analyst can look up and score a real loan by its actual
-loan_sequence_number instead of hand-typing feature values into a form every time.
+"""Exports the demo loan catalog: 400 real, currently active loans shaped exactly like the LoanFeatures
+request body (camelCase, loanId and originationMonth included), so an analyst can pick a real loan
+instead of typing 16 feature values, and a new tenant has a portfolio to explore before uploading its own.
 
-Same category as export_segment_correlation.py / export_hmm.py: a one-time (or occasionally
-re-run) export producing a small artifact risk-engine reads at startup, not something the running
-service regenerates itself.
+The loans come from the survival sample (build_survival_dataset.py), restricted to loans still on the
+book at the data cut-off: a loan that already prepaid or defaulted has no future to project. Each carries
+its origination month, which the models need for the rate spread at origination and for re-marking the
+property's value. The sample is spread evenly across the credit-score ranking so the catalog shows the
+whole risk spectrum, not whatever the first rows happened to be.
 
-Writes risk-engine/src/main/resources/loan_catalog.json: a JSON array of objects shaped exactly
-like the LoanFeatures request body (camelCase, loanId included), so the Java side can both list
-these for browsing/search and hand one straight to ModelService.score() with no transformation.
+Writes risk-engine/src/main/resources/loan_catalog.json. Run from backend/ after build_survival_dataset.py.
 """
+from __future__ import annotations
+
 import json
-import os
 
 import polars as pl
 
-CATALOG_SIZE = 400
+from credit_common import CATEGORICAL, HARD_BOUNDS, NUMERIC, RESOURCES, SURVIVAL
 
-FEATURE_COLUMNS = [
-    "loan_sequence_number", "credit_score", "original_dti", "original_upb", "original_cltv",
-    "original_ltv", "original_interest_rate", "original_loan_term", "number_of_borrowers",
-    "number_of_units", "mi_percent", "occupancy_status", "property_type", "loan_purpose",
-    "channel", "first_time_homebuyer_flag", "property_state",
-]
+CATALOG_SIZE = 400
+SEED = 20260930
 
 
 def to_loan_features(row: dict) -> dict:
@@ -33,7 +30,7 @@ def to_loan_features(row: dict) -> dict:
         "originalUpb": float(row["original_upb"]),
         "originalCltv": float(row["original_cltv"]),
         "originalLtv": float(row["original_ltv"]),
-        "originalInterestRate": float(row["original_interest_rate"]),
+        "originalInterestRate": round(float(row["original_interest_rate"]), 3),
         "originalLoanTerm": int(row["original_loan_term"]),
         "numberOfBorrowers": int(row["number_of_borrowers"]),
         "numberOfUnits": int(row["number_of_units"]),
@@ -44,38 +41,37 @@ def to_loan_features(row: dict) -> dict:
         "channel": row["channel"],
         "firstTimeHomebuyerFlag": row["first_time_homebuyer_flag"],
         "propertyState": row["property_state"],
+        "originationMonth": f"{row['orig_month'] // 12:04d}-{row['orig_month'] % 12 + 1:02d}",
     }
 
 
 def main() -> None:
-    loan_level_glob = "../data/processed/loan_level/orig_year=*/orig_quarter=*/*.parquet"
-    print("Loading candidate loans from data/processed/loan_level...")
-    df = (
-        pl.scan_parquet(loan_level_glob, extra_columns="ignore")
-        .select(FEATURE_COLUMNS)
-        .drop_nulls()
-        .collect()
+    loans = pl.read_parquet(str(SURVIVAL / "loans" / "*.parquet"))
+    # Panels of different vintages end at different data releases, so "still reporting" is judged
+    # against the end of the loan's own panel.
+    data_end = loans.group_by(["orig_year", "orig_quarter"]).agg(
+        (pl.col("orig_month") + pl.col("last_age")).max().alias("data_end"))
+    loans = loans.join(data_end, on=["orig_year", "orig_quarter"])
+    in_domain = pl.all_horizontal([pl.col(f).is_between(lo, hi) for f, (lo, hi) in HARD_BOUNDS.items()])
+    active = (
+        loans.filter((pl.col("event") == "censored") & (pl.col("orig_month") + pl.col("last_age") >= pl.col("data_end") - 1))
+        .drop_nulls(NUMERIC + CATEGORICAL)
+        .filter(in_domain)
+        .filter(pl.col("original_interest_rate") > 0)
     )
-    print(f"{df.height:,} candidate loans available")
-
-    # A spread across credit-score deciles rather than a plain random/head sample, so the
-    # catalog itself demonstrates real variety (an analyst searching it sees the full risk
-    # spectrum, not whatever a handful of top rows happened to look like).
-    df = df.with_columns(pl.col("credit_score").rank(method="ordinal").alias("_rank"))
-    step = max(1, df.height // CATALOG_SIZE)
-    sample = df.sort("_rank").gather_every(step).head(CATALOG_SIZE).drop("_rank")
+    print(f"{active.height:,} active loans at the data cut-off")
+    # Evenly spaced along the credit-score ranking (ties broken at random, reproducibly).
+    ranked = active.sample(fraction=1.0, shuffle=True, seed=SEED).sort("credit_score", maintain_order=True)
+    step = ranked.height / CATALOG_SIZE
+    sample = ranked[[int(i * step + step / 2) for i in range(CATALOG_SIZE)]]
 
     catalog = [to_loan_features(row) for row in sample.to_dicts()]
-
-    resources_dir = "risk-engine/src/main/resources"
-    os.makedirs(resources_dir, exist_ok=True)
-    out_path = f"{resources_dir}/loan_catalog.json"
-    with open(out_path, "w") as f:
-        json.dump(catalog, f, indent=2)
-
-    states = sorted({loan["propertyState"] for loan in catalog})
-    print(f"Saved {out_path}: {len(catalog)} loans across {len(states)} states "
-          f"(credit scores {min(l['creditScore'] for l in catalog)}-{max(l['creditScore'] for l in catalog)})")
+    out_path = RESOURCES / "loan_catalog.json"
+    out_path.write_text(json.dumps(catalog, indent=2) + "\n", encoding="utf-8")
+    vintages = sorted({loan["originationMonth"][:4] for loan in catalog})
+    print(f"wrote {out_path}: {len(catalog)} loans, {len({l['propertyState'] for l in catalog})} states, "
+          f"vintages {vintages[0]}-{vintages[-1]}, credit scores "
+          f"{min(l['creditScore'] for l in catalog)}-{max(l['creditScore'] for l in catalog)}")
 
 
 if __name__ == "__main__":

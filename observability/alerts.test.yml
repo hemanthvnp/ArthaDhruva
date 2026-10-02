@@ -1,0 +1,309 @@
+# Unit tests for alerts.yml (promtool test rules). Each case feeds synthetic series and states which
+# alerts must be firing at a point in time, so a rule that cannot fire, or fires on a healthy system,
+# fails here rather than during an incident.
+rule_files:
+  - alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  # ---- a healthy system raises nothing ----------------------------------------------------------
+  - interval: 1m
+    input_series:
+      - series: 'up{job="risk-engine", instance="10.0.0.2:8080"}'
+        values: '1+0x30'
+      - series: 'http_server_requests_seconds_count{job="risk-engine", instance="10.0.0.2:8080", uri="/v1/score", status="200"}'
+        values: '0+600x30'
+      - series: 'http_server_requests_seconds_count{job="risk-engine", instance="10.0.0.2:8080", uri="/v1/score", status="503"}'
+        values: '0+1x30'
+      - series: 'http_server_requests_seconds_bucket{job="risk-engine", instance="10.0.0.2:8080", uri="/v1/score", le="0.1"}'
+        values: '0+600x30'
+      - series: 'http_server_requests_seconds_bucket{job="risk-engine", instance="10.0.0.2:8080", uri="/v1/score", le="+Inf"}'
+        values: '0+601x30'
+      - series: 'hikaricp_connections_pending{job="risk-engine", instance="10.0.0.2:8080"}'
+        values: '0+0x30'
+      - series: 'hikaricp_connections_timeout_total{job="risk-engine", instance="10.0.0.2:8080"}'
+        values: '0+0x30'
+      - series: 'jvm_memory_usage_after_gc{job="risk-engine", instance="10.0.0.2:8080", area="heap", pool="long-lived"}'
+        values: '0.24+0x30'
+      - series: 'jvm_gc_overhead{job="risk-engine", instance="10.0.0.2:8080"}'
+        values: '0.01+0x30'
+      - series: 'resilience4j_circuitbreaker_state{job="risk-engine", instance="10.0.0.2:8080", name="redis", state="closed"}'
+        values: '1+0x30'
+      - series: 'resilience4j_circuitbreaker_state{job="risk-engine", instance="10.0.0.2:8080", name="redis", state="open"}'
+        values: '0+0x30'
+      - series: 'tasks_scheduled_execution_seconds_count{job="risk-engine", instance="10.0.0.2:8080", code_namespace="WebhookDeliveryWorker", code_function="poll", outcome="SUCCESS"}'
+        values: '0+12x30'
+      - series: 'audit_write_failures_total{job="risk-engine", instance="10.0.0.2:8080"}'
+        values: '0+0x30'
+      - series: 'usage_record_failures_total{job="risk-engine", instance="10.0.0.2:8080"}'
+        values: '0+0x30'
+      - series: 'webhook_deliveries_total{job="risk-engine", instance="10.0.0.2:8080", outcome="delivered"}'
+        values: '0+3x30'
+      - series: 'webhook_deliveries_total{job="risk-engine", instance="10.0.0.2:8080", outcome="failed"}'
+        values: '0+0x30'
+      - series: 'logback_events_total{job="risk-engine", instance="10.0.0.2:8080", level="error"}'
+        values: '0+0x30'
+      - series: 'model_info{job="risk-engine", instance="10.0.0.2:8080", model="pd_24m", sha256="48fa0e8faa7b"}'
+        values: '1+0x30'
+      - series: 'model_info{job="risk-engine", instance="10.0.0.3:8080", model="pd_24m", sha256="48fa0e8faa7b"}'
+        values: '1+0x30'
+    alert_rule_test:
+      - { eval_time: 30m, alertname: BackendDown }
+      - { eval_time: 30m, alertname: NoHealthyBackend }
+      - { eval_time: 30m, alertname: HighServerErrorRate }
+      - { eval_time: 30m, alertname: ScoringLatencyHigh }
+      - { eval_time: 30m, alertname: ErrorLogBurst }
+      - { eval_time: 30m, alertname: DatabasePoolExhausted }
+      - { eval_time: 30m, alertname: DatabaseConnectionTimeouts }
+      - { eval_time: 30m, alertname: HeapNearlyFull }
+      - { eval_time: 30m, alertname: GarbageCollectionOverhead }
+      - { eval_time: 30m, alertname: CircuitBreakerOpen }
+      - { eval_time: 30m, alertname: ScheduledTaskFailing }
+      - { eval_time: 30m, alertname: AuditWritesFailing }
+      - { eval_time: 30m, alertname: UsageRecordsLost }
+      - { eval_time: 30m, alertname: WebhookDeliveriesAbandoned }
+      - { eval_time: 30m, alertname: ReplicasServeDifferentModels }
+
+  # ---- availability ------------------------------------------------------------------------------
+  # One of two replicas stops answering: that replica is reported, the service as a whole is not.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="risk-engine", instance="10.0.0.2:8080"}'
+        values: '1 1 0 0 0 0'
+      - series: 'up{job="risk-engine", instance="10.0.0.3:8080"}'
+        values: '1 1 1 1 1 1'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: BackendDown          # pending, not firing: it has to last a minute
+      - eval_time: 4m
+        alertname: BackendDown
+        exp_alerts:
+          - exp_labels: { severity: critical, job: risk-engine, instance: "10.0.0.2:8080" }
+            exp_annotations:
+              summary: "Backend replica 10.0.0.2:8080 is not answering"
+              description: "Prometheus has failed to scrape /actuator/prometheus on 10.0.0.2:8080 for a minute."
+      - { eval_time: 4m, alertname: NoHealthyBackend }
+
+  # The only replica is stopped: its target stops resolving, so the series ends instead of turning 0.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="risk-engine", instance="10.0.0.2:8080"}'
+        values: '1 1 _ _ _ _ _ _ _ _'
+    alert_rule_test:
+      - { eval_time: 9m, alertname: BackendDown }
+      - eval_time: 9m
+        alertname: NoHealthyBackend
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations:
+              summary: "No backend replica is up"
+              description: "No risk-engine target has answered a scrape for a minute: the API is down."
+
+  # ---- api ---------------------------------------------------------------------------------------
+  # 3% of API calls fail; errors on /actuator are not the API's and are ignored.
+  - interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{job="risk-engine", uri="/v1/score", status="200"}'
+        values: '0+970x20'
+      - series: 'http_server_requests_seconds_count{job="risk-engine", uri="/v1/expected-loss", status="500"}'
+        values: '0+30x20'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: HighServerErrorRate
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations:
+              summary: "More than 1% of API requests are failing with a 5xx"
+              description: "Server error ratio over the last 5 minutes is 3%."
+  - interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{job="risk-engine", uri="/v1/score", status="200"}'
+        values: '0+970x20'
+      - series: 'http_server_requests_seconds_count{job="risk-engine", uri="/actuator/health", status="503"}'
+        values: '0+30x20'
+    alert_rule_test:
+      - { eval_time: 15m, alertname: HighServerErrorRate }
+
+  # Half of the scoring calls take longer than 400 ms (two replicas: the quantile is over both).
+  - interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_bucket{job="risk-engine", instance="a", uri="/v1/score", le="0.4"}'
+        values: '0+50x20'
+      - series: 'http_server_requests_seconds_bucket{job="risk-engine", instance="a", uri="/v1/score", le="1.0"}'
+        values: '0+100x20'
+      - series: 'http_server_requests_seconds_bucket{job="risk-engine", instance="a", uri="/v1/score", le="+Inf"}'
+        values: '0+100x20'
+      - series: 'http_server_requests_seconds_bucket{job="risk-engine", instance="b", uri="/v1/score", le="0.4"}'
+        values: '0+50x20'
+      - series: 'http_server_requests_seconds_bucket{job="risk-engine", instance="b", uri="/v1/score", le="1.0"}'
+        values: '0+100x20'
+      - series: 'http_server_requests_seconds_bucket{job="risk-engine", instance="b", uri="/v1/score", le="+Inf"}'
+        values: '0+100x20'
+      # a slow endpoint that is not scoring must not trip the scoring alert on its own
+      - series: 'http_server_requests_seconds_bucket{job="risk-engine", instance="a", uri="/v1/risk/portfolio/runs", le="+Inf"}'
+        values: '0+100x20'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: ScoringLatencyHigh
+        exp_alerts:
+          - exp_labels: { severity: warning }
+            exp_annotations:
+              summary: "Scoring p95 latency is above 400 ms"
+              description: "p95 of POST /v1/score over the last 5 minutes is 940ms."
+
+  - interval: 1m
+    input_series:
+      - series: 'logback_events_total{job="risk-engine", instance="a", level="error"}'
+        values: '0+2x20'
+      - series: 'logback_events_total{job="risk-engine", instance="a", level="warn"}'
+        values: '0+50x20'
+      - series: 'logback_events_total{job="risk-engine", instance="b", level="error"}'
+        values: '0+0x20'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: ErrorLogBurst
+        exp_alerts:
+          - exp_labels: { severity: warning, instance: a }
+            exp_annotations:
+              summary: "a is logging errors"
+              description: "ERROR lines in the last 10 minutes: 20. The lines themselves are in Loki."
+
+  # ---- saturation --------------------------------------------------------------------------------
+  - interval: 1m
+    input_series:
+      - series: 'hikaricp_connections_pending{job="risk-engine", instance="a", pool="HikariPool-1"}'
+        values: '0 0 4 4 4 4 4'
+      - series: 'hikaricp_connections_timeout_total{job="risk-engine", instance="a", pool="HikariPool-1"}'
+        values: '0 0 0 0 3 3 3'
+      - series: 'jvm_memory_usage_after_gc{job="risk-engine", instance="a", area="heap", pool="long-lived"}'
+        values: '0.95+0x10'
+      - series: 'jvm_gc_overhead{job="risk-engine", instance="a"}'
+        values: '0.4+0x10'
+    alert_rule_test:
+      - { eval_time: 3m, alertname: DatabasePoolExhausted }   # a one-minute spike is not an alert
+      - eval_time: 5m
+        alertname: DatabasePoolExhausted
+        exp_alerts:
+          - exp_labels: { severity: warning, job: risk-engine, instance: a, pool: HikariPool-1 }
+            exp_annotations:
+              summary: "Requests are queueing for a database connection on a"
+              description: "Threads waiting on the connection pool for the last two minutes: 4."
+      - eval_time: 5m
+        alertname: DatabaseConnectionTimeouts
+        exp_alerts:
+          - exp_labels: { severity: critical, job: risk-engine, instance: a, pool: HikariPool-1 }
+            exp_annotations:
+              summary: "Requests are failing to get a database connection on a"
+              description: "Connection pool timeouts in the last 5 minutes: 3."
+      - eval_time: 6m
+        alertname: HeapNearlyFull
+        exp_alerts:
+          - exp_labels: { severity: critical, job: risk-engine, instance: a, area: heap, pool: long-lived }
+            exp_annotations:
+              summary: "a is close to running out of heap"
+              description: "95% of the long-lived heap is still in use after garbage collection."
+      - eval_time: 6m
+        alertname: GarbageCollectionOverhead
+        exp_alerts:
+          - exp_labels: { severity: warning, job: risk-engine, instance: a }
+            exp_annotations:
+              summary: "a spends over a quarter of its CPU time collecting garbage"
+              description: "GC overhead is 40%."
+
+  # ---- dependencies ------------------------------------------------------------------------------
+  - interval: 1m
+    input_series:
+      - series: 'resilience4j_circuitbreaker_state{job="risk-engine", instance="a", name="redis", state="closed"}'
+        values: '1 0 0 0 0'
+      - series: 'resilience4j_circuitbreaker_state{job="risk-engine", instance="a", name="redis", state="open"}'
+        values: '0 1 1 1 1'
+      - series: 'resilience4j_circuitbreaker_state{job="risk-engine", instance="a", name="redis", state="half_open"}'
+        values: '0 0 0 0 0'
+      - series: 'resilience4j_circuitbreaker_state{job="risk-engine", instance="a", name="llm", state="closed"}'
+        values: '1 1 1 1 1'
+      - series: 'resilience4j_circuitbreaker_state{job="risk-engine", instance="a", name="llm", state="open"}'
+        values: '0 0 0 0 0'
+      - series: 'tasks_scheduled_execution_seconds_count{job="risk-engine", instance="a", code_namespace="com.arthadhruva.riskengine.webhook.WebhookDeliveryWorker", code_function="poll", outcome="SUCCESS"}'
+        values: '0+12x4'
+      - series: 'tasks_scheduled_execution_seconds_count{job="risk-engine", instance="a", code_namespace="com.arthadhruva.riskengine.webhook.WebhookDeliveryWorker", code_function="poll", outcome="ERROR"}'
+        values: '0 0 2 4 6'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: CircuitBreakerOpen
+        exp_alerts:
+          - exp_labels: { severity: warning, instance: a, name: redis }
+            exp_annotations:
+              summary: "The redis circuit breaker is open on a"
+              description: "Calls are being short-circuited to their fallbacks. llm: the assistant answers that it is unavailable. redis: caching is bypassed and the per-tenant rate limiter fails open (the per-address limit at nginx still applies). postgres: audit events are not being stored (see AuditWritesFailing)."
+      - eval_time: 4m
+        alertname: ScheduledTaskFailing
+        exp_alerts:
+          - exp_labels: { severity: warning, code_namespace: com.arthadhruva.riskengine.webhook.WebhookDeliveryWorker, code_function: poll }
+            exp_annotations:
+              summary: "A scheduled job is throwing: com.arthadhruva.riskengine.webhook.WebhookDeliveryWorker.poll"
+              description: "Failed executions in the last 15 minutes: 6."
+
+  # ---- integrity ---------------------------------------------------------------------------------
+  # One lost audit record on one of two replicas is enough.
+  - interval: 1m
+    input_series:
+      - series: 'audit_write_failures_total{job="risk-engine", instance="a"}'
+        values: '0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1'
+      - series: 'audit_write_failures_total{job="risk-engine", instance="b"}'
+        values: '0+0x19'
+      - series: 'usage_record_failures_total{job="risk-engine", instance="a"}'
+        values: '0 0 0 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2'
+      - series: 'webhook_deliveries_total{job="risk-engine", instance="a", outcome="delivered"}'
+        values: '0+5x19'
+      - series: 'webhook_deliveries_total{job="risk-engine", instance="a", outcome="failed"}'
+        values: '0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: AuditWritesFailing
+      - eval_time: 5m
+        alertname: AuditWritesFailing
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations:
+              summary: "Model decisions are being served without an audit record"
+              description: "Audit events that could not be stored in the last 10 minutes: 1."
+      # ... and it clears by itself once ten clean minutes have passed
+      - eval_time: 19m
+        alertname: AuditWritesFailing
+      - eval_time: 5m
+        alertname: UsageRecordsLost
+        exp_alerts:
+          - exp_labels: { severity: warning }
+            exp_annotations:
+              summary: "Metered calls are not being counted"
+              description: "Usage increments lost in the last 10 minutes: 2. Plan quotas and invoices will undercount."
+      - eval_time: 5m
+        alertname: WebhookDeliveriesAbandoned
+        exp_alerts:
+          - exp_labels: { severity: warning }
+            exp_annotations:
+              summary: "Webhook events were dropped after exhausting their retries"
+              description: "Deliveries that failed permanently in the last 30 minutes: 1. The subscriber's endpoint and the last error are in webhook_outbox."
+
+  # Two replicas, two binaries of the PD model. A rolling deploy passes through this state, so it only
+  # fires once it has lasted; the model both replicas agree on is never reported.
+  - interval: 1m
+    input_series:
+      - series: 'model_info{job="risk-engine", instance="a", model="pd_24m", sha256="48fa0e8faa7b", version="2026.10.01-1308"}'
+        values: '1+0x30'
+      - series: 'model_info{job="risk-engine", instance="b", model="pd_24m", sha256="0123456789ab", version="2026.09.12-0900"}'
+        values: '1+0x30'
+      - series: 'model_info{job="risk-engine", instance="a", model="survival", sha256="7fa88997d753", version="2026.10.01-1313"}'
+        values: '1+0x30'
+      - series: 'model_info{job="risk-engine", instance="b", model="survival", sha256="7fa88997d753", version="2026.10.01-1313"}'
+        values: '1+0x30'
+    alert_rule_test:
+      - { eval_time: 10m, alertname: ReplicasServeDifferentModels }
+      - eval_time: 20m
+        alertname: ReplicasServeDifferentModels
+        exp_alerts:
+          - exp_labels: { severity: critical, model: pd_24m }
+            exp_annotations:
+              summary: "Replicas disagree on the pd_24m model"
+              description: "2 different artefacts of pd_24m are being served at once, so a score depends on which replica answers."

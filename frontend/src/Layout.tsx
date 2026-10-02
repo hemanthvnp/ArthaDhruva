@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from './auth/AuthContext';
+import { signOut } from './api/client';
+import { landingPathFor } from './auth/session';
+import { useAuth } from './auth/useAuth';
 import BrandMark from './components/BrandMark';
 import Icon from './components/Icon';
 import NotificationBell from './components/NotificationBell';
@@ -14,27 +16,35 @@ const ANALYST_GROUPS: NavGroup[] = [
     label: 'Portfolio',
     items: [
       { to: '/loans', label: 'Loan Portfolio', icon: 'loans' },
+      { to: '/portfolio-risk', label: 'Portfolio Risk', icon: 'layers' },
+      { to: '/cvar', label: 'Loss Distribution', icon: 'risk' },
       { to: '/cases', label: 'Cases', icon: 'cases' },
       { to: '/case-search', label: 'Case Search', icon: 'search' },
     ],
   },
   {
-    label: 'Risk models',
+    label: 'Loan risk',
     items: [
       { to: '/score', label: 'Default Risk Score', icon: 'score' },
+      { to: '/lifetime-risk', label: 'Lifetime Risk', icon: 'curve' },
       { to: '/expected-loss', label: 'Expected Loss', icon: 'loss' },
       { to: '/early-warning', label: 'Early Warning', icon: 'warning' },
       { to: '/trajectory', label: 'Trajectory', icon: 'trajectory' },
+    ],
+  },
+  {
+    label: 'Market and models',
+    items: [
       { to: '/regime-forecast', label: 'Regime Forecast', icon: 'forecast' },
-      { to: '/cvar', label: 'CVaR Simulation', icon: 'risk' },
       { to: '/segments', label: 'Segment Graph', icon: 'graph' },
+      { to: '/models', label: 'Model Governance', icon: 'shield' },
     ],
   },
   {
     label: 'Intelligence',
     items: [
-      { to: '/insights', label: 'ML Insights', icon: 'insights' },
-      { to: '/assistant', label: 'AI Assistant', icon: 'assistant' },
+      { to: '/insights', label: 'Insights', icon: 'insights' },
+      { to: '/assistant', label: 'Assistant', icon: 'assistant' },
     ],
   },
 ];
@@ -47,7 +57,7 @@ const ADMIN_GROUP: NavGroup = {
     { to: '/admin/automation-rules', label: 'Automation Rules', icon: 'rules' },
     { to: '/admin/integrations', label: 'Integrations & Plan', icon: 'plug' },
     { to: '/admin/audit-log', label: 'Audit Log', icon: 'audit' },
-    { to: '/admin/login-attempts', label: 'Login Attempts', icon: 'lock' },
+    { to: '/admin/login-attempts', label: 'Sign-in Attempts', icon: 'lock' },
   ],
 };
 
@@ -105,10 +115,13 @@ export default function Layout() {
       /* not persisted */
     }
   }, [collapsed]);
-  useEffect(() => {
+  // Going to another page closes the drawer and the account menu.
+  const [shownPath, setShownPath] = useState(location.pathname);
+  if (shownPath !== location.pathname) {
+    setShownPath(location.pathname);
     setNavOpen(false);
     setMenuOpen(false);
-  }, [location.pathname]);
+  }
   useEffect(() => {
     if (!menuOpen) return;
     const close = (e: MouseEvent) => {
@@ -118,13 +131,19 @@ export default function Layout() {
     return () => document.removeEventListener('mousedown', close);
   }, [menuOpen]);
 
+  // Signing out ends the session on the server too (every device), not just in this browser.
   const doLogout = () => {
+    void signOut();
     logout();
     navigate('/login', { replace: true });
   };
 
+  // A platform operator works through the operator API, not this console: only the account pages apply.
   const groups =
-    auth?.role === 'CLIENT' ? CLIENT_GROUPS : auth?.role === 'ADMIN' ? [...ANALYST_GROUPS, ADMIN_GROUP] : ANALYST_GROUPS;
+    auth?.role === 'CLIENT' ? CLIENT_GROUPS
+      : auth?.role === 'ADMIN' ? [...ANALYST_GROUPS, ADMIN_GROUP]
+      : auth?.role === 'ANALYST' ? ANALYST_GROUPS
+      : [];
   const crumb = (() => {
     const path = location.pathname;
     let best: { group: string; item: NavItem } | null = null;
@@ -156,7 +175,7 @@ export default function Layout() {
       <div className={`app-shell${auth?.sandbox ? ' has-banner' : ''}${collapsed ? ' collapsed' : ''}`}>
         {navOpen && <div className="scrim" onClick={() => setNavOpen(false)} />}
         <aside className={`sidebar${navOpen ? ' open' : ''}`} aria-label="Primary">
-          <Link to={auth?.role === 'CLIENT' ? '/my-loan' : '/dashboard'} className="brand">
+          <Link to={auth ? landingPathFor(auth.role) : '/login'} className="brand">
             <span className="brand-mark"><BrandMark /></span>
             <span className="brand-text">ArthaDhruva</span>
           </Link>

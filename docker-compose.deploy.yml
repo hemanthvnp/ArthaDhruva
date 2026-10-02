@@ -1,0 +1,61 @@
+# Internet-facing overlay for a single server (see DEPLOY.md). Layer it on the production overlay:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.deploy.yml \
+#     --profile app --profile edge up -d --build
+#
+# What it changes versus the base file:
+#   * Caddy is the only container that publishes ports (80/443). It obtains and renews a real
+#     Let's Encrypt certificate on its own and forwards to nginx over the private `edge` network.
+#   * nginx stops publishing ports entirely. It keeps doing what it is good at here: security headers,
+#     the per-IP edge rate limit, gzip and serving the built frontend.
+#   * Every long-running service restarts automatically, so a reboot brings the stack back.
+#   * Optional SMTP credentials reach the backend so password-reset email can be delivered.
+
+services:
+  nginx:
+    ports: !reset []
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    profiles: ["edge"]
+    restart: unless-stopped
+    networks: [edge]
+    depends_on:
+      nginx: { condition: service_started }
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTPS_PORT:-443}:443/udp"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS in .env, for example app.yourname.duckdns.org}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data      # certificates and the ACME account: keep this volume across redeploys
+      - caddy_config:/config
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    tmpfs: [/tmp]
+
+  postgres:
+    restart: unless-stopped
+
+  redis:
+    restart: unless-stopped
+
+  neo4j:
+    restart: unless-stopped
+
+  backend:
+    restart: unless-stopped
+    environment:
+      SPRING_MAIL_USERNAME: "${SMTP_USER:-}"
+      SPRING_MAIL_PASSWORD: "${SMTP_PASSWORD:-}"
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: "${SMTP_AUTH:-true}"
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: "${SMTP_STARTTLS:-true}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:-}"
+
+volumes:
+  caddy_data:
+  caddy_config:

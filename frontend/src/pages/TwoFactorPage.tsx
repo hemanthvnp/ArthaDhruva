@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { totpConfirm, totpDisable, totpSetup, totpStatus } from '../api/client';
+import { sessionFrom } from '../auth/session';
+import { useAuth } from '../auth/useAuth';
 import ErrorBanner from '../components/ErrorBanner';
 import type { TotpStatusResponse } from '../api/types';
 
@@ -12,6 +14,7 @@ export default function TwoFactorPage() {
   const [error, setError] = useState<unknown>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
 
   const loadStatus = () => {
     totpStatus()
@@ -40,11 +43,12 @@ export default function TwoFactorPage() {
     setError(null);
     setLoading(true);
     try {
-      await totpConfirm(confirmCode);
+      // Enabling 2FA signs every other session out; this one continues on the session returned.
+      login(sessionFrom(await totpConfirm(confirmCode)));
       setQrCodeDataUri(null);
       setSecret(null);
       setConfirmCode('');
-      setInfo('2FA enabled.');
+      setInfo('2FA enabled. Other sessions have been signed out.');
       loadStatus();
     } catch (e) {
       setError(e);
@@ -57,9 +61,9 @@ export default function TwoFactorPage() {
     setError(null);
     setLoading(true);
     try {
-      await totpDisable(disableCode);
+      login(sessionFrom(await totpDisable(disableCode)));
       setDisableCode('');
-      setInfo('2FA disabled.');
+      setInfo('2FA disabled. Other sessions have been signed out.');
       loadStatus();
     } catch (e) {
       setError(e);
@@ -71,7 +75,7 @@ export default function TwoFactorPage() {
   if (!status) {
     return (
       <div>
-        <h2>Two-Factor Authentication</h2>
+        <h2>Two-factor authentication</h2>
         <ErrorBanner error={error} />
       </div>
     );
@@ -79,11 +83,11 @@ export default function TwoFactorPage() {
 
   return (
     <div>
-      <h2>Two-Factor Authentication</h2>
+      <h2>Two-factor authentication</h2>
       <p className="page-subtitle">
         {status.required
-          ? '2FA is required for your role.'
-          : 'Optional -- add a second factor using an authenticator app.'}
+          ? 'Required for your role.'
+          : 'Optional: add a second factor with an authenticator app.'}
       </p>
 
       <div className="card">
@@ -92,8 +96,8 @@ export default function TwoFactorPage() {
             <p style={{ color: 'var(--ok)' }}>2FA is enabled.</p>
             {status.required ? (
               <p className="page-subtitle">
-                2FA is required for your role and can't be disabled here -- ask an admin to reset
-                it if you've lost access to your authenticator.
+                It is required for your role and cannot be turned off here. If you have lost your
+                authenticator, ask an administrator to reset it.
               </p>
             ) : (
               <div style={{ marginTop: '1rem' }}>

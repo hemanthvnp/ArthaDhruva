@@ -1,36 +1,45 @@
 package com.arthadhruva.riskengine.expectedloss;
 
 import com.arthadhruva.riskengine.score.LoanFeatures;
-import com.arthadhruva.riskengine.score.ModelService;
+import com.arthadhruva.riskengine.score.LoanInputValidator;
+import com.arthadhruva.riskengine.survival.Scenario;
+import com.arthadhruva.riskengine.survival.SurvivalModel;
+import com.arthadhruva.riskengine.survival.TermStructureEngine;
 import org.springframework.stereotype.Service;
 
 /**
- * PD x LGD x EAD, the real Expected Loss framework from lgd_ead_expected_loss.ipynb, combining
- * the existing PD model ({@code score.ModelService}, a legitimate cross-module service-to-service
- * dependency -- expected loss inherently needs a default probability) with the locally-owned
- * {@link LgdPredictor}.
+ * Expected credit loss for one loan in one call: the headline numbers of the baseline term structure.
  *
- * EAD is not a fitted model -- the notebook defines it as last_actual_upb, a value that only
- * exists retroactively once a loan has defaulted and been liquidated. For a loan being scored at
- * origination, no such value exists yet, so this uses original_upb as a stated simplification
- * (current exposure ~= original balance), the same kind of honestly-flagged limitation the
- * notebook itself uses throughout rather than a silently-asserted exact figure.
+ * <p>This used to be PD x LGD x EAD with the 24-month origination PD and the original balance as
+ * exposure. Both were wrong for anything but a brand-new loan: a seasoned loan owes less than it
+ * borrowed, and its risk over the next year is not its risk at origination. The numbers now come from
+ * the survival engine: exposure is the amortized balance, the 12-month figure sums the discounted loss
+ * of each of the next twelve months, and the lifetime figure runs to maturity.
  */
 @Service
 public class ExpectedLossService {
 
-    private final ModelService modelService;
-    private final LgdPredictor lgdPredictor;
+    private final TermStructureEngine engine;
+    private final SurvivalModel model;
+    private final LoanInputValidator validator;
 
-    public ExpectedLossService(ModelService modelService, LgdPredictor lgdPredictor) {
-        this.modelService = modelService;
-        this.lgdPredictor = lgdPredictor;
+    public ExpectedLossService(TermStructureEngine engine, SurvivalModel model, LoanInputValidator validator) {
+        this.engine = engine;
+        this.model = model;
+        this.validator = validator;
     }
 
-    public ExpectedLossResponse compute(LoanFeatures loan) {
-        double pd = modelService.score(loan).calibratedProbability();
-        double lgd = lgdPredictor.predict(loan);
-        double ead = loan.originalUpb();
-        return new ExpectedLossResponse(pd, lgd, ead, pd * lgd * ead);
+    public ExpectedLossResponse compute(LoanFeatures request) {
+        LoanFeatures loan = request.normalized();
+        LoanInputValidator.Result checked = validator.check(loan);
+        TermStructureEngine.TermStructure t = engine.project(
+                new TermStructureEngine.Request(loan, Scenario.BASELINE, null, null, null, null), 1);
+        return new ExpectedLossResponse(t.summary().pd12m(), t.ecl().lgd(), t.ecl().exposure(), t.ecl().ecl12m(),
+                t.summary().pdLifetime(), t.ecl().eclLifetime(), t.ecl().stage(), t.ecl().eclIfrs9(),
+                t.summary().expectedLifeMonths(), model.version(), checked.warnings());
+    }
+
+    public String modelVersion() {
+        return model.version();
     }
 }
