@@ -2,6 +2,23 @@
 # lockout and Resilience4j login limiter, not a replacement for them.
 limit_req_zone $binary_remote_addr zone=api:10m rate=20r/s;
 
+# The port the client connected to: the one in its Host header when it names one (the proxy published
+# on something other than 443), otherwise the port this server listens on. The backend tells a
+# same-origin call from a cross-origin one by comparing its own URL with the request's Origin, so it
+# has to be told the real port; with the wrong one every POST from the app's own pages is refused.
+map $http_host $client_port {
+    default          $server_port;
+    "~:(?<p>[0-9]+)$" $p;
+}
+
+# Which backend replica answered, for the X-Upstream response header (security-headers.conf): the way
+# to watch requests being spread over `--scale backend=N`. Empty, and so not sent, unless the stack is
+# started with EXPOSE_UPSTREAM=1: an internal address is nothing a client needs to see.
+map "${BACKEND_EXPOSE_UPSTREAM}" $upstream_debug {
+    default "";
+    "1"     $upstream_addr;
+}
+
 server {
     listen 80;
     return 301 https://$host$request_uri;
@@ -33,13 +50,16 @@ server {
     # Built frontend served straight from disk; requests for these never reach the backend.
     location / {
         include /etc/nginx/security-headers.conf;
+        # index.html names the hashed assets of the current build, so it is always revalidated (a 304
+        # when nothing changed). Left to the browser's own guess it could outlive a deploy and point
+        # at files that no longer exist.
+        add_header Cache-Control "no-cache";
         try_files $uri /index.html;
     }
 
     # Hashed build assets are immutable, so cache them hard.
     location /assets/ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
+        add_header Cache-Control "public, max-age=31536000, immutable";
         include /etc/nginx/security-headers.conf;
     }
 
@@ -54,9 +74,15 @@ server {
         resolver 127.0.0.11 valid=5s ipv6=off;
         set $backend_upstream http://${BACKEND_HOST}:${BACKEND_PORT};
         proxy_pass $backend_upstream;
-        proxy_set_header Host $host;
+        # The backend sets these three itself, for when it is reached without this proxy. Drop its
+        # copies so each header reaches the client once, from the edge.
+        proxy_hide_header Strict-Transport-Security;
+        proxy_hide_header X-Content-Type-Options;
+        proxy_hide_header X-Frame-Options;
+        proxy_set_header Host $http_host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Port $client_port;
     }
 }

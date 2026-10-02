@@ -1,0 +1,171 @@
+# Alert rules for the risk engine, evaluated by Prometheus (see rule_files in prometheus.yml).
+#
+# The stack ships no Alertmanager. A firing alert shows on Prometheus's /alerts page and in Grafana's
+# alert list; where it should page (email, Slack, PagerDuty) is a deployment decision, made by adding
+# an `alerting:` block to prometheus.yml.
+#
+# Every expression is unit-tested in alerts.test.yml:
+#   docker run --rm -v "$PWD/observability:/w" --entrypoint promtool prom/prometheus:v2.55.1 test rules /w/alerts.test.yml
+groups:
+  - name: availability
+    rules:
+      # A replica that is still registered but does not answer its scrape.
+      - alert: BackendDown
+        expr: up{job="risk-engine"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backend replica {{ $labels.instance }} is not answering"
+          description: "Prometheus has failed to scrape /actuator/prometheus on {{ $labels.instance }} for a minute."
+
+      # Targets come from DNS: a stopped container stops resolving, so its `up` series disappears
+      # instead of turning 0 and BackendDown never sees it. This catches "nothing healthy is left".
+      - alert: NoHealthyBackend
+        expr: absent(up{job="risk-engine"} == 1)
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No backend replica is up"
+          description: "No risk-engine target has answered a scrape for a minute: the API is down."
+
+  - name: api
+    rules:
+      # Same bar as the CI load test (loadtest/smoke.js): under 1% of requests may fail.
+      - alert: HighServerErrorRate
+        expr: |
+          sum(rate(http_server_requests_seconds_count{job="risk-engine", uri=~"/v1/.*", status=~"5.."}[5m]))
+            /
+          sum(rate(http_server_requests_seconds_count{job="risk-engine", uri=~"/v1/.*"}[5m]))
+            > 0.01
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "More than 1% of API requests are failing with a 5xx"
+          description: "Server error ratio over the last 5 minutes is {{ $value | humanizePercentage }}."
+
+      # Same bar as the CI load test: 95% of scoring calls answer within 400 ms.
+      - alert: ScoringLatencyHigh
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(http_server_requests_seconds_bucket{job="risk-engine", uri="/v1/score"}[5m])))
+            > 0.4
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Scoring p95 latency is above 400 ms"
+          description: "p95 of POST /v1/score over the last 5 minutes is {{ $value | humanizeDuration }}."
+
+      - alert: ErrorLogBurst
+        expr: sum by (instance) (increase(logback_events_total{job="risk-engine", level="error"}[10m])) > 5
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.instance }} is logging errors"
+          description: "ERROR lines in the last 10 minutes: {{ $value | humanize }}. The lines themselves are in Loki."
+
+  - name: saturation
+    rules:
+      - alert: DatabasePoolExhausted
+        expr: hikaricp_connections_pending{job="risk-engine"} > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Requests are queueing for a database connection on {{ $labels.instance }}"
+          description: "Threads waiting on the connection pool for the last two minutes: {{ $value }}."
+
+      - alert: DatabaseConnectionTimeouts
+        expr: increase(hikaricp_connections_timeout_total{job="risk-engine"}[5m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Requests are failing to get a database connection on {{ $labels.instance }}"
+          description: "Connection pool timeouts in the last 5 minutes: {{ $value | humanize }}."
+
+      # What is still live after a collection is what the heap cannot get back. Heap *used* is not
+      # alerted on: it sits high between collections on a healthy JVM.
+      - alert: HeapNearlyFull
+        expr: jvm_memory_usage_after_gc{job="risk-engine", area="heap"} > 0.9
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.instance }} is close to running out of heap"
+          description: "{{ $value | humanizePercentage }} of the long-lived heap is still in use after garbage collection."
+
+      - alert: GarbageCollectionOverhead
+        expr: jvm_gc_overhead{job="risk-engine"} > 0.25
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.instance }} spends over a quarter of its CPU time collecting garbage"
+          description: "GC overhead is {{ $value | humanizePercentage }}."
+
+  - name: dependencies
+    rules:
+      - alert: CircuitBreakerOpen
+        expr: max by (name, instance) (resilience4j_circuitbreaker_state{job="risk-engine", state=~"open|forced_open"}) == 1
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "The {{ $labels.name }} circuit breaker is open on {{ $labels.instance }}"
+          description: >-
+            Calls are being short-circuited to their fallbacks.
+            llm: the assistant answers that it is unavailable.
+            redis: caching is bypassed and the per-tenant rate limiter fails open (the per-address limit at nginx still applies).
+            postgres: audit events are not being stored (see AuditWritesFailing).
+
+      - alert: ScheduledTaskFailing
+        expr: sum by (code_namespace, code_function) (increase(tasks_scheduled_execution_seconds_count{job="risk-engine", outcome="ERROR"}[15m])) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "A scheduled job is throwing: {{ $labels.code_namespace }}.{{ $labels.code_function }}"
+          description: "Failed executions in the last 15 minutes: {{ $value | humanize }}."
+
+  - name: integrity
+    rules:
+      # Audit writes fail open so a database outage cannot take scoring down (audit.AuditEventWriter).
+      # The price is that a decision can be served without its audit record, and that must never be
+      # silent: one lost record is enough to raise this.
+      - alert: AuditWritesFailing
+        expr: sum(increase(audit_write_failures_total{job="risk-engine"}[10m])) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Model decisions are being served without an audit record"
+          description: "Audit events that could not be stored in the last 10 minutes: {{ $value | humanize }}."
+
+      - alert: UsageRecordsLost
+        expr: sum(increase(usage_record_failures_total{job="risk-engine"}[10m])) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "Metered calls are not being counted"
+          description: "Usage increments lost in the last 10 minutes: {{ $value | humanize }}. Plan quotas and invoices will undercount."
+
+      # `failed` counts deliveries given up on after the last retry, not individual failed attempts.
+      - alert: WebhookDeliveriesAbandoned
+        expr: sum(increase(webhook_deliveries_total{job="risk-engine", outcome="failed"}[30m])) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "Webhook events were dropped after exhausting their retries"
+          description: "Deliveries that failed permanently in the last 30 minutes: {{ $value | humanize }}. The subscriber's endpoint and the last error are in webhook_outbox."
+
+      # Two replicas holding different binaries of one model answer the same loan with different
+      # numbers, depending on which one the load balancer picks. 15 minutes rides out a rolling deploy.
+      - alert: ReplicasServeDifferentModels
+        expr: count by (model) (count by (model, sha256) (model_info{job="risk-engine"})) > 1
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Replicas disagree on the {{ $labels.model }} model"
+          description: "{{ $value }} different artefacts of {{ $labels.model }} are being served at once, so a score depends on which replica answers."
