@@ -234,7 +234,7 @@ public class SurvivalModel {
     float[] template(LoanFeatures loan, double rateSpread) {
         float[] numeric = {
                 loan.creditScore(), loan.originalDti().floatValue(), loan.originalUpb().floatValue(),
-                loan.originalCltv().floatValue(), loan.originalLtv().floatValue(), Quantizer.round(rateSpread, 3),
+                loan.originalCltv().floatValue(), loan.originalLtv().floatValue(), Quantizer.roundAfterFloat32(rateSpread, 3),
                 loan.originalLoanTerm(), loan.numberOfBorrowers(), loan.numberOfUnits(), loan.miPercent().floatValue(),
                 0, 0, 0, 0, 0, 0, 0
         };
