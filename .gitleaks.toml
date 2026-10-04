@@ -12,3 +12,8 @@ regexes = ['''PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxy
 description = "Local-development Neo4j default in an early commit. Deployments read the password from a Docker secret and refuse this default."
 regexTarget = "line"
 regexes = ['''NEO4J_AUTH: neo4j/arthadhruva$''']
+
+[[allowlists]]
+description = "A made-up placeholder password in a frontend unit test, in commit 2d15a7e (client.test.ts). Not a credential; the line now uses neutral values, but the commit stays in history."
+regexTarget = "line"
+regexes = ['''activateAccount\('invite-token', 'a-Strong-Passw0rd'\);''']
