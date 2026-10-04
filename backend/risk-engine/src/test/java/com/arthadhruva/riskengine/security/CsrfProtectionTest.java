@@ -159,6 +159,23 @@ class CsrfProtectionTest extends AbstractIntegrationTest {
         assertFalse(signedIn >= 200 && signedIn < 300, "signed-in GET /v1/csrf answered " + signedIn);
     }
 
+    /**
+     * Spring's CsrfAuthenticationStrategy rotates the token whenever a request authenticates, which here is EVERY
+     * signed-in request (the JWT filter authenticates each one afresh): it expired the cookie on the response, so
+     * a busy page kept losing its token, re-fetching it, and racing its own requests. Found in a real browser, not
+     * by MockMvc; this pins it. A signed-in request that carries the token must not touch it.
+     */
+    @Test
+    void aSignedInRequestDoesNotExpireOrReplaceTheTokenCookie() throws Exception {
+        String token = fetchToken();
+        MvcResult result = mvc.perform(get("/v1/notifications/unread-count").cookie(sessionCookie(session()))
+                .cookie(new Cookie(COOKIE, token))).andReturn();
+        assertEquals(200, result.getResponse().getStatus());
+        assertEquals(null, result.getResponse().getCookie(COOKIE), "the token cookie must not be re-sent or expired");
+        assertTrue(result.getResponse().getHeaders("Set-Cookie").stream().noneMatch(h -> h.startsWith(COOKIE + "=")),
+                "no Set-Cookie for " + COOKIE + " on a signed-in request that already holds it");
+    }
+
     @Test
     void aBrowserThatAlreadyHasTheTokenIsNotGivenANewOne() throws Exception {
         MvcResult again = mvc.perform(get("/v1/csrf").cookie(new Cookie(COOKIE, "already-held"))).andReturn();
