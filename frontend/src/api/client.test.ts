@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, getLoan, getPortfolioRun, listModels, listScenarios, regimeForecast, score, startPortfolioRun, unreadNotificationCount } from './client';
+import { activateAccount, ApiError, getLoan, getPortfolioRun, listModels, listScenarios, regimeForecast, score, signOut, startPortfolioRun, unreadNotificationCount, uploadAttachment } from './client';
 import { DEFAULT_LOAN } from '../components/loanDefaults';
 
 const STORAGE_KEY = 'arthadhruva-auth';
@@ -26,18 +26,28 @@ function json(body: unknown, status = 200, headers: Record<string, string> = {})
 const fresh = { username: 'ana', role: 'ANALYST', expiresAt: new Date(Date.now() + 15 * MINUTE).toISOString(), sessionExpiresAt: new Date(Date.now() + 8 * 60 * MINUTE).toISOString() };
 
 let fetchMock: ReturnType<typeof vi.fn<(url: string, init?: RequestInit) => Promise<Response>>>;
-const calls = () => fetchMock.mock.calls.map(([url, init]) => ({ url: String(url), credentials: init?.credentials }));
+const calls = () => fetchMock.mock.calls.map(([url, init]) => ({
+  url: String(url),
+  method: init?.method ?? 'GET',
+  credentials: init?.credentials,
+  csrf: (init?.headers as Record<string, string> | undefined)?.['X-XSRF-TOKEN'],
+}));
+const CSRF_COOKIE = 'XSRF-TOKEN';
+const setCsrfCookie = (value: string) => { document.cookie = `${CSRF_COOKIE}=${value}; path=/`; };
+const clearCsrfCookie = () => { document.cookie = `${CSRF_COOKIE}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`; };
 const refreshes = () => calls().filter((c) => c.url.endsWith('/account/session/refresh'));
 const storedExpiresAt = () => (JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null') as { expiresAt?: string } | null)?.expiresAt;
 
 beforeEach(() => {
   localStorage.clear();
+  setCsrfCookie('held-token'); // as a browser that has already been given one: no bootstrap request in these tests
   fetchMock = vi.fn(async (url: string) => (String(url).endsWith('/account/session/refresh') ? json(fresh) : json({})));
   vi.stubGlobal('fetch', fetchMock);
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  clearCsrfCookie();
 });
 
 describe('the sliding session', () => {
@@ -93,6 +103,69 @@ describe('the sliding session', () => {
     await listModels();
     expect(calls().at(-1)!.credentials).toBe('include');
     expect(storedExpiresAt()).toBe(before); // the failed refresh never called storeAuth
+  });
+});
+
+describe('the CSRF token', () => {
+  beforeEach(() => signIn(5_000));
+
+  const csrfFetches = () => calls().filter((c) => c.url.endsWith('/v1/csrf'));
+  /** Behaves like the server: GET /v1/csrf answers 401 (no handler) with the token cookie attached. */
+  const serveToken = (value = 'fresh-token') =>
+    fetchMock.mockImplementation(async (url: string) => {
+      if (String(url).endsWith('/v1/csrf')) {
+        setCsrfCookie(value);
+        return new Response(null, { status: 401 });
+      }
+      return json({});
+    });
+
+  it('sends the held token in X-XSRF-TOKEN on a write, and sends none on a read', async () => {
+    await score(DEFAULT_LOAN);
+    await listModels();
+    const write = calls().find((c) => c.method === 'POST')!;
+    const read = calls().find((c) => c.method === 'GET')!;
+    expect(write.csrf).toBe('held-token');
+    expect(read.csrf).toBeUndefined();
+  });
+
+  it('fetches a token before the first write when the browser has none, once however many writes wait', async () => {
+    clearCsrfCookie();
+    serveToken();
+    await Promise.all([score(DEFAULT_LOAN), score(DEFAULT_LOAN)]);
+    expect(csrfFetches()).toHaveLength(1);
+    expect(csrfFetches()[0].credentials).toBe('include');
+    const writes = calls().filter((c) => c.method === 'POST');
+    expect(writes).toHaveLength(2);
+    expect(writes.every((c) => c.csrf === 'fresh-token')).toBe(true);
+  });
+
+  it('does not fetch a token for a read', async () => {
+    clearCsrfCookie();
+    serveToken();
+    await listModels();
+    expect(csrfFetches()).toHaveLength(0);
+  });
+
+  it('covers sign-out, public posts and uploads too, not only the shared request helper', async () => {
+    await signOut();
+    await activateAccount('invite-token', 'a-Strong-Passw0rd');
+    await uploadAttachment('L1', new File(['x'], 'a.txt'));
+    const writes = calls().filter((c) => c.method === 'POST');
+    expect(writes.map((c) => c.url.split('/v1')[1])).toEqual(['/account/logout', '/activate', '/loans/L1/attachments']);
+    expect(writes.every((c) => c.csrf === 'held-token')).toBe(true);
+  });
+
+  it('still makes the write, without a header, when the token cannot be fetched', async () => {
+    clearCsrfCookie();
+    fetchMock.mockImplementation(async (url: string) => {
+      if (String(url).endsWith('/v1/csrf')) throw new TypeError('network down');
+      return json({});
+    });
+    await score(DEFAULT_LOAN);
+    const write = calls().find((c) => c.method === 'POST')!;
+    expect(write).toBeDefined();
+    expect(write.csrf).toBeUndefined(); // the server will refuse it; the failure surfaces from the write itself
   });
 });
 

@@ -10,8 +10,9 @@ import java.time.Instant;
 /**
  * Builds the session cookie every login/refresh/activation/SSO-exchange endpoint sets, and the one
  * sign-out clears. httpOnly so the token is never readable from JavaScript (what XSS would otherwise
- * exfiltrate); SameSite=Strict so it is never sent on a cross-site request in the first place, which is
- * this app's whole CSRF defense -- see SecurityConfig's csrf() call for why that is enough here. Mirrors
+ * exfiltrate); SameSite=Strict so it is never sent on a cross-site request in the first place, which is the
+ * first of this app's two CSRF layers (the second, a double-submit token for same-site pages, is described on
+ * SecurityConfig). Mirrors
  * SsoController's txnCookie() builder, which already does exactly this for its own transaction cookie.
  */
 @Component

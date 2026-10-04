@@ -10,6 +10,12 @@ const TOKEN = __ENV.TOKEN;
 // The session JWT travels as the ad_session cookie, not a bearer header -- see SessionCookie.java /
 // JwtAuthenticationFilter, which no longer accepts a bearer header for a session token at all.
 const headers = { Cookie: `ad_session=${TOKEN}`, 'Content-Type': 'application/json' };
+// A write also needs the double-submit CSRF token (SecurityConfig): any response carries the XSRF-TOKEN cookie
+// (GET /csrf is the request made for it), and a write sends it back as that cookie and again in the
+// X-XSRF-TOKEN header. Reads need neither.
+function writeHeaders(csrf) {
+  return { ...headers, Cookie: `ad_session=${TOKEN}; XSRF-TOKEN=${csrf}`, 'X-XSRF-TOKEN': csrf };
+}
 
 export const options = {
   scenarios: {
@@ -28,14 +34,19 @@ export const options = {
 };
 
 export function setup() {
+  // GET /csrf has no handler on purpose: it answers 401 with the cookie attached, so 401 is the expected status.
+  const csrfCookies = http.get(`${BASE}/csrf`, { responseCallback: http.expectedStatuses(401) }).cookies['XSRF-TOKEN'];
+  if (!csrfCookies || csrfCookies.length === 0) {
+    throw new Error('GET /csrf did not set the XSRF-TOKEN cookie; every write in this test would be refused');
+  }
   const res = http.get(`${BASE}/loans`, { headers });
-  return { loan: res.json()[0] };
+  return { loan: res.json()[0], writeHeaders: writeHeaders(csrfCookies[0].value) };
 }
 
 function hit(data, phase) {
   const roll = Math.random();
   if (roll < 0.4) {
-    const r = http.post(`${BASE}/score`, JSON.stringify(data.loan), { headers, tags: { endpoint: 'score', phase } });
+    const r = http.post(`${BASE}/score`, JSON.stringify(data.loan), { headers: data.writeHeaders, tags: { endpoint: 'score', phase } });
     check(r, { 'score 200': (x) => x.status === 200 });
   } else if (roll < 0.8) {
     const r = http.get(`${BASE}/loan-cases/search?size=25`, { headers, tags: { endpoint: 'search', phase } });

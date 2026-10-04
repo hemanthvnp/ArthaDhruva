@@ -79,6 +79,48 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
 // neither is called from here.
 const API_BASE = `${BASE_URL}/v1`;
 
+// ---- CSRF ------------------------------------------------------------------------------------
+//
+// The session lives in an httpOnly SameSite=Strict cookie the browser attaches by itself, so every write
+// also carries a double-submit token: the script-readable XSRF-TOKEN cookie, echoed here in a header a page
+// on another origin can neither read nor set (see SecurityConfig). Reads need none. The cookie arrives on
+// any response; a visitor who has made no request yet (the login page) requests GET /v1/csrf first. That
+// path has no handler on purpose: unauthenticated it answers 401 with the cookie attached, and the status is
+// ignored here. (A 2xx there would count as a visitor to the idle-shutdown script and keep the server awake.)
+const CSRF_COOKIE = 'XSRF-TOKEN';
+const CSRF_HEADER = 'X-XSRF-TOKEN';
+let csrfBootstrap: Promise<void> | null = null;
+
+function readCsrfToken(): string | undefined {
+  const entry = document.cookie.split('; ').find((c) => c.startsWith(`${CSRF_COOKIE}=`));
+  return entry ? decodeURIComponent(entry.slice(CSRF_COOKIE.length + 1)) : undefined;
+}
+
+function isWrite(method?: string): boolean {
+  return !['GET', 'HEAD', 'OPTIONS'].includes((method ?? 'GET').toUpperCase());
+}
+
+/** The token, fetching one first if the browser has none. One fetch at a time, however many writes wait. */
+async function ensureCsrfToken(): Promise<string | undefined> {
+  const held = readCsrfToken();
+  if (held) return held;
+  csrfBootstrap ??= fetch(`${API_BASE}/csrf`, { credentials: 'include' }).then(
+    () => undefined,
+    () => undefined, // offline: the write that follows reports it
+  ).finally(() => {
+    csrfBootstrap = null;
+  });
+  await csrfBootstrap;
+  return readCsrfToken();
+}
+
+/** The header a write needs, or nothing for a read. */
+async function csrfHeaders(method?: string): Promise<Record<string, string>> {
+  if (!isWrite(method)) return {};
+  const token = await ensureCsrfToken();
+  return token ? { [CSRF_HEADER]: token } : {};
+}
+
 export class ApiError extends Error {
   status: number;
   fields?: Record<string, string>;
@@ -108,7 +150,11 @@ async function refreshSession(): Promise<void> {
   try {
     // credentials:'include' is what carries the ad_session cookie here and lets the browser store the
     // fresh one the response sets back -- there's no token for this client to read or attach itself.
-    const res = await fetch(`${API_BASE}/account/session/refresh`, { method: 'POST', credentials: 'include' });
+    const res = await fetch(`${API_BASE}/account/session/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: await csrfHeaders('POST'),
+    });
     if (res.ok) storeAuth(sessionFrom((await res.json()) as LoginResponse));
   } catch {
     // Offline or the server is down: the request that follows reports it.
@@ -137,13 +183,14 @@ function sessionExpired(): never {
  * client can't clear an httpOnly cookie itself. Local state is AuthContext's job (it calls this and
  * clears local state separately) -- never blocks sign-out on the network either way. */
 export async function signOut(): Promise<void> {
-  await fetch(`${API_BASE}/account/logout`, { method: 'POST', credentials: 'include' }).catch(() => {});
+  await fetch(`${API_BASE}/account/logout`, { method: 'POST', credentials: 'include', headers: await csrfHeaders('POST') })
+    .catch(() => {});
 }
 
 /** @param background true for polling the user did not initiate: it does not extend the session. */
 async function authorizedFetch(path: string, options?: RequestInit, background = false): Promise<Response> {
   if (!background) await ensureFreshSession();
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', ...(await csrfHeaders(options?.method)) };
   return fetch(`${API_BASE}${path}`, { ...options, credentials: 'include', headers: { ...headers, ...options?.headers } });
 }
 
@@ -514,6 +561,7 @@ export async function uploadAttachment(loanId: string, file: File): Promise<Atta
   const res = await fetch(`${API_BASE}/loans/${encodeURIComponent(loanId)}/attachments`, {
     method: 'POST',
     credentials: 'include',
+    headers: await csrfHeaders('POST'), // no Content-Type: the browser sets the multipart boundary itself
     body: formData,
   });
   if (res.status === 401) sessionExpired();
@@ -565,7 +613,7 @@ async function publicPost<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
     credentials: 'include',   // activate/sso-exchange set the session cookie in their response
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await csrfHeaders('POST')) },
     body: JSON.stringify(body),
   });
   if (!res.ok) throw await errorFrom(res);
