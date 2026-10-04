@@ -34,7 +34,12 @@ Investigation evidence (sweeps, **not** a universal bound on production impact):
 - Scope: in a sweep of 317,223 (note rate, PMMS month) pairs, every pair whose feature value changed sat within 2e-12 of an exact tie. No non-tie input differed.
 - PD, realistic population (PMMS months 2015+, note rates on the 1/8 grid from 3 to 9, five varied loans): 33,360 scorings; 4,740 (14.2%) had a different spread feature; **11 (0.033%) changed the calibrated PD**, by at most **0.053 percentage points** (4.4% relative), mean 0.018 pp among those changed.
 - PD, tie-only sweep over a broader grid: 3,887 differing inputs, 7 changed the PD, maximum 0.039 pp.
-- Survival: the impact on lifetime PD / ECL was **not measured**. None of the 11 golden survival cases lands on a tie.
+- Survival (measured with the independent Python reference, `golden_term_structure.py`, run under both conventions; the Java engine is held to that reference to 1e-6 by `TermStructureGoldenTest`): a grid of 3,434 loans (2 profiles, 17 note rates from 3.5 to 7.5 on the 1/4 grid, every PMMS month from 2018-01 to 2026-05), each projected under BASELINE and ADVERSE only where the rounded spread differs.
+  - 558 of 3,434 loans (16.2%) have a different spread feature; that is 1,116 projections.
+  - **39 of those 1,116 projections (3.5%) changed lifetime PD and ECL** (30 changed the 12-month PD); the rest are identical. Over the whole grid (6,868 projections) that is 0.57%.
+  - Where a result changed, **it can change a lot more than the PD model's does**: lifetime PD by up to **4.8 percentage points** (11.3% relative), 12-month PD by up to 1.8 pp (13.7% relative), lifetime expected loss by up to 11.9% relative (87 currency units on the sampled loan), with a mean change of 0.31 pp in lifetime PD among the ones that moved. The 99th-percentile relative change across all 1,116 is under 1%, so it is a few loans moving noticeably, not a general shift.
+  - What is known about the larger effect: the spread is part of every monthly row of a projection (`SurvivalModel.template` copies it into each), so a split crossed by the 0.001 step shifts the hazard in every month of the path, where the single-shot PD model evaluates it once. I did not measure how many splits the survival model has on `rate_spread`.
+  - This is investigation evidence on a synthetic grid of two profiles, not a bound on production impact, and the sweep does not say which real loans sit on a tie.
 
 ## Verification (local)
 
