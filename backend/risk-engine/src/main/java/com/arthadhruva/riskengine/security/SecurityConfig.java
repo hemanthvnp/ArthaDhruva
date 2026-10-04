@@ -1,7 +1,9 @@
 package com.arthadhruva.riskengine.security;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -14,6 +16,14 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfFilter;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.AndRequestMatcher;
+import org.springframework.security.web.util.matcher.OrRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestHeaderRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
@@ -21,12 +31,22 @@ import jakarta.servlet.http.HttpServletResponse;
 /**
  * Stateless JWT auth: no server-side {@code HttpSession} (see {@code SessionCreationPolicy.STATELESS}
  * below). The session token itself does live in a cookie -- the httpOnly {@code ad_session} cookie
- * JwtAuthenticationFilter reads (see SessionCookie) -- but CSRF is still disabled, because that cookie
- * is {@code SameSite=Strict}: it is never sent on a cross-site request in the first place, which is a
- * stronger, simpler defense than Spring's CSRF-token machinery would add on top of it for this app's
- * request patterns (no third-party site ever has reason to POST to this API). The one genuinely
- * cross-site leg in the whole app, the SSO identity-provider redirect, never carries this cookie at
- * all -- it uses its own separate, narrowly-scoped {@code sso_txn} cookie instead (SsoController).
+ * JwtAuthenticationFilter reads (see SessionCookie) -- so a browser attaches it to requests by itself, and
+ * CSRF is defended in two layers. First, that cookie is {@code SameSite=Strict}, so it is never sent on a
+ * cross-<em>site</em> request. That does not cover a same-<em>site</em> page (another subdomain of the same
+ * registrable domain, which a per-tenant-subdomain deployment has), so second, every unsafe request must
+ * also carry the double-submit token: the script-readable {@code XSRF-TOKEN} cookie
+ * (see {@link #csrfTokenRepository}) echoed in an {@code X-XSRF-TOKEN} header, which a page on another origin
+ * cannot read or set. A browser never attaches a custom header by itself either, so the two requests that
+ * authenticate with a header credential instead -- an {@code X-API-Key} call to {@code /v1/ingest/**} and the
+ * {@code Authorization: Bearer} TOTP-setup calls -- are not token-protected: there is nothing ambient to ride.
+ * The login page and the other public POSTs are protected like the rest (a forged login is a login-CSRF).
+ * A page with no token yet gets one from {@link CsrfCookieFilter}, which attaches it to <em>any</em> response,
+ * so the frontend fetches {@code GET /v1/csrf} and reads the cookie. That path is deliberately not a real,
+ * public endpoint: unauthenticated it answers 401, and idle-stop.sh counts a 2xx {@code /v1/} response as a
+ * visitor, so an anonymous 2xx GET would let any crawler keep the server awake (and billing). The one genuinely cross-site leg in
+ * the whole app, the SSO identity-provider redirect, never carries the session cookie -- it uses its own
+ * separate, narrowly-scoped {@code sso_txn} cookie instead (SsoController).
  * {@code /login}, {@code /activate}
  * (a CLIENT completing an admin-issued invite -- see ActivationController), and the actuator
  * health/prometheus endpoints (Prometheus itself carries no bearer token) are public; {@code
@@ -115,15 +135,59 @@ public class SecurityConfig {
         return config.getAuthenticationManager();
     }
 
+    /**
+     * The double-submit token: an {@code XSRF-TOKEN} cookie a script on this origin can read (so not httpOnly,
+     * unlike the session cookie), echoed by the frontend in {@code X-XSRF-TOKEN}. {@code SameSite=Strict} and
+     * {@code Secure} on https mirror SessionCookie. The path is {@code /}, not {@code /v1}: a cookie is visible
+     * to a page's script only when the page's own path is under the cookie's, and the app's pages are not under
+     * {@code /v1}. {@code setCookieCustomizer} replaces what {@code withHttpOnlyFalse()} installs, so
+     * {@code httpOnly(false)} is repeated here.
+     */
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtFilter,
+    public CookieCsrfTokenRepository csrfTokenRepository(@Value("${app.public-url:http://localhost:8080}") String publicUrl) {
+        CookieCsrfTokenRepository repository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        repository.setCookiePath("/");
+        repository.setCookieCustomizer(cookie -> cookie.httpOnly(false).sameSite("Strict")
+                .secure(publicUrl.startsWith("https://")));
+        return repository;
+    }
+
+    /**
+     * Requests whose credential travels in a header the browser never adds by itself, so there is no ambient
+     * credential to ride and no token is asked of them: an {@code X-API-Key} call to {@code /v1/ingest/**}, and
+     * the two TOTP-setup calls made with an {@code Authorization: Bearer} setup token. A page on another origin
+     * cannot send either header without a CORS preflight, which the allow-list refuses. Both conditions must
+     * hold, so a session-cookie request to the same paths is still token-protected.
+     */
+    private static RequestMatcher[] headerCredentialRequests() {
+        RequestMatcher apiKeyIngest = new AndRequestMatcher(
+                PathPatternRequestMatcher.pathPattern("/v1/ingest/**"),
+                new RequestHeaderRequestMatcher("X-API-Key"));
+        RequestMatcher bearerSetup = new AndRequestMatcher(
+                new OrRequestMatcher(
+                        PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/v1/account/2fa/setup"),
+                        PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/v1/account/2fa/confirm")),
+                request -> {
+                    String authorization = request.getHeader("Authorization");
+                    return authorization != null && authorization.startsWith("Bearer ");
+                });
+        return new RequestMatcher[] {apiKeyIngest, bearerSetup};
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, CookieCsrfTokenRepository csrfTokenRepository,
+                                                   JwtAuthenticationFilter jwtFilter,
                                                    com.arthadhruva.riskengine.apikey.ApiKeyAuthenticationFilter apiKeyFilter,
                                                    com.arthadhruva.riskengine.ratelimit.RateLimitFilter rateLimitFilter,
                                                    com.arthadhruva.riskengine.idempotency.IdempotencyFilter idempotencyFilter) throws Exception {
         http
                 .cors(Customizer.withDefaults())
-                // See the class javadoc: the session cookie's SameSite=Strict is this app's CSRF defense.
-                .csrf(csrf -> csrf.disable())
+                // See the class javadoc: SameSite=Strict plus a double-submit token on every unsafe request. The
+                // plain (non-XOR) handler is deliberate: the frontend echoes the cookie's value verbatim.
+                .csrf(csrf -> csrf
+                        .csrfTokenRepository(csrfTokenRepository)
+                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                        .ignoringRequestMatchers(headerCredentialRequests()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint((request, response, authException) ->
@@ -145,6 +209,7 @@ public class SecurityConfig {
                         .requestMatchers("/v1/account/**").hasAnyRole("ANALYST", "ADMIN", "CLIENT", "PLATFORM_ADMIN")
                         .requestMatchers("/v1/my/**").hasAnyRole("ANALYST", "ADMIN", "CLIENT")
                         .anyRequest().hasAnyRole("ANALYST", "ADMIN"))
+                .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(apiKeyFilter, JwtAuthenticationFilter.class)
                 .addFilterAfter(rateLimitFilter, com.arthadhruva.riskengine.apikey.ApiKeyAuthenticationFilter.class)

@@ -31,6 +31,11 @@ Deploying to a real server for free? Follow the step-by-step guide in [DEPLOY.md
   (`CORS_ALLOWED_ORIGINS`, empty when frontend and API share an origin) with credentials allowed, since
   the session cookie needs that to be sent and read across the split-origin dev setup -- never a
   wildcard, which browsers refuse to combine with credentialed CORS anyway.
+- CSRF has two layers. The session cookie is `SameSite=Strict`, and every write (POST/PUT/DELETE, the login
+  form included) must also carry a double-submit token: the script-readable `XSRF-TOKEN` cookie echoed in an
+  `X-XSRF-TOKEN` header. API-key calls to `/v1/ingest/**` and the Bearer TOTP-setup calls carry a header
+  credential instead and are exempt. The backend and the frontend must be deployed together: an older
+  frontend sends no token and every write it makes is refused with 403 until the page is reloaded.
 
 ## Container hardening
 Non-root user, `cap_drop: ALL` (+ only the caps each image needs), `no-new-privileges`, read-only
