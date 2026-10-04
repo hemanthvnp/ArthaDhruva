@@ -21,6 +21,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -52,6 +53,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 class ApiIntegrationTest extends AbstractIntegrationTest {
 
     private static final String PASSWORD = "Correct-Horse-9-Battery";
+    private static final String CSRF_TEST_TOKEN = "integration-test-csrf-token";
 
     @Autowired MockMvc mvc;
     @Autowired OrganizationService organizations;
@@ -103,7 +105,30 @@ class ApiIntegrationTest extends AbstractIntegrationTest {
         return cookie.getValue();
     }
 
+    /**
+     * Every unsafe request needs the CSRF token now. These tests exercise the endpoints, not the token, so each
+     * write carries the real double-submit pair: the XSRF-TOKEN cookie and the same value in X-XSRF-TOKEN
+     * (CsrfProtectionTest is the one that exercises the exchange and the refusals). Deliberately NOT Spring's
+     * {@code csrf()} test helper: it swaps the shared CsrfFilter's repository for a session-based one and never
+     * puts it back, which silently stops every later test class in this Spring context from receiving the cookie.
+     */
+    private static RequestPostProcessor csrfOnWrites() {
+        return request -> {
+            String method = request.getMethod();
+            boolean safe = method.equals("GET") || method.equals("HEAD") || method.equals("OPTIONS") || method.equals("TRACE");
+            if (!safe) {
+                jakarta.servlet.http.Cookie[] held = request.getCookies() == null ? new jakarta.servlet.http.Cookie[0] : request.getCookies();
+                jakarta.servlet.http.Cookie[] all = java.util.Arrays.copyOf(held, held.length + 1);
+                all[held.length] = new jakarta.servlet.http.Cookie("XSRF-TOKEN", CSRF_TEST_TOKEN);
+                request.setCookies(all);
+                request.addHeader("X-XSRF-TOKEN", CSRF_TEST_TOKEN);
+            }
+            return request;
+        };
+    }
+
     private MvcResult call(MockHttpServletRequestBuilder request, String token, Object body) throws Exception {
+        request.with(csrfOnWrites());
         if (token != null) {
             request.cookie(sessionCookie(token));
         }
@@ -566,22 +591,22 @@ class ApiIntegrationTest extends AbstractIntegrationTest {
         String key = "note-" + run;
         Map<String, Object> note = Map.of("text", "Called the borrower; payment promised for Friday.");
 
-        MvcResult first = mvc.perform(post("/v1/loans/" + loanId + "/notes").cookie(sessionCookie(ana))
+        MvcResult first = mvc.perform(post("/v1/loans/" + loanId + "/notes").cookie(sessionCookie(ana)).with(csrfOnWrites())
                 .header("Idempotency-Key", key).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(note))).andReturn();
         assertEquals(200, status(first));
-        MvcResult retry = mvc.perform(post("/v1/loans/" + loanId + "/notes").cookie(sessionCookie(ana))
+        MvcResult retry = mvc.perform(post("/v1/loans/" + loanId + "/notes").cookie(sessionCookie(ana)).with(csrfOnWrites())
                 .header("Idempotency-Key", key).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(note))).andReturn();
         assertEquals(200, status(retry));
         assertEquals("true", retry.getResponse().getHeader("Idempotent-Replay"));
         assertEquals(first.getResponse().getContentAsString(), retry.getResponse().getContentAsString());
         assertEquals(1, body(call(get("/v1/loans/" + loanId + "/case"), ana, null)).get("notes").size(), "the note exists once");
 
-        MvcResult different = mvc.perform(post("/v1/loans/" + loanId + "/notes").cookie(sessionCookie(ana))
+        MvcResult different = mvc.perform(post("/v1/loans/" + loanId + "/notes").cookie(sessionCookie(ana)).with(csrfOnWrites())
                 .header("Idempotency-Key", key).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("text", "another note")))).andReturn();
         assertEquals(422, status(different), "the same key with a different request is an error, not a replay");
 
         // A key belongs to its caller: a colleague using the same value is making a new request.
-        MvcResult colleague = mvc.perform(post("/v1/loans/" + loanId + "/notes").cookie(sessionCookie(ben))
+        MvcResult colleague = mvc.perform(post("/v1/loans/" + loanId + "/notes").cookie(sessionCookie(ben)).with(csrfOnWrites())
                 .header("Idempotency-Key", key).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(note))).andReturn();
         assertEquals(200, status(colleague));
         assertEquals(null, colleague.getResponse().getHeader("Idempotent-Replay"));
