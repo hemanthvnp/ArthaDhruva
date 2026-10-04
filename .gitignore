@@ -11,6 +11,7 @@ __pycache__/
 
 # Claude Code local session state
 .claude/
+CLAUDE.md
 
 # Logs / scratch
 *.log
