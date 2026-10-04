@@ -409,10 +409,21 @@ stand-in for `docker` that records instead of starting a container (see "Validat
 
 The hardening flags mirror the production Compose overlay's `caddy` service (`cap_drop: ALL`,
 `NET_BIND_SERVICE`, `no-new-privileges`, read-only root, `/tmp` tmpfs), with `/data` and `/config` on named
-volumes. Offline `caddy validate` of this file passed with those flags, and the image's `caddy` binary carries
-`cap_net_bind_service`; the container has never been run as a service. Only TCP 80 and 443 are published,
-matching the edge NSG, which allows TCP only: Caddy also offers HTTP/3 on UDP 443, so clients fall back to
-HTTP/2 over TCP.
+volumes. The image runs as the non-root user `caddy` (uid/gid 10001). Its `caddy` binary keeps the file
+capability `cap_net_bind_service`, and `--cap-drop ALL --cap-add NET_BIND_SERVICE` grants it: **both are
+needed**. With the file capability and no `--cap-add`, the binary refuses to start ("operation not
+permitted"), which is why the launch keeps the cap-add. Only TCP 80 and 443 are published, matching the edge
+NSG, which allows TCP only: Caddy also offers HTTP/3 on UDP 443, so clients fall back to HTTP/2 over TCP.
+
+`/data` and `/config` are owned by `caddy` in the image, and a **new** named volume inherits that. A volume
+created earlier by a root-running image keeps root ownership and Caddy could not write to it: remove it
+(`docker volume rm caddy_dev_data caddy_dev_config`, which also discards its certificates) or `chown` it to
+10001:10001 before launching.
+
+Tested in throwaway containers with no network and nothing published, using these exact flags: as uid 10001 a
+minimal Caddy config bound ports 80 and 443 and answered on both, wrote to fresh `/data` and `/config`
+volumes, and this directory's `Caddyfile.wildcard` passed `caddy validate`. Not tested: a launch on a real
+edge host, certificate issuance, or live traffic.
 
 ### Managed identity from a container
 
@@ -447,12 +458,15 @@ The Security workflow (`.github/workflows/security.yml`) runs `trivy config --se
 over the whole repository and uploads the SARIF to code scanning. There is no `--exit-code`, no Trivy ignore or
 config file, and nothing in this change adds one: no scan was weakened or bypassed.
 
-`Dockerfile.caddy`, like the stock Caddy image and the production Compose `caddy` service, runs as root and
-has no `USER`; the repo's own `Dockerfile` does set `USER app`. Trivy is therefore **likely** to report a
-missing non-root user for it. **Unverified:** Trivy is not installed here and its image was not pulled, so the
-finding has not been reproduced. A non-root build would need its file capability for ports 80 and 443
-handled and a run test, which this change does not attempt. The compensating control is the run-time
-hardening above.
+`Dockerfile.caddy` originally ran as root, like the stock Caddy image, and the scan reported it as code-scanning
+alert DS-0002 ("Image user should not be 'root'", HIGH). It now creates a `caddy` user and sets `USER caddy`,
+as the repo's own `Dockerfile` does with `USER app`. Reproduced and checked locally with the same Trivy
+version as the workflow (0.74.0, `config --severity MEDIUM,HIGH,CRITICAL`): the previous Dockerfile gave
+DS-0002 (1 HIGH), the current one gives 0 findings. Nothing was suppressed, ignored or weakened. The alert
+itself clears only after the change is pushed and the workflow has run on that branch.
+
+The production Compose `caddy` service uses the stock image, which still runs as root with capabilities
+dropped; it is not part of this change.
 
 ## Validation status
 
@@ -499,9 +513,10 @@ IP except for the Developer and private-only SKUs.
 
 **Not verified: runtime**
 - Any certificate issuance (needs the DNS zone, the VM, its managed identity and the role assignment).
-- The Caddy container running as a service, the managed-identity token from inside it, and the
-  Caddy-to-nginx path.
-- The multi-host application configuration, and the Trivy result for `Dockerfile.caddy`.
+- The Caddy container on a real edge host, the managed-identity token from inside it, and the
+  Caddy-to-nginx path. (The non-root image was run only in throwaway containers with no network.)
+- The multi-host application configuration, and the Security workflow's own result for `Dockerfile.caddy` after
+  the non-root change (the local Trivy 0.74.0 scan is clean).
 
 The ports and addresses were cross-checked against `nginx/default.conf.template`, `docker-compose.yml` and
 the backend's tenant resolution (`TenantSubdomainResolver`).
