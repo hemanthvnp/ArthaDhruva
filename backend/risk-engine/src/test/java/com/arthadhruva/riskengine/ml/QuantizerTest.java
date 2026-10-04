@@ -56,4 +56,37 @@ class QuantizerTest {
             assertEquals(once, Quantizer.round(once, 3), 0.0f, "v = " + v);
         }
     }
+
+    /**
+     * Expected values are numpy's: np.float32(np.rint(float(np.float32(s)) * 1000) / 1000). On an exact tie the float32
+     * representation error decides the direction, so the result is not half-to-even and differs from rounding the double.
+     */
+    @Test
+    void roundAfterFloat32FollowsTheTrainingSequenceOnTies() {
+        // {note rate, market rate, spread rounded from the double, spread narrowed to float32 first (training)}
+        double[][] ties = {
+                {8.25, 9.1475, -0.898, -0.897},
+                {6.0, 3.9425, 2.058, 2.057},
+                {4.5, 3.9825, 0.518, 0.517},
+                {6.5, 6.9175, -0.418, -0.417},
+                {4.25, 4.1675, 0.082, 0.083},
+        };
+        for (double[] t : ties) {
+            double spread = t[0] - t[1];
+            assertEquals((float) t[2], Quantizer.round(spread, 3), 0.0f, "from the double: " + spread);
+            assertEquals((float) t[3], Quantizer.roundAfterFloat32(spread, 3), 0.0f, "training: " + spread);
+        }
+    }
+
+    @Test
+    void roundAfterFloat32AgreesWithTheDoubleRouteAwayFromTies() {
+        // 0.3 of a grid step from a grid point is never near a tie (0.5), so narrowing first cannot change the result
+        for (int k = -3000; k < 3000; k++) {
+            double v = (k + 0.3) / 1000.0;
+            assertEquals(Quantizer.round(v, 3), Quantizer.roundAfterFloat32(v, 3), 0.0f, "v = " + v);
+        }
+        assertEquals(0.0f, Quantizer.roundAfterFloat32(0.0, 3), 0.0f);
+        assertEquals(2.0f, Quantizer.roundAfterFloat32(2.5, 0), 0.0f, "half to even on an exactly representable tie");
+        assertEquals(0.0f, Quantizer.roundAfterFloat32(0.5, 0), 0.0f);
+    }
 }

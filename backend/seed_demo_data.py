@@ -62,8 +62,22 @@ class Api:
 
     def __init__(self, token: str | None = None):
         self.token = token
+        self.csrf: str | None = None
         self.session = requests.Session()
         self.session.verify = VERIFY_TLS
+
+    def _csrf_token(self) -> str:
+        """The double-submit token every write needs (SecurityConfig): the server hands one out in the XSRF-TOKEN
+        cookie, and a write sends it back as that cookie and again in the X-XSRF-TOKEN header. GET /csrf has no
+        handler on purpose and answers 401 with the cookie attached, so the status is ignored. Fetched once per Api
+        and kept (the server holds no state for it). Like every other cookie here it is not left in the session."""
+        if self.csrf is None:
+            response = self.session.get(BASE_URL + "/csrf", timeout=30)
+            self.csrf = response.cookies.get("XSRF-TOKEN") or ""
+            self.session.cookies.clear()
+            if not self.csrf:
+                raise SeedError(f"GET /csrf did not set the XSRF-TOKEN cookie (status {response.status_code})")
+        return self.csrf
 
     def call(self, method: str, path: str, body=None, token: str | None = None, setup_token: str | None = None,
             allow: frozenset = frozenset(), params=None):
@@ -77,6 +91,12 @@ class Api:
             credential = token if token is not None else self.token
             if credential:
                 cookies["ad_session"] = credential
+            if method.upper() not in ("GET", "HEAD", "OPTIONS"):
+                # A bearer-header setup call is exempt on the server; every cookie-session write, and the login
+                # POST itself, carries the token.
+                csrf = self._csrf_token()
+                cookies["XSRF-TOKEN"] = csrf
+                headers["X-XSRF-TOKEN"] = csrf
         for _ in range(6):
             response = self.session.request(method, BASE_URL + path, json=body, headers=headers, cookies=cookies,
                                              params=params, timeout=120)

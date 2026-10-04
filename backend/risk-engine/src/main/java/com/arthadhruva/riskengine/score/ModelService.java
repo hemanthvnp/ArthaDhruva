@@ -132,8 +132,8 @@ public class ModelService extends AbstractOnnxModelService<LoanFeatures, ScoreRe
         float[] numeric = {
                 loan.creditScore(), loan.originalDti().floatValue(), loan.originalUpb().floatValue(),
                 loan.originalCltv().floatValue(), loan.originalLtv().floatValue(),
-                // rounded from its double value (not after a float cast), exactly like training
-                Quantizer.round(rateSpread(loan), 3),
+                // subtracted in float64, narrowed to float32, then put on the grid -- exactly training's with_spread
+                Quantizer.roundAfterFloat32(rateSpread(loan), 3),
                 loan.originalLoanTerm(), loan.numberOfBorrowers(), loan.numberOfUnits(), loan.miPercent().floatValue()
         };
         String[] categorical = {

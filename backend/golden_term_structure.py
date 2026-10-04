@@ -176,7 +176,9 @@ def plan(a: Artifacts, l: dict, s: dict, path_origin: int, first_k: int, months:
     state = l["propertyState"]
     u0, h0 = a.series(state, "unemployment", path_origin), a.series(state, "hpi", path_origin)
     static = {"credit_score": l["creditScore"], "original_dti": l["originalDti"], "original_upb": l["originalUpb"],
-              "original_cltv": l["originalCltv"], "original_ltv": l["originalLtv"], "rate_spread": spread,
+              "original_cltv": l["originalCltv"], "original_ltv": l["originalLtv"],
+              # stored as float32 before it is rounded, exactly as training's with_spread does (credit_common)
+              "rate_spread": float(np.float32(spread)),
               "original_loan_term": l["originalLoanTerm"], "number_of_borrowers": l["numberOfBorrowers"],
               "number_of_units": l["numberOfUnits"], "mi_percent": l["miPercent"]}
     codes = {"occupancy_status": l["occupancyStatus"], "property_type": l["propertyType"], "loan_purpose": l["loanPurpose"],

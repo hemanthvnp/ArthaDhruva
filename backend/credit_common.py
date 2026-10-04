@@ -47,7 +47,8 @@ HARD_BOUNDS = {
 # take the other branch -- observed on 0.04% of loan-months before this. With inputs on a grid, every
 # learned threshold sits halfway between two grid points, far from any float32 rounding boundary, so
 # LightGBM, ONNX Runtime and the Java service all take the same path. Java applies the identical rule
-# (Math.rint(x * 10^d) / 10^d) from the decimals exported with each model.
+# (Math.rint(x * 10^d) / 10^d) from the decimals exported with each model. Features that are computed in float64
+# and then stored as Float32 columns (e.g. rate_spread; see with_spread) are narrowed to float32 BEFORE the rounding.
 FEATURE_DECIMALS = {
     "credit_score": 0, "original_dti": 0, "original_upb": 0, "original_cltv": 0, "original_ltv": 0,
     "rate_spread": 3, "original_loan_term": 0, "number_of_borrowers": 0, "number_of_units": 0, "mi_percent": 0,
@@ -95,7 +96,14 @@ RATE_LOCK_LAG_MONTHS = 2
 
 
 def with_spread(df: pl.DataFrame, orig_month: pl.Expr) -> pl.DataFrame:
-    """Adds rate_spread = note rate minus the market 30y rate at the (approximate) rate-lock month."""
+    """Adds rate_spread = note rate minus the market 30y rate at the (approximate) rate-lock month.
+
+    The subtraction is float64 and the result is then cast to Float32 -- the column is stored as float32, like every
+    model input -- and only that float32 is rounded to the FEATURE_DECIMALS grid (quantize). On an exact tie on the
+    grid (the PMMS series has 4 decimals, so e.g. 6.5 - 6.9175 = -0.4175 is one) the float32 representation error
+    decides the direction, not half-to-even: -0.417 here, where rounding the float64 would give -0.418. The Java
+    services reproduce this order (Quantizer.roundAfterFloat32), and so do golden_pd_model.py and
+    golden_term_structure.py."""
     rates = _macro().select(pl.col("month").alias("_om"), pl.col("rate").alias("_orig_rate"))
     return (df.with_columns(_om=(orig_month - RATE_LOCK_LAG_MONTHS).cast(pl.Int32))
             .join(rates, on="_om", how="left")

@@ -35,7 +35,10 @@ public class CorsConfig {
         configuration.setAllowedOrigins(origins);
         configuration.setAllowCredentials(true);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key", "X-API-Key"));
+        // X-XSRF-TOKEN: the double-submit CSRF header (see SecurityConfig). Needed for the cross-origin dev setup,
+        // where the browser preflights every write that carries it.
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key", "X-API-Key",
+                "X-XSRF-TOKEN"));
         // Headers a cross-origin page may read: download names, where to poll a started job, how long to
         // back off, list totals and the rate-limit allowance left.
         configuration.setExposedHeaders(List.of("Content-Disposition", "Location", "Retry-After", "X-Total-Count",
