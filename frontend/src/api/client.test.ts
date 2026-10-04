@@ -149,7 +149,7 @@ describe('the CSRF token', () => {
 
   it('covers sign-out, public posts and uploads too, not only the shared request helper', async () => {
     await signOut();
-    await activateAccount('invite-token', 'a-Strong-Passw0rd');
+    await activateAccount('code', 'pw'); // neutral placeholders: the values are irrelevant to what this test checks
     await uploadAttachment('L1', new File(['x'], 'a.txt'));
     const writes = calls().filter((c) => c.method === 'POST');
     expect(writes.map((c) => c.url.split('/v1')[1])).toEqual(['/account/logout', '/activate', '/loans/L1/attachments']);
