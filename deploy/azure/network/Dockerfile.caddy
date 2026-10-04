@@ -1,0 +1,18 @@
+# DEVELOPMENT ONLY. Caddy with the Azure DNS module, for the wildcard certificate in Caddyfile.wildcard.
+# Not referenced by any docker-compose file or deploy script: production uses the stock caddy image.
+#
+#   docker build -f Dockerfile.caddy -t arthadhruva-caddy-azure:dev .
+#
+# Runs as root, like the stock caddy image and the production caddy service (which drops capabilities at run
+# time); README.md has the hardened run example. The Security workflow's Trivy config scan will probably flag the
+# missing USER: unverified (Trivy was not run here), and deliberately not suppressed. Base images are pinned by
+# tag, not by digest.
+#
+# Versions are pinned. 2.11 is the line whose Host-header behaviour Caddyfile.wildcard accounts for; the module
+# is its latest release when this was written (v0.6.0). The pair builds (Caddy v2.11.6) and Caddyfile.wildcard
+# passes `caddy validate` on the result. It has not been run as a service or used to issue a certificate.
+FROM caddy:2.11-builder AS builder
+RUN xcaddy build --with github.com/caddy-dns/azure@v0.6.0
+
+FROM caddy:2.11
+COPY --from=builder /usr/bin/caddy /usr/bin/caddy

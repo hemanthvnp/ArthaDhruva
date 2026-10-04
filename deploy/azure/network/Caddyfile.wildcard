@@ -1,0 +1,55 @@
+# DEVELOPMENT ONLY. Edge proxy for the dev three-tier topology in main.bicep: one address, every tenant
+# subdomain. It is not used by, and must not be mounted into, the production Compose deployment (that one
+# uses deploy/Caddyfile and the stock caddy image).
+#
+# Needs a Caddy build with the Azure DNS module: build Dockerfile.caddy (stock caddy has no
+# dns.providers.azure, so this file fails to load on it). A wildcard certificate needs the DNS-01 challenge, so
+# the domain's DNS zone must be hosted in Azure DNS. See README.md for the prerequisites and the variables:
+#   APP_BASE_DOMAIN           the dev domain, the same value the backend gets as APP_BASE_DOMAIN. Never the
+#                             production domain.
+#   APP_PRIVATE_IP            private address of the nginx host in snet-app. If it is UNSET the upstream becomes
+#                             app-private-ip-not-set.invalid, which can never resolve, so the failure names the cause.
+#                             An EMPTY value is not covered by that fallback: it gives the upstream ":443".
+#   APP_PORT                  nginx's port there; optional, default 443 (nginx/default.conf.template)
+#   AZURE_SUBSCRIPTION_ID     subscription that holds the DNS zone
+#   AZURE_DNS_RESOURCE_GROUP  resource group of the DNS zone (not the network's)
+#   ACME_CA                   optional; the ACME directory to get the certificate from. Defaults to Let's Encrypt
+#                             STAGING (certificates browsers do not trust, generous rate limits). Set it to
+#                             https://acme-v02.api.letsencrypt.org/directory only once staging has worked.
+# THIS FILE CANNOT ENFORCE ITS OWN INPUTS. Caddy substitutes {$VAR} as text BEFORE it parses the file, so a value
+# containing a space becomes extra tokens: APP_PORT="443 https://x.example" or APP_PRIVATE_IP="10.0.0.4 https://x.example"
+# adds a second upstream, and a space in APP_BASE_DOMAIN adds a second site address (all observed with `caddy
+# adapt`). An empty APP_PRIVATE_IP, an unset or empty Azure variable, or APP_PORT=0 also adapt and validate
+# cleanly; `caddy validate` is not a check of the values. Start Caddy only through the validating launch
+# procedure in README.md, which checks every value and then checks the adapted result. Do not run this file with
+# hand-typed -e flags or an unchecked --env-file.
+# No credentials appear here: this uses the edge VM's managed identity (the module's mode when tenant_id,
+# client_id and client_secret are omitted), which needs the DNS Zone Contributor role on the zone.
+#
+# The backend resolves the tenant from the Host header, so the proxy's whole job is to pass it through.
+*.{$APP_BASE_DOMAIN}, {$APP_BASE_DOMAIN} {
+	tls {
+		ca {$ACME_CA:https://acme-staging-v02.api.letsencrypt.org/directory}
+		dns azure {
+			subscription_id {$AZURE_SUBSCRIPTION_ID}
+			resource_group_name {$AZURE_DNS_RESOURCE_GROUP}
+		}
+	}
+
+	# nginx has no public IP: it lives in snet-app and its NSG admits only the edge subnet on this port.
+	reverse_proxy https://{$APP_PRIVATE_IP:app-private-ip-not-set.invalid}:{$APP_PORT:443} {
+		# nginx serves a throwaway self-signed certificate (nginx/selfsigned-cert.sh: CN=localhost, no SANs,
+		# regenerated at every start), so there is nothing to verify against and the hop is encrypted but not
+		# authenticated. Unlike the single-server deployment, this hop crosses a subnet boundary: only the app
+		# subnet's NSG (source = snet-edge) stands between it and anything else on the network. Acceptable for a
+		# development environment; pinning a certificate needs a CA and an nginx certificate, see README.md.
+		transport http {
+			tls_insecure_skip_verify
+		}
+		# Since Caddy 2.11 the Host header sent to an HTTPS upstream is rewritten to the upstream address. The
+		# backend needs the original (tenant from the subdomain, same-origin check), so keep it, with its port.
+		header_up Host {hostport}
+		# Caddy also sets X-Forwarded-For/-Proto/-Host itself and discards client-sent values, which is what
+		# lets nginx's rate limit and the audit trail trust the recorded client address.
+	}
+}
