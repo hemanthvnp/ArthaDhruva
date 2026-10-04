@@ -35,7 +35,10 @@ Deploying to a real server for free? Follow the step-by-step guide in [DEPLOY.md
   form included) must also carry a double-submit token: the script-readable `XSRF-TOKEN` cookie echoed in an
   `X-XSRF-TOKEN` header. API-key calls to `/v1/ingest/**` and the Bearer TOTP-setup calls carry a header
   credential instead and are exempt. The backend and the frontend must be deployed together: an older
-  frontend sends no token and every write it makes is refused with 403 until the page is reloaded.
+  frontend sends no token and every write it makes is refused with 403 until the page is reloaded. Known
+  limit: the token is unsigned and not bound to the session, so it does not stop an attacker who can set
+  cookies for the site from script on a sibling subdomain (cookie tossing); it does stop pages that can only
+  send requests.
 
 ## Container hardening
 Non-root user, `cap_drop: ALL` (+ only the caps each image needs), `no-new-privileges`, read-only

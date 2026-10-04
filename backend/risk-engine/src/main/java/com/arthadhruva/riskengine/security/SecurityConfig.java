@@ -44,8 +44,17 @@ import jakarta.servlet.http.HttpServletResponse;
  * A page with no token yet gets one from {@link CsrfCookieFilter}, which attaches it to <em>any</em> response,
  * so the frontend fetches {@code GET /v1/csrf} and reads the cookie. That path is deliberately not a real,
  * public endpoint: unauthenticated it answers 401, and idle-stop.sh counts a 2xx {@code /v1/} response as a
- * visitor, so an anonymous 2xx GET would let any crawler keep the server awake (and billing). The one genuinely cross-site leg in
- * the whole app, the SSO identity-provider redirect, never carries the session cookie -- it uses its own
+ * visitor, so an anonymous 2xx GET would let any crawler keep the server awake (and billing).
+ *
+ * <p>Known limit: the token is a plain double-submit value, neither signed nor bound to the session, and the
+ * server keeps no copy. It stops a page that can <em>send</em> requests as the user but cannot read this origin's
+ * cookies (a cross-site page, a sibling subdomain's page). It does not stop an attacker who can also <em>set</em>
+ * cookies for this site (cookie tossing, from script running on a sibling subdomain): they can pair a cookie of
+ * their choosing with a matching header. Closing that would mean signing the token with a server key and binding
+ * it to the session; not done here. The token is also not rotated at login (no session is created), so Spring's
+ * rotation-on-authentication is switched off below.
+ *
+ * <p>The one genuinely cross-site leg in the whole app, the SSO identity-provider redirect, never carries the session cookie -- it uses its own
  * separate, narrowly-scoped {@code sso_txn} cookie instead (SsoController).
  * {@code /login}, {@code /activate}
  * (a CLIENT completing an admin-issued invite -- see ActivationController), and the actuator
@@ -187,6 +196,11 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(csrfTokenRepository)
                         .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                        // Spring rotates the token (expiring the cookie) whenever a request authenticates. Every
+                        // signed-in request authenticates afresh here (the JWT filter, no HttpSession), so by
+                        // default every one of them deleted the browser's token and a busy page raced itself.
+                        // Rotation is a session-fixation defense for a login that creates a session; there is none.
+                        .sessionAuthenticationStrategy((authentication, request, response) -> { })
                         .ignoringRequestMatchers(headerCredentialRequests()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(exceptions -> exceptions
