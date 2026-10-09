@@ -117,7 +117,7 @@
 			<artifactId>onnxruntime</artifactId>
 			<!-- The version the export scripts verify ONNX-vs-LightGBM parity with. 1.22 took over ten minutes
 			     to build a session for the survival model (218k category-equality nodes); this takes under a second. -->
-			<version>1.29.0</version>
+			<version>1.30.0</version>
 		</dependency>
 		<dependency>
 			<groupId>dev.samstevens.totp</groupId>
