@@ -47,10 +47,10 @@ class RegimeForecastServiceTest {
     @Test
     void reportsTheAgeOfItsData() throws Exception {
         RegimeForecastService.RegimeForecast inOctober = at("2026-10-15T00:00:00Z").forecast(1);
-        assertEquals("2026-03-01", inOctober.asOfMonth());
-        assertEquals(7, inOctober.dataAgeMonths());
-        assertEquals(0, at("2026-03-20T00:00:00Z").forecast(1).dataAgeMonths());
-        assertEquals("2026-04-01", inOctober.forecastMonth());
+        assertEquals("2025-09-01", inOctober.asOfMonth());
+        assertEquals(13, inOctober.dataAgeMonths());
+        assertEquals(0, at("2025-09-20T00:00:00Z").forecast(1).dataAgeMonths());
+        assertEquals("2025-10-01", inOctober.forecastMonth());
     }
 
     @Test

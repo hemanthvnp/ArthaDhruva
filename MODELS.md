@@ -150,7 +150,7 @@ from the results above.)
 - Loans are observed for at most about nine years; beyond that the dependence on loan age is held at its
   last fitted level.
 - One stress episode (2020-06 to 2022-06) defines the stressed regime, and the regime chain is estimated
-  from 99 months. An expected stress spell of 37 months and a long-run stressed share of 35% are
+  from 99 months. An expected stress spell of 25 months and a long-run stressed share of 26% are
   uncertain, and the baseline lifetime PD inherits that uncertainty.
 - The model conditions on origination attributes and macro drivers, not on current delinquency status,
   so it understates the risk of a loan that is already past due.
@@ -266,6 +266,24 @@ that probability. Taking the severity from the ECL carries the amortization, the
 month-by-month LGD into the simulation and makes the simulated mean exactly the 12-month ECL: expected
 and unexpected loss are statements about the same loss. The asset correlation (0.15 by default, the
 Basel value for residential mortgages) is an input, not an estimate from this data.
+
+## Time-series and sequence diagnostics
+
+**Seasonality.** `backend/experiments/sarimax_seasonality.py` tests the portfolio 90+ delinquency series
+(99 months, 54 to fit) for seasonality and stationarity. There is none to remove: STL seasonal strength is
+0.0, month-of-year effects are not significant (F-test p = 0.50), and every seasonal variant forecasts the
+out-of-time months worse than the base AR(1)+trend (MAE 0.00333; ratio-index deseasonalising 0.00378,
+Fourier terms 0.00371, seasonal AR(12) 0.00462). The survival model's inputs are already seasonally
+adjusted or year-on-year (state unemployment is the FRED seasonally adjusted series; house prices and
+unemployment enter as 12-month changes), and calendar month was tested and rejected above.
+
+**Regime chain.** `backend/experiments/hmm_stability.py` shows that the shipped chain was fitted on six
+months after the panel's coverage cliff (2025-10 onward, where n_active collapses). Trimmed, the
+stressed-to-stressed probability is 0.960 instead of 0.973, the expected stress spell 25 months instead of
+37, and the stressed share 25% instead of 35%. `export_hmm.py` now trims the cliff and `hmm_regime.json`, `survival_model.json` and the golden fixtures
+were regenerated from the trimmed chain (as of 2025-09). The survival ONNX is bit-identical to before (same
+sha256), so only the regime chain in the card moved. Sampling error is larger than that correction: from 1 + 1 observed regime
+switches, a 90% interval on the stress spell is 6 to 73 months.
 
 ## How the numbers are checked
 
