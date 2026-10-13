@@ -9,9 +9,10 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 
-# Claude Code local session state
+# Claude Code local session state and working notes
 .claude/
 CLAUDE.md
+PLAN.md
 
 # Logs / scratch
 *.log
