@@ -1,6 +1,6 @@
 package com.arthadhruva.riskengine.governance;
 
-import com.arthadhruva.riskengine.cache.CacheService;
+import com.arthadhruva.riskengine.cache.RefreshAheadCache;
 import com.arthadhruva.riskengine.score.LoanCatalogService;
 import com.arthadhruva.riskengine.score.LoanFeatures;
 import com.arthadhruva.riskengine.score.LoanScoreService;
@@ -28,10 +28,10 @@ public class ModelGovernanceController {
     private final DriftService drift;
     private final LoanCatalogService catalog;
     private final LoanScoreService scores;
-    private final CacheService cache;
+    private final RefreshAheadCache cache;
 
     public ModelGovernanceController(ModelRegistry registry, DriftService drift, LoanCatalogService catalog,
-                                     LoanScoreService scores, CacheService cache) {
+                                     LoanScoreService scores, RefreshAheadCache cache) {
         this.registry = registry;
         this.drift = drift;
         this.catalog = catalog;
@@ -57,17 +57,15 @@ public class ModelGovernanceController {
 
     /**
      * Population stability of this organization's portfolio against the PD model's training population.
-     * Cached for ten minutes per organization: it reads the whole portfolio.
+     * Cached for ten minutes per organization, and recomputed in the background while it is still being
+     * read: it reads the whole portfolio, which no caller should wait for twice.
      */
     @GetMapping("/models/pd_24m/drift")
     public DriftService.DriftReport drift() {
         Long tenantId = TenantContext.get();
-        String key = "drift:" + tenantId;
-        return cache.get(key, DriftService.DriftReport.class).orElseGet(() -> {
+        return cache.get("drift:" + tenantId, DriftService.DriftReport.class, DRIFT_CACHE_TTL, () -> {
             List<LoanFeatures> loans = catalog.all().stream().map(LoanFeatures::normalized).toList();
-            DriftService.DriftReport report = drift.report(loans, scores.recentProbabilities(tenantId, MAX_SCORES));
-            cache.put(key, report, DRIFT_CACHE_TTL);
-            return report;
+            return drift.report(loans, scores.recentProbabilities(tenantId, MAX_SCORES));
         });
     }
 }

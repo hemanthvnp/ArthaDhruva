@@ -73,4 +73,28 @@ public class CacheService {
         log.warn("Failed to read cache key {} (circuit open or Redis error)", key, t);
         return Optional.empty();
     }
+
+    /** How long {@code key} has left; empty when it is absent, has no expiry, or Redis cannot say. */
+    @CircuitBreaker(name = "redis", fallbackMethod = "remainingTtlFallback")
+    @Bulkhead(name = "redis")
+    public Optional<Duration> remainingTtl(String key) {
+        Long millis = redisTemplate.getExpire(key, java.util.concurrent.TimeUnit.MILLISECONDS);
+        return millis == null || millis < 0 ? Optional.empty() : Optional.of(Duration.ofMillis(millis));
+    }
+
+    @SuppressWarnings("unused")   // called by Resilience4j by name
+    private Optional<Duration> remainingTtlFallback(String key, Throwable t) {
+        return Optional.empty();
+    }
+
+    @CircuitBreaker(name = "redis", fallbackMethod = "evictFallback")
+    @Bulkhead(name = "redis")
+    public void evict(String key) {
+        redisTemplate.delete(key);
+    }
+
+    @SuppressWarnings("unused")   // called by Resilience4j by name
+    private void evictFallback(String key, Throwable t) {
+        log.warn("Failed to evict cache key {} (circuit open or Redis error)", key, t);
+    }
 }
