@@ -211,11 +211,16 @@ class TermStructureEngineTest {
     @Test
     void reportsDriversOutsideTheTrainingRange() {
         List<TermStructureEngine.Extrapolation> severe = project(prime(), Scenario.SEVERELY_ADVERSE).extrapolations();
-        assertTrue(severe.stream().anyMatch(e -> e.driver().equals("hpi_change_12m") && e.direction().equals("below")),
-                "a 25% house-price fall was never observed in training");
+        assertTrue(severe.stream().noneMatch(e -> e.driver().equals("hpi_change_12m")),
+                "a 25% fall over two years is inside what the 2006-2008 vintages lived through");
         assertTrue(severe.stream().anyMatch(e -> e.driver().equals("loan_age") && e.direction().equals("above")),
                 "no vintage in training has been observed for 30 years");
         severe.forEach(e -> assertTrue(e.months() > 0 && e.firstMonth() != null));
+
+        Scenario collapse = new Scenario("COLLAPSE", "", 0, 0.0, 12, 0, 50.0, 12, 2.0, 0.0);
+        List<TermStructureEngine.Extrapolation> beyond = project(prime(), collapse).extrapolations();
+        assertTrue(beyond.stream().anyMatch(e -> e.driver().equals("hpi_change_12m") && e.direction().equals("below")),
+                "prices halving in a year is steeper than any 12 months in training");
     }
 
     @Test

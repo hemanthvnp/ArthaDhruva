@@ -17,8 +17,8 @@ Protocol
   1. Validation fit on loan-months before 2023-01; out-of-time metrics on 2023-01 onwards.
   2. Drift overlay, validated out-of-time: the ratio of realized to predicted hazard over the first 18
      out-of-time months is applied to the months after them. A cause is eligible for the overlay only if
-     that moved its later months closer to reality (it does for default, whose drift persists; it does
-     not for prepayment, whose drift follows the rate cycle and reverses).
+     that moved its later months closer to reality (it does for default, whose drift persists; for
+     prepayment, whose drift follows the rate cycle, the outcome has differed between exports -- see the card).
   3. Production fit on every month (loans held out by id for early stopping and for step 4). The overlay
      is re-estimated on held-out loans over the latest 24 months and applied only where the cause is
      eligible and the ratio differs from 1 by more than two standard errors.
@@ -26,8 +26,14 @@ Protocol
      and per origination year the predicted cumulative incidence (using the macro path that actually
      happened) against the empirical Aalen-Johansen estimate.
 
+Data: the 2017-2026 sample (build_survival_dataset.py) and the 2006-2008 vintages' months up to 2016-12
+(build_crisis_dataset.py). The second is the only housing downturn in the data; it was added after
+experiments/pooled_candidate.py showed that under this protocol it lowers the out-of-time log loss on 2023
+onwards (0.035984 against 0.036028, loan-level bootstrap interval of the difference excluding zero) and
+experiments/cross_crisis.py that the 2017-2026 fit under-predicts 2009-2011 defaults by 40 to 70%.
+
 Writes survival_model.onnx, survival_model.json, survival_backtest.json and macro_state.json to the
-resources directory. Run from backend/ after build_survival_dataset.py and fetch_macro.py.
+resources directory. Run from backend/ after build_survival_dataset.py, build_crisis_dataset.py and fetch_macro.py.
 """
 from __future__ import annotations
 
@@ -54,6 +60,9 @@ FEATURES = MODEL_ORIGINATION + TIME_VARYING
 CLASSES = ["continue", "default", "prepay"]
 CAUSES = {"default": 1, "prepay": 2}
 TEST_START = 2023 * 12            # month index of 2023-01
+CRISIS = SURVIVAL.parent / "survival_crisis"   # the 2006-2008 vintages (build_crisis_dataset.py)
+CRISIS_END = 2016 * 12 + 11       # 2016-12: their months stop where the 2017-2026 sample's begin
+CRISIS_YEARS = [2006, 2007, 2008]
 PROTOCOL_OVERLAY_MONTHS = 18      # out-of-time months the validation run estimates the overlay on
 OVERLAY_MONTHS = 24               # window of recent experience behind the production overlay
 # deterministic + force_row_wise make an export reproducible bit for bit (see export_model.py).
@@ -64,14 +73,28 @@ PARAMS = dict(objective="multiclass", num_class=3, learning_rate=0.05, num_leave
 
 LIMITATIONS = [
     "Default means the first month 90 or more days past due (or REO, or an adverse termination). Most such loans later cure or are repaid from a sale; that is why loss given default is small, and why COVID-19 forbearance shows up as a wave of defaults.",
-    "The data (2017-2026) contains no housing downturn: over the training rows the 12-month change in state house prices was never below about -1%. The hazards' response to falling prices is therefore held at the edge of that range; in a house-price scenario the extra loss comes from re-marking the collateral, not from the hazard model. The engine reports every month in which a driver leaves the training range.",
-    "Loans are observed for at most about nine years. Beyond that the hazard's dependence on loan age is held at its last fitted level, so lifetime figures for long-dated loans rest on that assumption.",
-    "One stress episode (2020-06 to 2022-06) defines the stressed regime, and the regime chain is estimated from 99 months: an expected stress spell of about 37 months and a long-run stressed share of about 35% are uncertain, and the baseline lifetime PD inherits that uncertainty.",
+    "The only housing downturn in the data is the one the 2006-2008 vintages lived through (their months to 2016-12); the 2017-2026 sample contains none. The response to falling prices and to loans under water therefore rests on one downturn and on loans originated just before it: the training rows span 12-month changes in state house prices from {hpi_low:.0%} and mark-to-market LTV up to {ltv_high:.0f}%. It has not been tested on a second downturn. The engine reports every month in which a driver leaves the training range.",
+    "Loans are observed for at most about eleven years (the 2006-2008 vintages, to 2016-12; the 2017-2026 sample for at most nine), and 99.5% of the training months lie within {age_high:.0f} months of origination. Beyond that the hazard's dependence on loan age is held at its last fitted level, so lifetime figures for long-dated loans rest on that assumption.",
+    "One stress episode (2020-06 to 2022-06) defines the stressed regime, and the regime chain is estimated from 99 months: the expected stress spell ({spell:.0f} months) and the long-run stressed share ({share:.0%}) are uncertain, and the baseline lifetime PD inherits that uncertainty. The regime series starts in 2017, so 2008-2012 is not labelled stressed: that downturn reaches the hazards through house prices, unemployment and mark-to-market LTV, and a scenario's forced stress months add the COVID-type effect only.",
     "The model conditions on origination attributes and macro drivers, not on a loan's current delinquency status, so it understates the risk of a loan that is already past due.",
     "The property's state is a feature. Geography can stand in for protected characteristics, so a lender using these figures in credit decisions must test for disparate impact on its own portfolio.",
-    "Prepayment drift is not corrected: it follows the rate cycle and reverses, and correcting it made later months worse in the out-of-time protocol.",
+    "{prepay_note}",
     "Trained on agency-conforming fixed-rate mortgages; not validated for other products.",
 ]
+
+
+def prepay_note(trial: dict, applied: dict) -> str:
+    """The prepayment limitation, worded for what this export's protocol found."""
+    moved = f"later months moved from {trial['actual_over_predicted_before']:.3f} to {trial['actual_over_predicted_after']:.3f} of realized"
+    if not trial["eligible"]:
+        return ("Prepayment drift is not corrected: it follows the rate cycle and reverses, and correcting it made later months "
+                f"worse in the out-of-time protocol ({moved}).")
+    if not applied["applied"]:
+        return ("Prepayment drift is not corrected: a correction carried forward in the out-of-time protocol "
+                f"({moved}), but the recent ratio is within two standard errors of 1.")
+    return ("Prepayment drift follows the rate cycle and can reverse. In this export's out-of-time protocol a correction carried "
+            f"forward, narrowly ({moved}), so the prepayment hazard is scaled by {applied['scalar']:.4f}; in the previous "
+            "export (2017-2026 only) the same test failed and no scalar was applied.")
 
 
 def month_label(m: int) -> str:
@@ -201,11 +224,17 @@ def main() -> None:
     rows = pl.read_parquet(str(SURVIVAL / "rows" / "*.parquet"))
     before = rows.height
     rows = rows.filter(~pl.col("month").is_in(finals))
+    left_out = before - rows.height
+    crisis_loans = pl.read_parquet(str(CRISIS / "loans" / "*.parquet")).with_columns(
+        bucket=loan_bucket(pl.col("loan_sequence_number"))).sort("loan_sequence_number")
+    crisis_rows = pl.read_parquet(str(CRISIS / "rows" / "*.parquet")).filter(pl.col("month") <= CRISIS_END)
+    print(f"2006-2008 vintages: {crisis_loans.height:,} loans, {crisis_rows.height:,} loan-month rows to {month_label(CRISIS_END)}", flush=True)
+    rows = pl.concat([crisis_rows, rows], how="vertical_relaxed")
     # A fixed row order: joins do not guarantee one, and bagging picks rows by position, so without the
     # sort the same data could train a different model on each run.
     rows = featurize(rows, pl.col("month") - pl.col("loan_age").cast(pl.Int32), mappings).with_columns(
         bucket=loan_bucket(pl.col("loan_sequence_number"))).sort(["loan_sequence_number", "loan_age"])
-    print(f"loan-month rows: {rows.height:,} ({before - rows.height:,} in release-final months "
+    print(f"loan-month rows: {rows.height:,} ({left_out:,} in release-final months "
           f"{[month_label(m) for m in finals]} left out); every vintage reports through {month_label(coverage_end)}", flush=True)
 
     # 1) Validation fit: nothing from 2023 onwards is seen.
@@ -312,8 +341,13 @@ def main() -> None:
         (pl.col("orig_month") + pl.col("last_age")).max().alias("data_end"))
     holdout = loans.filter(pl.col("bucket") <= 1).join(data_end, on=["orig_year", "orig_quarter"]).with_columns(
         observable=(pl.col("data_end") - pl.col("orig_month"))).sort("loan_sequence_number")
+    # the 2006-2008 vintages are followed to the last month they are fitted on
+    cohort_columns = ["loan_sequence_number", "orig_year", "orig_month", "first_age", "exit_age", "event", "observable", *ORIGINATION]
+    holdout = pl.concat([
+        crisis_loans.filter(pl.col("bucket") <= 1).with_columns(observable=(CRISIS_END - pl.col("orig_month"))).select(cohort_columns),
+        holdout.select(cohort_columns)], how="vertical_relaxed")
     vintages = []
-    for year in range(2017, 2025):
+    for year in [*CRISIS_YEARS, *range(2017, 2025)]:
         cohort = holdout.filter(pl.col("orig_year") == year)
         if cohort.height < 1000:
             continue
@@ -340,8 +374,13 @@ def main() -> None:
     onnx_path = RESOURCES / "survival_model.onnx"
     export_onnx(booster, len(FEATURES), onnx_path, matrix(test.sample(n=50_000, seed=1)))
 
+    fitted_range = envelope(train)
+    facts = {"hpi_low": fitted_range["hpi_change_12m"][0], "ltv_high": fitted_range["mtm_ltv"][1],
+             "age_high": fitted_range["loan_age"][1], "prepay_note": prepay_note(protocol["prepay"], overlay["prepay"])}
     hmm = json.loads((RESOURCES / "hmm_regime.json").read_text())
     macro = pl.read_parquet(SURVIVAL / "macro.parquet")
+    p_cs, p_sc = hmm["transition_matrix"][0][1], hmm["transition_matrix"][1][0]  # calm->stressed, stressed->calm
+    spell, share = 1.0 / p_sc, p_cs / (p_cs + p_sc)  # expected stress spell, stationary stressed share
     regime_as_of = int(hmm["as_of_month"][:4]) * 12 + int(hmm["as_of_month"][5:7]) - 1
     overlay_window = [month_label(coverage_end - OVERLAY_MONTHS + 1), month_label(coverage_end)]
     write_json(RESOURCES / "survival_model.json", {
@@ -360,11 +399,14 @@ def main() -> None:
                     "stressed_periods": stressed_periods(macro, regime_as_of)},
         "training": {"rows": int(train.height), "loans": int(train["loan_sequence_number"].n_unique()),
                      "months": [month_label(int(rows["month"].min())), month_label(int(rows["month"].max()))],
+                     "samples": {"2006-2008 vintages": [month_label(int(crisis_rows["month"].min())), month_label(CRISIS_END)],
+                                 "2017-2026 vintages": [month_label(int(rows.filter(pl.col("month") > CRISIS_END)["month"].min())),
+                                                        month_label(int(rows["month"].max()))]},
                      "months_left_out": [month_label(m) for m in finals],
                      "all_vintages_through": month_label(coverage_end),
                      "held_out_loans": int(held["loan_sequence_number"].n_unique()),
                      "case_control_note": "no-event loan-months subsampled at 10% with weight 10",
-                     "envelope": envelope(train)},
+                     "envelope": fitted_range},
         "hyperparameters": {k: v for k, v in PARAMS.items() if k != "verbose"} | {"best_iteration": best_iteration},
         "validation": {"out_of_time": metrics, "overlay_protocol": protocol},
         "overlay": {
@@ -376,9 +418,9 @@ def main() -> None:
                     "standard errors from 1",
         },
         "scenario_defaults": {"hpi_annual_growth": 0.03, "unemployment": "flat at latest", "market_rate": "flat at latest"},
-        "limitations": LIMITATIONS,
+        "limitations": [t.format(spell=spell, share=share, **facts) if "{" in t else t for t in LIMITATIONS],
         "target": "first month 90+ days past due, REO acquisition or adverse zero-balance termination (default); zero-balance payoff (prepayment)",
-        "population": "Freddie Mac single-family fixed-rate loans, stratified random sample of 40,000 loans per origination quarter, 2017-2026",
+        "population": "Freddie Mac single-family fixed-rate loans, random sample of 40,000 loans per origination quarter: 2017-2026, and 2006-2008 followed to 2016-12",
         "algorithm": "LightGBM multiclass gradient-boosted trees on loan-months (discrete-time competing-risks hazard)",
         "artifact_sha256": sha256(onnx_path),
     })

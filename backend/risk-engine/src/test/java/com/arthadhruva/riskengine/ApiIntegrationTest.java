@@ -635,7 +635,7 @@ class ApiIntegrationTest extends AbstractIntegrationTest {
 
         JsonNode backtest = body(call(get("/v1/models/survival/backtest"), ana, null));
         assertTrue(backtest.get("monthly").size() > 60);
-        assertEquals(8, backtest.get("vintages").size());
+        assertEquals(11, backtest.get("vintages").size());  // 2006-2008 and 2017-2024
 
         JsonNode drift = body(call(get("/v1/models/pd_24m/drift"), ana, null));
         assertEquals(400, drift.get("loans").asInt());

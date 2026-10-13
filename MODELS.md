@@ -26,6 +26,9 @@ run one that does not match the checksum its card declares.
 
 Freddie Mac Single-Family Loan-Level Dataset, fixed-rate loans. A stratified random sample of 40,000
 loans per origination quarter, 2017 to 2026, each followed through its full monthly performance history.
+The survival model is also fitted on the 2006 to 2008 vintages (40,000 loans a quarter, 480,000 loans),
+followed to 2016-12: the only housing downturn in the data. Their months end where the 2017 to 2026
+sample's begin. The PD model, the regime series and the loan catalogue use 2017 to 2026 only.
 
 - **Default**: the first month a loan is 90 or more days past due, an REO acquisition, or an adverse
   zero-balance termination (short sale, foreclosure, note sale).
@@ -72,44 +75,113 @@ LTV.
 
 ### Results
 
-Out of time (fitted on 2017-01 to 2022-12, tested on 2,429,834 loan-months from 2023-01):
+Out of time (fitted on 2006-01 to 2022-12, tested on 2,429,834 loan-months from 2023-01):
 
 | Metric | Model | Benchmark (hazard table by loan age) |
 |---|---|---|
-| Weighted log loss | 0.03603 | 0.04671 |
-| Default AUC | 0.7905 | |
-| Prepayment AUC | 0.6618 | |
+| Weighted log loss | 0.03598 | 0.04592 |
+| Default AUC | 0.7943 | |
+| Prepayment AUC | 0.6642 | |
 
 The overlay test (scalar estimated on 2023-01 to 2024-06, judged on 2024-07 to 2025-08):
 
 | Hazard | Scalar tried | Realized / predicted before | After | Carries forward |
 |---|---|---|---|---|
-| Default | x1.252 | 1.467 | 1.172 | Yes |
-| Prepayment | x1.013 | 0.977 | 0.965 | No, it moved further away |
+| Default | x1.208 | 1.362 | 1.127 | Yes |
+| Prepayment | x0.989 | 0.942 | 0.952 | Yes, narrowly |
 
-Default drift persists; prepayment drift follows the rate cycle and reverses, so correcting it makes
-later months worse. In production (held-out loans, 2023-09 to 2025-08), realized over predicted default
-is 1.049 +/- 0.022 on 2,293 events, more than two standard errors from 1, so the default hazard is
-scaled by 1.0495. Prepayment, at 0.986 +/- 0.007, is not eligible and is left alone.
+Default drift persists. Prepayment drift follows the rate cycle and can reverse: in the previous export
+(2017 to 2026 only) the same test moved later months further away (0.977 to 0.965) and no scalar was
+applied; in this one it passes by one point, so treat the prepayment scalar as the weaker of the two. In
+production (held-out loans, 2023-09 to 2025-08), realized over predicted default is 1.060 +/- 0.022 on
+2,293 events, so the default hazard is scaled by 1.0605; prepayment is 0.981 +/- 0.007 on 19,251 events
+and is scaled by 0.981. Both are more than two standard errors from 1.
 
 Vintage backtest on held-out loans: the model's cumulative incidence, given the macro path that actually
 happened, against the Aalen-Johansen estimate of what the loans did.
 
 | Vintage | Loans | Months observed | Default, predicted / realized | Prepayment, predicted / realized |
 |---|---|---|---|---|
-| 2017 | 32,394 | 98 | 6.14% / 5.55% | 71.5% / 71.2% |
-| 2018 | 31,802 | 86 | 5.58% / 5.32% | 76.9% / 76.7% |
-| 2019 | 31,779 | 74 | 5.75% / 5.50% | 68.9% / 68.1% |
-| 2020 | 31,971 | 56 | 2.32% / 2.25% | 35.6% / 34.9% |
+| 2006 | 32,202 | 119 | 14.19% / 13.49% | 78.4% / 78.9% |
+| 2007 | 32,149 | 107 | 15.75% / 15.61% | 76.2% / 75.5% |
+| 2008 | 31,776 | 95 | 9.69% / 9.16% | 81.8% / 82.0% |
+| 2017 | 32,394 | 98 | 6.24% / 5.55% | 71.5% / 71.2% |
+| 2018 | 31,802 | 86 | 5.59% / 5.32% | 77.2% / 76.7% |
+| 2019 | 31,779 | 74 | 5.72% / 5.50% | 68.9% / 68.1% |
+| 2020 | 31,971 | 56 | 2.32% / 2.25% | 35.8% / 34.9% |
 | 2021 | 32,016 | 44 | 1.81% / 1.94% | 15.5% / 15.5% |
-| 2022 | 32,097 | 32 | 2.63% / 3.02% | 13.4% / 13.4% |
-| 2023 | 32,091 | 20 | 1.56% / 1.65% | 14.6% / 14.0% |
-| 2024 | 31,899 | 8 | 0.57% / 0.47% | 4.3% / 4.7% |
+| 2022 | 32,097 | 32 | 2.64% / 3.02% | 13.5% / 13.4% |
+| 2023 | 32,091 | 20 | 1.54% / 1.65% | 14.6% / 14.0% |
+| 2024 | 31,899 | 8 | 0.59% / 0.47% | 4.4% / 4.7% |
 
-Month by month the model follows the June 2020 forbearance spike (180 bp realized, 191 bp predicted).
-By risk decile on held-out loans the default hazard is within about 15% of realized from the fourth
-decile up; the lowest decile is over-predicted (0.56) and the riskiest 1% of loan-months is
-over-predicted (0.82).
+The 2006 to 2008 rows are loans held out of the fit, followed to 2016-12; the years they cover are years
+the model trained on, so they show fit on unseen loans, not on an unseen crisis.
+
+Month by month the model follows the June 2020 forbearance spike (180 bp realized, 193 bp predicted) and
+the 2009 to 2010 peak (47 bp realized and predicted in 2010-01). By risk decile on held-out loans over
+the latest 24 months, realized over predicted default is between 0.94 and 1.14 in seven deciles; the
+lowest decile is over-predicted (0.82), the fourth and fifth are under-predicted (1.27 and 1.28), and the
+riskiest 1% of loan-months is over-predicted (0.81).
+
+### Why the 2006 to 2008 vintages are in the fit
+
+Until 2026-10-13 the model was fitted on 2017 to 2026 only, whose one stress is COVID-19 forbearance: an
+income shock with rising house prices. Three experiments under `backend/experiments/` decided the change;
+every figure is on loans no model trained on.
+
+**Neither crisis teaches the other** (`cross_crisis.py`). The 2017 to 2026 model, scored on the 2006 to
+2008 vintages, under-predicts default by 18% in 2008, 40% in 2009 and 69% in 2010 (12,259 events; AUC
+falls from 0.80 to 0.65 as the crisis ages), and 56% of those loan-months have a house-price change below
+anything it was fitted on. A model fitted only on the 2006 to 2008 vintages over-predicts 2017 to 2020 by
+a factor of 2.5 and misses COVID-19 by half.
+
+**The pooled fit is better where both can be measured** (`pooled_candidate.py`, `era_candidate.py`; the
+shipped out-of-time protocol, nothing from 2023-01 onwards seen):
+
+| | 2017 to 2026 only | Pooled (shipped) | Pooled + pre-2009 flag |
+|---|---|---|---|
+| Out-of-time log loss | 0.036028 | 0.035984 | 0.035989 |
+| Default AUC / prepayment AUC | 0.7905 / 0.6618 | 0.7943 / 0.6642 | 0.7948 / 0.6625 |
+| Realized / predicted default, out of time | 1.35 | 1.28 | 1.38 |
+| Same, score < 680 and LTV >= 90 (812 events) | 1.11 | 1.06 | 1.11 |
+| Same, where the model predicts 4% a month or more (held-out, before 2023) | 0.75 | 0.82 | 0.79 |
+| Default hazard at a -20% house-price change / at 0% | 1.00 | 1.30 | 1.26 |
+| Default hazard at mark-to-market LTV 130 / at 100 | 1.00 | 1.30 | 1.26 |
+| Realized / predicted default, 2006 to 2008 loans, by year 2007 to 2013 | 1.36 to 2.57 | 0.89 to 1.05 | 0.89 to 1.01 |
+
+The log-loss difference is small (-0.000044) and its loan-level bootstrap interval excludes zero
+(-0.000052 to -0.000037 over 842,867 loans). The refit of the previous model reproduced its card's log
+loss to every digit, so the comparison is like for like.
+
+**It is not wrong about the crisis.** For the riskiest loans the model can be checked against (2007
+vintage, score below 660, LTV 95 or more, in FL, CA, AZ or NV; 71 held-out loans) it predicts 26% default
+within 12 months, 49% within 24 and 78% within 8 years; they realized 31%, 55% and 83%.
+
+**It was exported, withdrawn the same day and reinstated**, and the reason is worth keeping. The first
+export moved stressed figures a great deal (a new loan with score 640 and LTV 95 under SEVERELY_ADVERSE:
+12-month PD 9% to 56%), which looked unbelievable, and two quick checks seemed to confirm a fault: the
+model over-predicts its highest hazards, and recent first-year loans with score below 660 and LTV 95 or
+more realize 0.71 of what it predicts. Neither held. The first check had not been run on the previous
+model, which is worse there (0.75 against 0.82). The second rested on 20 events; on 812 out-of-time events
+the pooled fit is the better calibrated. And loans of that kind did default at 31% to 38% a year in
+2008 to 2009.
+
+**A flag for loans originated before 2009 was tried and not used.** It does what it was meant to (the
+same risky new loan's baseline 12-month PD is 10% with the flag, 17.5% without, 9% in the previous
+model, hazards unscaled), but it improves nothing that can be measured out of time, and it would add an
+input the Java engine has to build. No segment narrow enough to settle which baseline is right has
+enough events.
+
+What changed in the engine's outputs (the golden cases, previous model to this one):
+
+| Loan, scenario | 12-month PD | Lifetime PD | Lifetime ECL |
+|---|---|---|---|
+| Prime, baseline | 0.18% to 0.31% | 2.25% to 2.72% | 38 to 51 |
+| Prime, severely adverse | 1.60% to 1.08% | 6.09% to 7.25% | 561 to 997 |
+| Seasoned, 45 days past due, adverse | 0.92% to 1.26% | 3.72% to 4.79% | 64 to 88 |
+| Risky, baseline | 6.73% to 8.31% | 28.7% to 29.4% | 451 to 488 |
+| Risky, severely adverse | 14.6% to 35.2% | 56.4% to 69.7% | 891 to 1,336 (stage 1 to 2) |
+| High-LTV investor, severely adverse | 14.4% to 31.7% | 54.5% to 73.7% | 36,668 to 58,109 |
 
 ### What was tried and rejected
 
@@ -132,23 +204,37 @@ tested with the same hyperparameters and left out, for reasons the headline metr
 An isotonic recalibration of the hazards was also implemented and removed: it distorted the response to
 stress scenarios, and the refit on every month is already calibrated.
 
-(The table was produced before the release-final months were excluded, so its base row differs slightly
-from the results above.)
+(The table was produced on the 2017 to 2026 sample alone and before the release-final months were
+excluded, so its base row differs from the results above.)
 
 ### Known limitations
 
 - Default is the first time a loan is 90 days past due. Most such loans later cure or are repaid from a
   sale, which is why loss given default is small, and why COVID-19 forbearance appears as a wave of
   defaults.
-- The data contains no housing downturn: over the training rows the 12-month change in state house
-  prices was never below about -1%. The hazards' response to falling prices is held at the edge of that
-  range; in a house-price scenario the extra loss comes from re-marking the collateral, not from the
-  hazard model. Every projection reports the months in which a driver leaves the training range
-  (loan age 0 to 96 months, rate incentive -4.75 to +2.53 points, unemployment 2.2% to 16.1%, its
-  12-month change -9.1 to +12.0 points, house prices -1.1% to +28.1% over 12 months, mark-to-market LTV
-  12.6% to 95.5%).
-- Loans are observed for at most about nine years; beyond that the dependence on loan age is held at its
-  last fitted level.
+- The only housing downturn in the data is the one the 2006 to 2008 vintages lived through (their months
+  to 2016-12). The response to falling prices and to loans under water rests on that one downturn and on
+  loans originated just before it, and has not been tested on a second. Every projection reports the
+  months in which a driver leaves the training range (loan age 0 to 107 months, rate incentive -4.67 to
+  +3.34 points, unemployment 2.3% to 15.7%, its 12-month change -8.1 to +11.8 points, house prices -20.2%
+  to +27.4% over 12 months, mark-to-market LTV 13.1% to 121.6%).
+- A 2006 loan and a 2024 loan with the same score, LTV and DTI were not the same risk: underwriting
+  changed after 2008, and the macro drivers of 2006 look like today's, so the model cannot tell the two
+  apart. Out of time it is not over-predicting recent risky loans (1.06 on 812 events), but for a single
+  extreme new loan the baseline may lean on 2006 experience, and no segment that narrow has the events to
+  check it.
+- A scenario's forced stress months set the COVID-type regime, and a fall in house prices then acts on
+  top of it. No training month contains both (the regime series starts in 2017, so 2008 to 2012 is not
+  labelled stressed). For a new loan with score 640 and LTV 95 under SEVERELY_ADVERSE the price and
+  unemployment path alone gives a 12-month PD of 44%; the forced regime takes it to 56%.
+- About 45% of the 2006 to 2008 loan-months carry an origination channel code (third party, not
+  specified) that the category encoding, built from 2017 to 2026, does not know; they are fitted as
+  "missing".
+- Loans are observed for at most about eleven years (the 2006 to 2008 vintages; the 2017 to 2026 sample
+  for nine), and 99.5% of the training months lie within 107 months of origination; beyond that the
+  dependence on loan age is held at its last fitted level.
+- The model is about twice the size of the previous one (1,392 boosting rounds against 596, ONNX 34.8 MB
+  against 16.4 MB) and a projection costs about twice as much; see PERFORMANCE.md.
 - One stress episode (2020-06 to 2022-06) defines the stressed regime, and the regime chain is estimated
   from 99 months. An expected stress spell of 25 months and a long-run stressed share of 26% are
   uncertain, and the baseline lifetime PD inherits that uncertainty.
@@ -235,11 +321,15 @@ lifetime ECL from day one.
 
 The two stress scenarios are illustrative, in the style of supervisory scenarios, not a regulator's.
 
-One behaviour of the rate scenarios is worth knowing before reading their results. In the data, loans
-whose note rate is far below the market rate default less: their borrowers are locked into cheap debt.
-The model has learned that, so a +200 bp shock lowers the default hazard as well as slowing prepayment,
-and a loan's lifetime PD can fall even though it stays on the book longer. That is an association
-observed over 2017 to 2026, not a causal estimate of what a rate shock does.
+One behaviour of the rate scenarios is worth knowing before reading their results. A rate shock acts
+mostly through prepayment. For a new prime loan, +200 bp cuts lifetime prepayment from 96% to 84%, so
+more of the loan's life is exposed and lifetime PD rises from 2.7% to 3.8%; -200 bp prepays it almost at
+once and lifetime PD falls to 0.5%. The 12-month default hazard moves little and not in one direction:
+0.31% to 0.28% for that loan at +200 bp, but 0.33% to 0.40% for a seasoned loan at a 3% note rate, which
+also rises (to 0.45%) at -200 bp. Under the previous model, fitted on 2017 to 2026 only, a +200 bp shock
+lowered the default hazard (borrowers locked into cheap debt defaulted less); with the 2006 to 2008
+vintages in the fit that no longer holds across loans. These are associations in the data, not causal
+estimates of what a rate shock does.
 
 ## Portfolio
 
@@ -295,7 +385,7 @@ switches, a 90% interval on the stress spell is 6 to 73 months.
 | The loss simulation matches the exact finite-portfolio distribution, and the closed-form limit for a granular portfolio | `CvarEngineTest` |
 | Tail contributions sum to expected shortfall; importance sampling more than halves the interval | `CvarEngineTest` |
 | The portfolio totals equal the sum of the loans, on any number of threads, to the bit | `PortfolioRiskEngineTest` |
-| The ONNX graph reproduces the LightGBM booster (3.7e-7 absolute) | `export_survival_model.py` |
+| The ONNX graph reproduces the LightGBM booster (5.1e-7 absolute) | `export_survival_model.py` |
 
 ## Reproducing the artifacts
 
@@ -303,6 +393,7 @@ switches, a 90% interval on the stress spell is 6 to 73 months.
 cd backend
 python fetch_macro.py              # FRED series, cached locally
 python build_survival_dataset.py   # the sample and its loan-month rows
+python build_crisis_dataset.py     # the 2006-2008 vintages, read from their archives
 python export_survival_model.py    # survival model, card, backtest, macro snapshot
 python export_model.py             # PD model, calibration, card, drift reference
 python golden_term_structure.py    # reference outputs for the Java golden test

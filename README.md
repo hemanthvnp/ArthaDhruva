@@ -1,7 +1,7 @@
 # ArthaDhruva
 
 A credit risk platform for mortgage lenders, built on the Freddie Mac Single-Family Loan-Level Dataset
-(2017 to 2026 vintages). It answers three questions about a loan book: how likely each loan is to
+(2017 to 2026 vintages, and 2006 to 2008 for the housing downturn). It answers three questions about a loan book: how likely each loan is to
 default and why, what the book is expected to lose over a year and over its life (IFRS 9 and CECL), and
 how much worse than expected a bad year can be.
 

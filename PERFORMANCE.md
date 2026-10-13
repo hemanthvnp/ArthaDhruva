@@ -67,6 +67,14 @@ Measured with JMH on the real model artifacts (one idle desktop core, full tiere
 | One loan's term structure to maturity (720 model rows) | 52.6 ms |
 | Loss simulation, 1,000 loans x 20,000 scenarios, 1 thread / 4 threads | 145 ms / 53 ms |
 
+These were measured before the survival model was re-exported with the 2006 to 2008 vintages
+(2026-10-13). That model has 1,392 boosting rounds against 596 and its ONNX file is 34.8 MB against
+16.4 MB, and the time is inside ONNX Runtime, so every term-structure figure in this section should be
+read as roughly doubled until the benchmark is rerun: the engine test classes took 2.0 to 2.2 times as
+long on the same machine (`TermStructureEngineTest` 1.8 s to 4.0 s, `PortfolioRiskEngineTest` 10.5 s to
+21.9 s), and the region tests about three times (`DecisionServiceTest` 22 s to 68 s). The JMH benchmark
+and the k6 smoke test have not been rerun against it.
+
 A projection is about 73 microseconds per model row, nearly all inside ONNX Runtime, so a new 30-year
 loan under three scenarios costs around 150 ms and a portfolio of thousands costs minutes of CPU. That
 arithmetic is the design: a portfolio run is a background job with a progress row and a heartbeat, a
