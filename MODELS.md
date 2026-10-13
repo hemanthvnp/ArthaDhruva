@@ -375,6 +375,13 @@ were regenerated from the trimmed chain (as of 2025-09). The survival ONNX is bi
 sha256), so only the regime chain in the card moved. Sampling error is larger than that correction: from 1 + 1 observed regime
 switches, a 90% interval on the stress spell is 6 to 73 months.
 
+**Trajectory LSTM.** Retrained with a vintage split (fit on 2020-2021 originations, judged on 2022-2023),
+standardisation from real months only, and Platt calibration folded into the final layer (card:
+`lstm_card.json`). Before this, the served probability averaged 0.54 against an actual default rate of
+2.2% (25 times too high) because the loss is class-weighted. Out-of-time now: ROC-AUC 0.676, PR-AUC 0.192,
+predicted / actual 0.97. The 0.713 AUC quoted by the notebook came from a random split. "Ever defaulted" is
+right-censored, so later vintages look safer than they are; the registry entry stays unvalidated.
+
 ## How the numbers are checked
 
 | Check | Where |

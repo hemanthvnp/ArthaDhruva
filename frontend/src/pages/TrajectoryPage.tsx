@@ -201,8 +201,8 @@ export default function TrajectoryPage() {
               </div>
             </div>
             <p className="warn-banner">
-              This score is not calibrated: it ranks payment histories against each other (a worsening history scores
-              higher), but it is not a probability to price or provision on.
+              This probability is calibrated on average (out-of-time, predicted was 0.97 times the actual default rate) but
+              not in every risk band. Use it to rank payment histories and flag the worst; do not price or provision on it.
             </p>
           </>
         )}

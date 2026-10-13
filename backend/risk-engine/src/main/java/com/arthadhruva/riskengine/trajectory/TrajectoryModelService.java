@@ -23,9 +23,9 @@ import java.util.List;
  * script's preprocessing exactly: status parsed-or-sentinel-12, UPB ratio clipped to [0, 5], both
  * standardized with the exported train-set mean/std; the modification flag stays raw 0/1.
  *
- * <p>Unlike {@code ModelService}/{@code EarlyWarningModelService}, this model has no isotonic
- * calibration step -- the sigmoid of its raw logit is used directly -- so {@link #calibrate} is
- * left at the template's identity default.
+ * <p>Unlike {@code ModelService}/{@code EarlyWarningModelService}, there is no separate calibration step:
+ * Platt scaling was folded into the exported final linear layer, so the sigmoid of the raw logit is already
+ * the calibrated probability and {@link #calibrate} is left at the template's identity default.
  */
 @Service
 public class TrajectoryModelService extends AbstractOnnxModelService<TrajectoryRequest, TrajectoryScoreResponse> {
