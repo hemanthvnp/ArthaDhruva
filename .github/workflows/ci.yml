@@ -59,6 +59,36 @@ jobs:
         working-directory: frontend
         run: npm run check:bundle
 
+  branch-policy:
+    # The branching model, checked where a local hook cannot be skipped. staging takes pull requests from
+    # release/* branches only and prod from staging only, and deploy/azure/network/ (extra Azure resources,
+    # dev-only) must never be present on either. Always runs, so it can be a required check.
+    runs-on: ubuntu-latest
+    env:
+      TARGET: ${{ github.base_ref || github.ref_name }}
+      HEAD_BRANCH: ${{ github.head_ref }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Promotions come from the right branch
+        if: github.event_name == 'pull_request'
+        run: |
+          case "$TARGET:$HEAD_BRANCH" in
+            staging:release/*|prod:staging) ;;
+            staging:*) echo "::error::staging takes pull requests from release/* branches only, not '$HEAD_BRANCH'"; exit 1 ;;
+            prod:*)    echo "::error::prod takes pull requests from staging only, not '$HEAD_BRANCH'"; exit 1 ;;
+          esac
+
+      - name: Dev-only files stay off staging and prod
+        run: |
+          case "$TARGET" in staging|prod) ;; *) exit 0 ;; esac
+          found=$(git ls-files -- deploy/azure/network)
+          if [ -n "$found" ]; then
+            echo "::error::deploy/azure/network/ is dev-only and must not reach $TARGET"
+            echo "$found"
+            exit 1
+          fi
+
   deployment-files:
     # The deployment files are code too. A compose file that does not parse, an alert rule that cannot
     # fire or a script with a syntax error is found here, not on the server.
