@@ -62,6 +62,7 @@ class ApiIntegrationTest extends AbstractIntegrationTest {
     @Autowired JwtService jwt;
     @Autowired JdbcTemplate jdbc;
     @Autowired TotpSecretCipher cipher;
+    @Autowired com.arthadhruva.riskengine.score.LoanCatalogService catalog;
 
     private final ObjectMapper json = new ObjectMapper();
     private final String run = UUID.randomUUID().toString().substring(0, 8);
@@ -507,6 +508,57 @@ class ApiIntegrationTest extends AbstractIntegrationTest {
         assertEquals(1, body(call(get("/v1/risk/portfolio/history?scenario=BASELINE"), gus, null)).size(), "same date, one snapshot");
         assertEquals(0, body(call(get("/v1/risk/portfolio/history?scenario=SEVERELY_ADVERSE"), gus, null)).size());
         assertEquals(10, body(call(get("/v1/risk/portfolio/loans"), gus, null)).get("total").asInt());
+    }
+
+    // ---------------------------------------------------------------- attachment download links (valet key)
+
+    @Test
+    void aDownloadLinkGivesExactlyOneAttachmentForAShortTimeWithoutASession() throws Exception {
+        String loanId = catalog.demoLoans().get(0).loanId();
+        byte[] content = "Reviewed: income verified.".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        MvcResult uploaded = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                .multipart("/v1/loans/" + loanId + "/attachments")
+                .file(new org.springframework.mock.web.MockMultipartFile("file", "review.txt", "text/plain", content))
+                .with(csrfOnWrites()).cookie(sessionCookie(ana))).andReturn();
+        assertEquals(201, status(uploaded));
+        long attachmentId = body(uploaded).get("id").asLong();
+        String linkPath = "/v1/loans/" + loanId + "/attachments/" + attachmentId + "/download-link";
+        try {
+            // Asking for a link is subject to the same access rule and tenant boundary as reading the file.
+            assertEquals(401, status(call(post(linkPath), null, null)));
+            assertEquals(404, status(call(post(linkPath), bea, null)), "another organization's analyst has no such attachment");
+            JsonNode link = body(call(post(linkPath), ana, null));
+            assertEquals(60, link.get("expiresInSeconds").asInt());
+            String token = link.get("downloadToken").asString();
+
+            // The token alone fetches the file: no session cookie on this request.
+            MvcResult fetched = mvc.perform(get(link.get("path").asString()).param("token", token)).andReturn();
+            assertEquals(200, status(fetched));
+            assertEquals("Reviewed: income verified.", fetched.getResponse().getContentAsString());
+            assertTrue(fetched.getResponse().getHeader("Content-Disposition").startsWith("attachment"));
+            assertEquals("no-store", fetched.getResponse().getHeader("Cache-Control"));
+
+            // It is a credential for that file only: not a session, and nothing else is accepted in its place.
+            assertEquals(401, status(call(get("/v1/loans"), token, null)), "a link token is never a session");
+            assertEquals(403, status(mvc.perform(get("/v1/attachment-downloads").param("token", ana)).andReturn()),
+                    "a session token is not a download link");
+            assertEquals(403, status(mvc.perform(get("/v1/attachment-downloads").param("token", token + "x")).andReturn()));
+            String expired = jwt.issueClaimsToken("attachment-download", java.time.Duration.ofSeconds(-5),
+                    Map.of("org", alpha.getId(), "loan", loanId, "att", attachmentId));
+            assertEquals(403, status(mvc.perform(get("/v1/attachment-downloads").param("token", expired)).andReturn()));
+
+            // The audit trail records who asked for the link, never the link itself.
+            String audited = inTenant(alpha, () -> jdbc.queryForObject("SELECT response_json FROM model_invocation_events "
+                    + "WHERE tenant_id = ? AND endpoint = 'LoanAttachmentController.downloadLink' AND actor = 'ana' "
+                    + "ORDER BY occurred_at DESC LIMIT 1", String.class, alpha.getId()));
+            assertFalse(audited.contains(token));
+        } finally {
+            assertEquals(204, status(call(delete("/v1/admin/loans/" + loanId + "/attachments/" + attachmentId), adam, null)));
+        }
+        // Once the attachment is gone, a link issued for it leads nowhere.
+        String stale = jwt.issueClaimsToken("attachment-download", java.time.Duration.ofSeconds(60),
+                Map.of("org", alpha.getId(), "loan", loanId, "att", attachmentId));
+        assertEquals(404, status(mvc.perform(get("/v1/attachment-downloads").param("token", stale)).andReturn()));
     }
 
     /**

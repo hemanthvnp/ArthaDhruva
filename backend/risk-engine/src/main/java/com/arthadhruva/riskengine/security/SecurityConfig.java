@@ -215,6 +215,8 @@ public class SecurityConfig {
                         // A client cannot start an ASYNC dispatch; only the server does, for a request it accepted.
                         .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
                         .requestMatchers("/v1/login", "/v1/access-requests", "/v1/sso/**", "/v1/password-reset/request", "/v1/password-reset/complete", "/v1/activate", "/actuator/health", "/actuator/health/**", "/actuator/prometheus", "/error").permitAll()
+                        // A download link's signed, single-attachment token is the credential (LoanAttachmentController).
+                        .requestMatchers(HttpMethod.GET, "/v1/attachment-downloads").permitAll()
                         .requestMatchers("/v1/ingest/**").hasRole("API_INGEST")
                         .requestMatchers("/v1/platform/**").hasRole("PLATFORM_ADMIN")
                         .requestMatchers("/v1/admin/**").hasRole("ADMIN")

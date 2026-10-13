@@ -1,6 +1,11 @@
 package com.arthadhruva.riskengine.workflow;
 
+import com.arthadhruva.riskengine.audit.NotAudited;
+import com.arthadhruva.riskengine.security.JwtService;
 import com.arthadhruva.riskengine.tenant.TenantContext;
+import io.jsonwebtoken.Claims;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
@@ -20,21 +25,38 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
-/** Attachments on a loan's internal review case: ANALYST/ADMIN to upload and read (the default access
- * rule), ADMIN to delete (under /admin/**, so every deletion is an audited admin action). */
+/**
+ * Attachments on a loan's internal review case: ANALYST/ADMIN to upload and read (the default access
+ * rule), ADMIN to delete (under /admin/**, so every deletion is an audited admin action).
+ *
+ * <p><b>Download links (valet key).</b> Someone allowed to read an attachment can ask for a link to it: a
+ * signed token naming that one attachment, good for {@value #LINK_SECONDS} seconds. Whoever presents the
+ * token gets that file and nothing else, with no session: it can be handed to a plain browser download, or
+ * to a server that should fetch one document without being given an account. Asking for a link is the
+ * access decision and is audited with the person who asked; redeeming one is logged. The token is a
+ * purpose-scoped JWT, so it is never accepted as a session, and the same token is good until it expires
+ * (a download that is retried or resumed must not fail).
+ */
 @RestController
 public class LoanAttachmentController {
 
+    private static final Logger log = LoggerFactory.getLogger(LoanAttachmentController.class);
+    static final String LINK_PURPOSE = "attachment-download";
+    static final int LINK_SECONDS = 60;
+
     private final LoanAttachmentService loanAttachmentService;
     private final LoanCaseService loanCaseService;
+    private final JwtService jwt;
 
-    public LoanAttachmentController(LoanAttachmentService loanAttachmentService, LoanCaseService loanCaseService) {
+    public LoanAttachmentController(LoanAttachmentService loanAttachmentService, LoanCaseService loanCaseService, JwtService jwt) {
         this.loanAttachmentService = loanAttachmentService;
         this.loanCaseService = loanCaseService;
+        this.jwt = jwt;
     }
 
     @PostMapping("/loans/{loanId}/attachments")
@@ -61,6 +83,58 @@ public class LoanAttachmentController {
         if (attachment == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Attachment not found."));
         }
+        return stream(attachment);
+    }
+
+    /**
+     * A short-lived link to one attachment. The response names the token {@code downloadToken} so the audit
+     * trail, which records what a POST returned, redacts it.
+     */
+    @PostMapping("/loans/{loanId}/attachments/{attachmentId}/download-link")
+    public ResponseEntity<?> downloadLink(@PathVariable String loanId, @PathVariable Long attachmentId) {
+        Long tenantId = TenantContext.get();
+        if (loanAttachmentService.find(tenantId, loanId, attachmentId).isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Attachment not found."));
+        }
+        String token = jwt.issueClaimsToken(LINK_PURPOSE, Duration.ofSeconds(LINK_SECONDS),
+                Map.of("org", tenantId, "loan", loanId, "att", attachmentId));
+        return ResponseEntity.ok(Map.of("path", "/v1/attachment-downloads", "downloadToken", token, "expiresInSeconds", LINK_SECONDS));
+    }
+
+    /**
+     * Redeems a download link; public, because the token is the credential (SecurityConfig). It names the
+     * organization as well as the file, so the lookup still goes through row-level security.
+     */
+    @NotAudited
+    @GetMapping("/attachment-downloads")
+    public ResponseEntity<?> redeem(@RequestParam("token") String token) throws IOException {
+        Claims claims = jwt.parseClaimsToken(token, LINK_PURPOSE).orElse(null);
+        if (claims == null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "This download link is invalid or has expired."));
+        }
+        Long tenantId = claims.get("org", Long.class);
+        String loanId = claims.get("loan", String.class);
+        Long attachmentId = claims.get("att", Long.class);
+        Long callerTenant = TenantContext.getOptional().orElse(null);
+        LoanAttachment attachment;
+        TenantContext.set(tenantId);
+        try {
+            attachment = loanAttachmentService.find(tenantId, loanId, attachmentId).orElse(null);
+        } finally {
+            if (callerTenant == null) {
+                TenantContext.clear();
+            } else {
+                TenantContext.set(callerTenant);
+            }
+        }
+        if (attachment == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Attachment not found."));
+        }
+        log.info("Attachment {} of loan {} (tenant {}) downloaded with a link", attachmentId, loanId, tenantId);
+        return stream(attachment);
+    }
+
+    private ResponseEntity<?> stream(LoanAttachment attachment) throws IOException {
         MediaType type;
         try {
             type = MediaType.parseMediaType(attachment.getContentType());
