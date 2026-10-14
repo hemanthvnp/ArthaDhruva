@@ -26,6 +26,8 @@ import type {
   PageResult,
   PortfolioLossDistribution,
   PortfolioRun,
+  DecisionRegion,
+  DecisionRequest,
   PortfolioSnapshot,
   PortfolioView,
   AccessRequestSubmission,
@@ -334,8 +336,9 @@ export function getPortfolioRisk(): Promise<PortfolioView> {
  * Starts a projection of the whole portfolio. It runs in the background: the returned run is polled
  * with {@link getPortfolioRun}. If one is already in progress for the organization, that one is returned.
  */
-export async function startPortfolioRun(scenarios?: string[]): Promise<PortfolioRun> {
-  const res = await authorizedFetch('/risk/portfolio/runs', { method: 'POST', body: JSON.stringify(scenarios ? { scenarios } : {}) });
+export async function startPortfolioRun(scenarios?: string[], decision?: DecisionRequest): Promise<PortfolioRun> {
+  const body = { ...(scenarios ? { scenarios } : {}), ...(decision ? { decision } : {}) };
+  const res = await authorizedFetch('/risk/portfolio/runs', { method: 'POST', body: JSON.stringify(body) });
   if (res.status === 401) sessionExpired();
   if (res.status === 409) return res.json();
   if (!res.ok) throw await errorFrom(res);
@@ -352,9 +355,10 @@ export function portfolioRiskHistory(scenario: string, limit = 36): Promise<Port
 }
 
 /** The latest run's baseline results loan by loan, one page of them. */
-export function portfolioLoanResults(options: { stage?: number; sort?: LoanResultSort; limit?: number; offset?: number } = {}): Promise<LoanResultPage> {
+export function portfolioLoanResults(options: { stage?: number; region?: DecisionRegion; sort?: LoanResultSort; limit?: number; offset?: number } = {}): Promise<LoanResultPage> {
   const q = new URLSearchParams({ sort: options.sort ?? 'eclLifetime', limit: String(options.limit ?? 25), offset: String(options.offset ?? 0) });
   if (options.stage !== undefined) q.set('stage', String(options.stage));
+  if (options.region !== undefined) q.set('region', options.region);
   return request(`/risk/portfolio/loans?${q.toString()}`);
 }
 

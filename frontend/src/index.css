@@ -351,6 +351,8 @@ tbody tr:last-child td { border-bottom: none; }
   border: 1px solid var(--border);
 }
 .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+/* a region badge carries its own glyph, so the dot would say the same thing twice */
+.badge-region::before { display: none; }
 .badge-low, .risk-low { color: var(--ok); background: var(--ok-bg); border-color: transparent; }
 .badge-medium, .risk-medium { color: var(--warn); background: var(--warn-bg); border-color: transparent; }
 .badge-high, .risk-high { color: var(--danger); background: var(--danger-bg); border-color: transparent; }

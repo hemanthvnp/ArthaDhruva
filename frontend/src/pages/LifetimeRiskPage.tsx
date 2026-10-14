@@ -7,6 +7,7 @@ import ErrorBanner from '../components/ErrorBanner';
 import LoanFeaturesForm from '../components/LoanFeaturesForm';
 import { DEFAULT_LOAN } from '../components/loanDefaults';
 import LoanPicker from '../components/LoanPicker';
+import RegionPanel from '../components/RegionPanel';
 import RiskMeter from '../components/RiskMeter';
 import { AXIS, GRID, LEGEND, SCENARIO_STYLE, TOOLTIP, scenarioLabel, yearOf, yearTicks } from '../components/chartTheme';
 import { axisMoney, compactMoney, duration, money, monthLabel, pct } from '../format';
@@ -362,6 +363,8 @@ export default function LifetimeRiskPage() {
             </ResponsiveContainer>
             <p className="chart-caption">Cumulative probability of default over the next ten years, by scenario. Select a row to see that scenario in detail below.</p>
           </div>
+
+          {input && <RegionPanel input={input} scenario={scenario} />}
 
           {t ? <Detail t={t} /> : <div className="card"><div className="skeleton" style={{ height: 180 }} /></div>}
         </>

@@ -247,6 +247,55 @@ export interface TermStructure {
   assumptions: TermAssumptions;
 }
 
+export type DecisionMetric = 'PD_12M' | 'PD_LIFETIME' | 'ECL_LIFETIME_RATE';
+export type DecisionRegion = 'CERTAIN_HIGH' | 'CERTAIN_LOW' | 'BOUNDARY';
+
+/** Asks for a rough-set three-way decision of a stressed metric against a threshold (a fraction, 0 to 1). */
+export interface DecisionRequest {
+  metric: DecisionMetric;
+  threshold: number;
+  tolerance?: number;
+  granule?: {
+    kind?: 'PERTURBATION' | 'SCENARIO_SET';
+    members?: number;
+    shockBand?: number;
+    timingBandMonths?: number;
+    scenarios?: string[];
+  };
+  seed?: number;
+}
+
+/** Whether the metric is high under every variant of the stress (certain high), under none (certain low),
+ * or under some (boundary). Not a probability and not a coverage-guaranteed interval. */
+export interface Decision {
+  region: DecisionRegion;
+  metric: DecisionMetric;
+  threshold: number;
+  tolerance: number;
+  /** variants at or above the threshold */
+  high: number;
+  members: number;
+  min: number;
+  median: number;
+  max: number;
+  width: number;
+  /** the metric under the unperturbed scenario */
+  baseMetric: number;
+  exposure: number;
+  /** lifetime expected credit loss under the unperturbed scenario, and its lowest and highest across the variants */
+  eclBase: number;
+  eclMin: number;
+  eclMax: number;
+  extrapolated: boolean;
+  extrapolations: Extrapolation[];
+  granuleKind: 'PERTURBATION' | 'SCENARIO_SET';
+  shockBand: number;
+  timingBandMonths: number;
+  scenarios: string[];
+  seed: number;
+  method: string;
+}
+
 export interface LifetimeRiskInput {
   loan: LoanFeatures;
   monthsOnBook?: number;
@@ -254,11 +303,13 @@ export interface LifetimeRiskInput {
   daysPastDue?: number;
   originationPd12m?: number;
   months?: number;
+  decision?: DecisionRequest;
 }
 
 export interface TermStructureResponse {
   termStructure: TermStructure;
   warnings: string[];
+  decision?: Decision;
 }
 
 export interface ScenarioCurve {
@@ -371,11 +422,26 @@ export interface LoanResult {
   weight: number;
 }
 
+/** Where one loan fell in the region analysis of the latest run that asked for one. */
+export interface LoanRegionInfo {
+  region: DecisionRegion;
+  /** variants at or above the threshold, out of `members` */
+  high: number;
+  members: number;
+  metricMin: number;
+  metricMax: number;
+  eclMin: number;
+  eclMax: number;
+  extrapolated: boolean;
+}
+
 export interface LoanResultPage {
   /** The date of the run the loans belong to; null when there has been none. */
   asOf: string | null;
   total: number;
   loans: LoanResult[];
+  /** Region of each listed loan by loan id; empty when the latest run did not ask for regions. */
+  regions: Record<string, LoanRegionInfo>;
 }
 
 export type LoanResultSort = 'eclLifetime' | 'eclIfrs9' | 'pd12m' | 'exposure' | 'loanId';
@@ -415,6 +481,35 @@ export interface PortfolioSnapshot {
   computedAt: string;
   /** Present on the latest snapshots, absent in the history list. */
   detail: ScenarioRisk | null;
+  /** The region analysis, on the snapshot of the scenario it judged the loans under. */
+  decision?: PortfolioRegionSummary;
+}
+
+export interface PortfolioRegionSummary {
+  scenario: string;
+  parameters: {
+    metric: DecisionMetric;
+    threshold: number;
+    tolerance: number;
+    granuleKind: 'PERTURBATION' | 'SCENARIO_SET';
+    members: number;
+    shockBand: number;
+    timingBandMonths: number;
+    scenarios: string[];
+    seed: number | null;
+  };
+  loans: number;
+  excluded: number;
+  exposure: number;
+  regions: { region: DecisionRegion; loans: number; exposure: number; loanShare: number; exposureShare: number }[];
+  /** Lifetime loss of the certainly-high loans, each at its lowest across the variants. */
+  eclLower: number;
+  /** Lifetime loss of the certainly-high and boundary loans, each at its highest across the variants. */
+  eclUpper: number;
+  /** Lifetime loss of the loans that are high under the unperturbed scenario. */
+  eclHighBase: number;
+  boundaryByState: { state: string; loans: number; exposure: number }[];
+  method: string;
 }
 
 export interface PortfolioView {
