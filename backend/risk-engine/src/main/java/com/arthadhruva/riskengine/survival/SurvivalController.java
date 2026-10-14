@@ -2,8 +2,14 @@ package com.arthadhruva.riskengine.survival;
 
 import com.arthadhruva.riskengine.audit.AuditContext;
 import com.arthadhruva.riskengine.billing.Metered;
+import com.arthadhruva.riskengine.billing.UsageService;
+import com.arthadhruva.riskengine.roughset.DecisionOptions;
+import com.arthadhruva.riskengine.roughset.DecisionService;
+import com.arthadhruva.riskengine.roughset.GranuleKind;
 import com.arthadhruva.riskengine.score.LoanFeatures;
 import com.arthadhruva.riskengine.score.LoanInputValidator;
+import com.arthadhruva.riskengine.tenant.TenantContext;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -38,11 +44,16 @@ public class SurvivalController {
     private final TermStructureEngine engine;
     private final SurvivalModel model;
     private final LoanInputValidator validator;
+    private final DecisionService decisions;
+    private final UsageService usage;
 
-    public SurvivalController(TermStructureEngine engine, SurvivalModel model, LoanInputValidator validator) {
+    public SurvivalController(TermStructureEngine engine, SurvivalModel model, LoanInputValidator validator,
+                              DecisionService decisions, UsageService usage) {
         this.engine = engine;
         this.model = model;
         this.validator = validator;
+        this.decisions = decisions;
+        this.usage = usage;
     }
 
     /**
@@ -51,6 +62,8 @@ public class SurvivalController {
      * @param monthsOnBook   the loan's age when {@code loan.originationMonth} is not given
      * @param months         how many months of the series to return (default: to maturity). Summary and ECL
      *                       always cover the loan's whole remaining life.
+     * @param decision       asks for a rough-set three-way decision (certain high, certain low, boundary) of a stressed
+     *                       metric against a threshold, over variants of the scenario; omitted, nothing changes
      */
     public record TermStructureRequest(
             @NotNull @Valid LoanFeatures loan,
@@ -60,11 +73,13 @@ public class SurvivalController {
             @Positive Double currentBalance,
             @Min(0) @Max(3650) Integer daysPastDue,
             @DecimalMin("0") @DecimalMax("1") Double originationPd12m,
-            @Min(1) @Max(480) Integer months
+            @Min(1) @Max(480) Integer months,
+            @Valid DecisionOptions decision
     ) {
     }
 
-    public record TermStructureResponse(TermStructureEngine.TermStructure termStructure, List<String> warnings) {
+    public record TermStructureResponse(TermStructureEngine.TermStructure termStructure, List<String> warnings,
+                                        @JsonInclude(JsonInclude.Include.NON_NULL) DecisionService.Decision decision) {
     }
 
     /** @param scenarios built-in scenario names to compare (default: all of them) */
@@ -75,18 +90,23 @@ public class SurvivalController {
             @Positive Double currentBalance,
             @Min(0) @Max(3650) Integer daysPastDue,
             @DecimalMin("0") @DecimalMax("1") Double originationPd12m,
-            @Min(1) @Max(480) Integer months
+            @Min(1) @Max(480) Integer months,
+            @Valid DecisionOptions decision
     ) {
     }
 
+    /** @param decision the three-way decision about this scenario, over variants of it (perturbation granule only) */
     public record ScenarioCurve(String scenario, String description, TermStructureEngine.Summary summary,
                                 TermStructureEngine.Ecl ecl, double[] cumulativeDefault, double[] cumulativePrepay,
                                 double[] survival, double[] discountedExpectedLoss,
-                                List<TermStructureEngine.Extrapolation> extrapolations) {
+                                List<TermStructureEngine.Extrapolation> extrapolations,
+                                @JsonInclude(JsonInclude.Include.NON_NULL) DecisionService.Decision decision) {
     }
 
+    /** @param decision the three-way decision across the listed scenarios (scenario-set granule only) */
     public record CompareResponse(String modelVersion, int monthsOnBook, int remainingMonths, List<String> months,
-                                  List<ScenarioCurve> scenarios, List<String> warnings) {
+                                  List<ScenarioCurve> scenarios, List<String> warnings,
+                                  @JsonInclude(JsonInclude.Include.NON_NULL) DecisionService.Decision decision) {
     }
 
     @Metered("TERM_STRUCTURE")
@@ -98,11 +118,18 @@ public class SurvivalController {
         LoanFeatures loan = request.loan().normalized();
         List<String> warnings = check(loan, request.currentBalance(), request.daysPastDue());
         Scenario scenario = request.customScenario() != null ? request.customScenario() : scenario(request.scenario());
+        DecisionOptions.Resolved options = resolve(request.decision());
         AuditContext.modelVersion(model.version());
-        TermStructureEngine.TermStructure result = engine.project(new TermStructureEngine.Request(loan, scenario,
-                        request.monthsOnBook(), request.currentBalance(), request.daysPastDue(), request.originationPd12m()),
+        TermStructureEngine.Request base = new TermStructureEngine.Request(loan, scenario, request.monthsOnBook(),
+                request.currentBalance(), request.daysPastDue(), request.originationPd12m());
+        TermStructureEngine.TermStructure result = engine.project(base,
                 request.months() == null ? TermStructureEngine.MAX_MONTHS : request.months());
-        return new TermStructureResponse(result, warnings);
+        DecisionService.Decision decision = null;
+        if (options != null) {
+            decision = decisions.decide(base, options);
+            meterDecision(decision.members());
+        }
+        return new TermStructureResponse(result, warnings, decision);
     }
 
     /** The same loan under several scenarios, evaluated in one batched model call. */
@@ -113,6 +140,7 @@ public class SurvivalController {
         List<String> warnings = check(loan, request.currentBalance(), request.daysPastDue());
         List<Scenario> scenarios = request.scenarios() == null ? Scenario.BUILT_IN
                 : request.scenarios().stream().distinct().map(SurvivalController::scenario).toList();
+        DecisionOptions.Resolved options = resolve(request.decision());
         AuditContext.modelVersion(model.version());
         List<TermStructureEngine.Request> requests = new ArrayList<>(scenarios.size());
         for (Scenario scenario : scenarios) {
@@ -121,20 +149,46 @@ public class SurvivalController {
         }
         List<TermStructureEngine.Outcome> outcomes = engine.projectAll(requests);
         int months = Math.min(request.months() == null ? COMPARE_DEFAULT_MONTHS : request.months(), outcomes.get(0).months());
+        boolean perScenario = options != null && options.kind() == GranuleKind.PERTURBATION;
+        int decisionMembers = 0;
         List<ScenarioCurve> curves = new ArrayList<>(outcomes.size());
         for (int i = 0; i < outcomes.size(); i++) {
             TermStructureEngine.Outcome o = outcomes.get(i);
+            DecisionService.Decision decision = null;
+            if (perScenario) {
+                decision = decisions.decide(requests.get(i), options);
+                decisionMembers += decision.members();
+            }
             curves.add(new ScenarioCurve(scenarios.get(i).name(), scenarios.get(i).description(), o.summary(), o.ecl(),
                     o.cumulativeDefault(months), o.cumulativePrepay(months), o.survival(months), o.discountedLoss(months),
-                    engine.extrapolations(o)));
+                    engine.extrapolations(o), decision));
+        }
+        DecisionService.Decision setDecision = null;
+        if (options != null && !perScenario) {
+            setDecision = decisions.decide(requests.get(0), options);
+            decisionMembers = setDecision.members();
+        }
+        if (options != null) {
+            meterDecision(decisionMembers);
         }
         TermStructureEngine.Outcome first = outcomes.get(0);
-        return new CompareResponse(model.version(), first.monthsOnBook(), first.months(), first.monthLabels(months), curves, warnings);
+        return new CompareResponse(model.version(), first.monthsOnBook(), first.months(), first.monthLabels(months), curves, warnings,
+                setDecision);
     }
 
     @GetMapping("/risk/scenarios")
     public List<Scenario> scenarios() {
         return Scenario.BUILT_IN;
+    }
+
+    /** Validates the decision options before any projection runs; null when none were asked for. */
+    private static DecisionOptions.Resolved resolve(DecisionOptions options) {
+        return options == null ? null : options.resolve(DecisionOptions.DEFAULT_MEMBERS, DecisionOptions.MAX_MEMBERS);
+    }
+
+    /** One unit per variant projected, on top of the call's own metering, so the cost of a wide granule is visible. */
+    private void meterDecision(int members) {
+        TenantContext.getOptional().ifPresent(tenantId -> usage.record(tenantId, "DECISION_MEMBER", members));
     }
 
     private List<String> check(LoanFeatures loan, Double currentBalance, Integer daysPastDue) {

@@ -159,3 +159,19 @@ jobs:
           docker run --rm --network "$(docker network ls --format '{{.Name}}' | grep _edge$)" \
             -v "$PWD/loadtest:/work" -e TOKEN="$TOKEN" -e BASE=http://backend:8080/v1 -e RATE=40 -e DURATION=30s \
             grafana/k6 run /work/smoke.js
+
+  failover:
+    # Reliability gate: two backend replicas, one portfolio run, and the replica working it is killed
+    # part-way (SIGKILL, so no shutdown hook runs). Fails unless the other replica finishes the run as a
+    # second attempt and resumes from the dead replica's checkpoints instead of starting again.
+    runs-on: ubuntu-latest
+    needs: backend
+    env:
+      JWT_SECRET: ci-only-secret-ci-only-secret-ci-only-1234
+      TOTP_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      ADMIN_PASSWORD: Ci-Admin-Passw0rd!2026
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Kill a replica in the middle of a run
+        run: bash scripts/failover-test.sh

@@ -357,6 +357,55 @@ month-by-month LGD into the simulation and makes the simulated mean exactly the 
 and unexpected loss are statements about the same loss. The asset correlation (0.15 by default, the
 Basel value for residential mortgages) is an input, not an estimate from this data.
 
+## Region analysis: where the stressed answer is not decided
+
+A stressed figure near a threshold flips with small changes in the stress. `roughset.DecisionService` asks, for
+one loan or for every loan in a portfolio run, whether the figure (12-month PD, lifetime PD or the lifetime loss
+rate) is at or above a caller's threshold under **every** variant of the stress, under **none**, or under **some**.
+In rough-set terms the first is the lower approximation of "high", the second lies outside its upper
+approximation, and the third is the boundary region: the loans to hand to an analyst. It is a layer over
+`TermStructureEngine`; no model, card, checksum or golden output changes.
+
+- **Variants.** Member 0 is the unperturbed scenario. The others scale the unemployment, house-price and rate
+  shocks by a factor in 1 ± `shockBand` and move their timing by up to `timingBandMonths` (defaults ±20% and ±3
+  months), clamped to the ranges a scenario allows. A parameter that is zero in the target stays zero, so a baseline
+  has nothing to perturb. A `SCENARIO_SET` granule uses caller-listed scenarios instead ("high under every one of
+  these"). Each variant is a pure function of the seed and its index (splitmix64), so the same request gives the
+  same variants on any number of threads; the default seed is a hash of the request.
+- **Rule.** With `k` of `n` variants high and a tolerance `beta` in [0, 0.5) (default 0): `k/n >= 1 - beta` is
+  certain high, `k/n <= beta` is certain low, otherwise boundary. Tolerance 0 is the strict Pawlak approximation.
+- **Portfolio.** A run that asks for regions judges every loan under one scenario (default the harshest requested),
+  stores each loan's region beside its baseline result, and reports the split of loans and exposure, the boundary
+  exposure by state, and a loss range: the lifetime expected loss of the certainly-high loans each at its lowest
+  variant, up to that of the certainly-high and boundary loans each at its highest. The run costs `loans x
+  variants` projections and is refused above `risk.portfolio.decision.max-projections` (2,000 by default) instead
+  of being sampled.
+
+The whole analysis, with charts, is in `notebooks/rough_set_boundary_regions.ipynb`: it runs the independent Python reference of the engine and of this layer (no service needed) on one loan, five loans, the 400-loan demo portfolio and a sweep of the neighbourhood bands.
+
+**How wide the boundary is** depends on the neighbourhood chosen, not on a measured quantity. On the committed
+engine, for a 30-year prime loan (score 760, LTV 75) under ADVERSE and 32 variants at the default bands, the
+lifetime PD spreads about ±7% around its unperturbed value and the 12-month PD -14% to +13%; under
+SEVERELY_ADVERSE -12% to +24% and -14% to +35% (seed 11; other seeds move an end by up to ten points). Under
+the previous survival model the same loan gave ±7% and ±25%, then ±22% and ±43%: the 12-month figure is now
+steadier and the severe lifetime figure is skewed upward. The table in
+`openspec/changes/rough-set-boundary-regions/design.md` and the charts in the notebook were produced with the
+previous model.
+
+**What it does not do.**
+- It is not a probability and carries no coverage guarantee: "boundary" means the answer depends on the details
+  of the stress, not that the loan has some chance of being high. A conformal method would give coverage, but it
+  needs a calibration set per segment that this data does not support at this granularity. The response, the API
+  and the console all carry the method label.
+- The boundary is only as wide as the neighbourhood: a wider band widens it. The bands are modelling choices,
+  echoed in every response.
+- Tree models hold their response at the edge of the training range, which can make variants look more alike
+  than they are. The response flags (`extrapolated`) when a driver the scenario moves (unemployment, house prices,
+  the rate incentive, or a mark-to-market LTV above its ceiling) leaves that range, and does not change the region
+  because of it. Loan age beyond the 96-month training window and amortisation taking mark-to-market LTV below its
+  floor occur for every long-dated loan in every scenario, the baseline included, so they do not set the flag.
+- It adds nothing to the model's validation: it relies on the survival model and inherits its limitations.
+
 ## Time-series and sequence diagnostics
 
 **Seasonality.** `backend/experiments/sarimax_seasonality.py` tests the portfolio 90+ delinquency series
@@ -393,6 +442,8 @@ right-censored, so later vintages look safer than they are; the registry entry s
 | Tail contributions sum to expected shortfall; importance sampling more than halves the interval | `CvarEngineTest` |
 | The portfolio totals equal the sum of the loans, on any number of threads, to the bit | `PortfolioRiskEngineTest` |
 | The ONNX graph reproduces the LightGBM booster (5.1e-7 absolute) | `export_survival_model.py` |
+| The region layer's variant generator, seed hash and three-way rule reproduce an independent Python implementation (variants exactly, widths to 1e-9) | `RoughSetGoldenTest`, `backend/golden_rough_set.py` |
+| Regions are monotone in the threshold, the lower approximation lies inside the upper, a wider tolerance never undoes a decision, and a single variant equals the engine's own result | `RegionClassifierTest`, `DecisionServiceTest` |
 
 ## Reproducing the artifacts
 
@@ -404,6 +455,7 @@ python build_crisis_dataset.py     # the 2006-2008 vintages, read from their arc
 python export_survival_model.py    # survival model, card, backtest, macro snapshot
 python export_model.py             # PD model, calibration, card, drift reference
 python golden_term_structure.py    # reference outputs for the Java golden test
+python golden_rough_set.py         # reference for the region layer (needs no model artifact)
 ```
 
 Exports are reproducible bit for bit: LightGBM runs with `deterministic=True, force_row_wise=True` on

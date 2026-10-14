@@ -561,6 +561,213 @@ class ApiIntegrationTest extends AbstractIntegrationTest {
         assertEquals(404, status(mvc.perform(get("/v1/attachment-downloads").param("token", stale)).andReturn()));
     }
 
+    // ---------------------------------------------------------------- region analysis (rough-set three-way decision)
+
+    private long decisionMembersUsed(Organization org) {
+        return inTenant(org, () -> jdbc.query("SELECT quantity FROM usage_record WHERE tenant_id = ? AND metric = 'DECISION_MEMBER'",
+                rs -> rs.next() ? rs.getLong(1) : 0L, org.getId()));
+    }
+
+    @Test
+    void aDecisionIsOptionalReproducibleLabelledAndMetered() throws Exception {
+        Organization eta = organizations.create("eta-" + run, "Eta Bank", false, null, null);
+        String eva = token(eta, "eva", Role.ANALYST);
+        Map<String, Object> plain = new LinkedHashMap<>();
+        plain.put("loan", loan(null, 700, "NV", "2024-11"));
+        plain.put("scenario", "ADVERSE");
+        plain.put("months", 6);
+
+        MvcResult without = call(post("/v1/risk/term-structure"), eva, plain);
+        assertEquals(200, status(without));
+        assertFalse(body(without).has("decision"), "a request without a decision block gets the response it always did");
+        assertEquals(0L, decisionMembersUsed(eta));
+
+        double pd = body(without).get("termStructure").get("summary").get("pdLifetime").asDouble();
+        Map<String, Object> withDecision = new LinkedHashMap<>(plain);
+        withDecision.put("decision", Map.of("metric", "PD_LIFETIME", "threshold", pd,
+                "granule", Map.of("members", 8)));
+        MvcResult first = call(post("/v1/risk/term-structure"), eva, withDecision);
+        assertEquals(200, status(first));
+        JsonNode d = body(first).get("decision");
+        assertEquals(8, d.get("members").asInt());
+        assertEquals(0.0, d.get("tolerance").asDouble(), 0.0, "defaults are applied and echoed");
+        assertEquals(0.2, d.get("shockBand").asDouble(), 0.0);
+        assertEquals(3, d.get("timingBandMonths").asInt());
+        assertEquals("PERTURBATION", d.get("granuleKind").asString());
+        assertTrue(d.get("method").asString().contains("not a probability"));
+        assertEquals(pd, d.get("baseMetric").asDouble(), 1e-12, "member 0 is the unperturbed projection");
+        assertTrue(d.get("min").asDouble() <= d.get("median").asDouble() && d.get("median").asDouble() <= d.get("max").asDouble());
+        assertEquals(d.get("max").asDouble() - d.get("min").asDouble(), d.get("width").asDouble(), 1e-12);
+        assertEquals("BOUNDARY", d.get("region").asString(), "a threshold at the unperturbed figure sits inside the variants");
+        assertEquals(8L, decisionMembersUsed(eta));
+
+        // The same request gives the same decision, seed included.
+        JsonNode again = body(call(post("/v1/risk/term-structure"), eva, withDecision)).get("decision");
+        assertEquals(d, again);
+        assertEquals(16L, decisionMembersUsed(eta));
+
+        // Compare: each scenario is judged over variants of itself.
+        Map<String, Object> compare = new LinkedHashMap<>();
+        compare.put("loan", loan(null, 700, "NV", "2024-11"));
+        compare.put("scenarios", List.of("ADVERSE", "SEVERELY_ADVERSE"));
+        compare.put("months", 6);
+        compare.put("decision", Map.of("metric", "PD_12M", "threshold", 0.0, "granule", Map.of("members", 4)));
+        JsonNode compared = body(call(post("/v1/risk/term-structure/compare"), eva, compare));
+        assertEquals(2, compared.get("scenarios").size());
+        for (JsonNode curve : compared.get("scenarios")) {
+            assertEquals("CERTAIN_HIGH", curve.get("decision").get("region").asString(), "a zero threshold is met by every variant");
+            assertEquals(4, curve.get("decision").get("members").asInt());
+        }
+        assertFalse(compared.has("decision"), "per-scenario decisions only for a perturbation granule");
+
+        // A scenario set is judged once, across the listed scenarios.
+        compare.put("decision", Map.of("metric", "PD_LIFETIME", "threshold", 0.0,
+                "granule", Map.of("kind", "SCENARIO_SET", "scenarios", List.of("ADVERSE", "SEVERELY_ADVERSE"))));
+        JsonNode set = body(call(post("/v1/risk/term-structure/compare"), eva, compare));
+        assertEquals("CERTAIN_HIGH", set.get("decision").get("region").asString());
+        assertEquals(2, set.get("decision").get("members").asInt());
+        assertFalse(set.get("scenarios").get(0).has("decision"));
+    }
+
+    @Test
+    void invalidDecisionOptionsAreRefusedBeforeAnythingRuns() throws Exception {
+        Organization theta = organizations.create("theta-" + run, "Theta Bank", false, null, null);
+        String tia = token(theta, "tia", Role.ANALYST);
+        Map<String, Object> request = new LinkedHashMap<>();
+        request.put("loan", loan(null, 700, "NV", "2024-11"));
+        request.put("months", 6);
+        Map<String, Map<String, Object>> bad = new LinkedHashMap<>();
+        bad.put("tolerance", Map.of("metric", "PD_12M", "threshold", 0.05, "tolerance", 0.5));
+        bad.put("threshold", Map.of("metric", "PD_12M", "threshold", 1.5));
+        bad.put("metric", Map.of("metric", "NOPE", "threshold", 0.05));
+        bad.put("members", Map.of("metric", "PD_12M", "threshold", 0.05, "granule", Map.of("members", 129)));
+        bad.put("shockBand", Map.of("metric", "PD_12M", "threshold", 0.05, "granule", Map.of("shockBand", 0.9)));
+        bad.put("regimeDraws", Map.of("metric", "PD_12M", "threshold", 0.05, "granule", Map.of("regimeDraws", true)));
+        for (Map.Entry<String, Map<String, Object>> option : bad.entrySet()) {
+            request.put("decision", option.getValue());
+            MvcResult refused = call(post("/v1/risk/term-structure"), tia, request);
+            assertEquals(422, status(refused), option.getKey());
+            assertTrue(body(refused).get("error").asString().contains(option.getKey()), body(refused).toString());
+        }
+        assertEquals(0L, decisionMembersUsed(theta), "refused requests are not metered");
+    }
+
+    @Test
+    void aPortfolioRunCanJudgeEveryLoanAndListTheBoundary() throws Exception {
+        Organization zeta = organizations.create("zeta-" + run, "Zeta Bank", false, null, null);
+        String zed = token(zeta, "zed", Role.ADMIN);
+        List<Map<String, Object>> loans = new ArrayList<>();
+        for (int i = 0; i < 6; i++) {
+            loans.add(loan("Z-" + i, 620 + 25 * i, i % 2 == 0 ? "CA" : "FL", "2022-0" + (1 + i)));
+        }
+        assertEquals(6, body(call(post("/v1/admin/portfolio"), zed, Map.of("loans", loans))).get("accepted").asInt());
+
+        // A threshold at one loan's adverse lifetime PD puts that loan on the boundary of its own variants.
+        Map<String, Object> single = new LinkedHashMap<>();
+        single.put("loan", loans.get(3));
+        single.put("scenario", "ADVERSE");
+        single.put("months", 1);
+        double pd = body(call(post("/v1/risk/term-structure"), zed, single)).get("termStructure").get("summary").get("pdLifetime").asDouble();
+
+        Map<String, Object> request = new LinkedHashMap<>();
+        request.put("scenarios", List.of("ADVERSE"));
+        request.put("decisionScenario", "ADVERSE");
+        request.put("decision", Map.of("metric", "PD_LIFETIME", "threshold", pd, "granule", Map.of("members", 8)));
+        MvcResult started = call(post("/v1/risk/portfolio/runs"), zed, request);
+        assertEquals(202, status(started));
+        JsonNode polled = finished(body(started).get("id").asString(), zed);
+        assertEquals("COMPLETED", polled.get("status").asString(), polled.toString());
+        assertEquals(6L * 8L, decisionMembersUsed(zeta), "one unit per projection the analysis costs");
+
+        JsonNode view = body(call(get("/v1/risk/portfolio"), zed, null));
+        JsonNode adverse = null;
+        for (JsonNode snapshot : view.get("snapshots")) {
+            if ("ADVERSE".equals(snapshot.get("scenario").asString())) {
+                adverse = snapshot;
+            } else {
+                assertFalse(snapshot.has("decision"), "only the judged scenario carries the analysis");
+            }
+        }
+        JsonNode summary = adverse.get("decision");
+        assertEquals("ADVERSE", summary.get("scenario").asString());
+        int loansInRegions = 0;
+        double exposureInRegions = 0;
+        int boundaryLoans = 0;
+        for (JsonNode region : summary.get("regions")) {
+            loansInRegions += region.get("loans").asInt();
+            exposureInRegions += region.get("exposure").asDouble();
+            if ("BOUNDARY".equals(region.get("region").asString())) {
+                boundaryLoans = region.get("loans").asInt();
+            }
+        }
+        assertEquals(summary.get("loans").asInt(), loansInRegions, "the three regions partition the book");
+        assertEquals(summary.get("exposure").asDouble(), exposureInRegions, 1e-6);
+        assertTrue(boundaryLoans >= 1, summary.toString());
+        assertTrue(summary.get("eclLower").asDouble() <= summary.get("eclHighBase").asDouble() + 1e-6);
+        assertTrue(summary.get("eclHighBase").asDouble() <= summary.get("eclUpper").asDouble() + 1e-6);
+        assertTrue(summary.get("method").asString().contains("not a probability"));
+
+        JsonNode listing = body(call(get("/v1/risk/portfolio/loans?sort=loanId&limit=50"), zed, null));
+        assertEquals(6, listing.get("regions").size(), "every listed loan carries its region");
+        JsonNode onBoundary = body(call(get("/v1/risk/portfolio/loans?region=BOUNDARY&limit=50"), zed, null));
+        assertEquals(boundaryLoans, onBoundary.get("total").asInt());
+        assertTrue(onBoundary.get("regions").has("Z-3"), "the loan whose threshold was set at its own figure is on the boundary");
+        onBoundary.get("regions").forEach(info -> assertEquals("BOUNDARY", info.get("region").asString()));
+        assertEquals(400, status(call(get("/v1/risk/portfolio/loans?region=NOPE"), zed, null)));
+
+        String csv = download(get("/v1/risk/portfolio/loans/export"), zed);
+        String[] lines = csv.split("\r\n");
+        assertTrue(lines[0].endsWith(",region,variantsHigh,variants,metricMin,metricMax,eclLifetimeMin,eclLifetimeMax,extrapolated"), lines[0]);
+        assertEquals(7, lines.length);
+
+        // Another organization sees none of it.
+        String bia = token(organizations.create("iota-" + run, "Iota Bank", false, null, null), "bia", Role.ANALYST);
+        assertEquals(0, body(call(get("/v1/risk/portfolio/loans?region=BOUNDARY"), bia, null)).get("total").asInt());
+        assertTrue(body(call(get("/v1/risk/portfolio"), bia, null)).get("snapshots").isEmpty());
+
+        // The same run twice gives the same regions: variants are seeded from the loans, not from the schedule.
+        MvcResult again = call(post("/v1/risk/portfolio/runs"), zed, request);
+        assertEquals(202, status(again));
+        assertEquals("COMPLETED", finished(body(again).get("id").asString(), zed).get("status").asString());
+        JsonNode repeated = body(call(get("/v1/risk/portfolio/loans?sort=loanId&limit=50"), zed, null));
+        assertEquals(listing.get("regions"), repeated.get("regions"));
+
+        // A run that does not ask for regions leaves none behind.
+        MvcResult plain = call(post("/v1/risk/portfolio/runs"), zed, Map.of("scenarios", List.of("ADVERSE")));
+        assertEquals(202, status(plain));
+        assertEquals("COMPLETED", finished(body(plain).get("id").asString(), zed).get("status").asString());
+        assertTrue(body(call(get("/v1/risk/portfolio/loans?limit=50"), zed, null)).get("regions").isEmpty());
+        for (JsonNode snapshot : body(call(get("/v1/risk/portfolio"), zed, null)).get("snapshots")) {
+            assertFalse(snapshot.has("decision"));
+        }
+        assertEquals(0, body(call(get("/v1/risk/portfolio/loans?region=BOUNDARY"), zed, null)).get("total").asInt());
+    }
+
+    @Test
+    void aPortfolioRegionRunIsRefusedWhenItsOptionsOrSizeAreWrong() throws Exception {
+        Organization kappa = organizations.create("kappa-" + run, "Kappa Bank", false, null, null);
+        String kai = token(kappa, "kai", Role.ADMIN);
+        List<Map<String, Object>> loans = new ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            loans.add(loan("K-" + i, 650 + 20 * i, "TX", "2022-0" + (1 + i)));
+        }
+        assertEquals(3, body(call(post("/v1/admin/portfolio"), kai, Map.of("loans", loans))).get("accepted").asInt());
+
+        Map<String, Object> tooManyMembers = Map.of("decision", Map.of("metric", "PD_12M", "threshold", 0.05, "granule", Map.of("members", 33)));
+        MvcResult cap = call(post("/v1/risk/portfolio/runs"), kai, tooManyMembers);
+        assertEquals(422, status(cap));
+        assertTrue(body(cap).get("error").asString().contains("members"));
+
+        Map<String, Object> elsewhere = Map.of("scenarios", List.of("ADVERSE"), "decisionScenario", "SEVERELY_ADVERSE",
+                "decision", Map.of("metric", "PD_12M", "threshold", 0.05));
+        MvcResult notInRun = call(post("/v1/risk/portfolio/runs"), kai, elsewhere);
+        assertEquals(422, status(notInRun));
+        assertTrue(body(notInRun).get("error").asString().contains("decisionScenario"));
+
+        assertEquals(0L, decisionMembersUsed(kappa), "refused runs are not metered");
+        assertTrue(body(call(get("/v1/risk/portfolio"), kai, null)).get("snapshots").isEmpty(), "and nothing ran");
+    }
+
     /**
      * Starting a portfolio run costs twenty tokens, so a caller who fires three at once runs out, while a
      * colleague in the same organization, drawing on a bucket of their own, is not affected.

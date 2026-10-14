@@ -12,6 +12,7 @@ how much worse than expected a bad year can be.
 | **Default risk score** | Probability of default within 24 months of origination, a Shapley explanation that adds up exactly to the score, and adverse-action reason codes |
 | **Lifetime risk** | One loan month by month to maturity: the probability it is still on the book, has prepaid or has defaulted, under a baseline, two stress scenarios and two rate shocks |
 | **Portfolio risk** | Every loan projected and added up: the loss allowance, IFRS 9 staging, the response to stress, a ten-year run-off, and the allowance loan by loan |
+| **Region analysis** | Whether a loan's stressed figure is high under every variant of the stress, under none, or on the boundary where the answer turns on the details, for one loan or the whole book (rough-set three-way decision) |
 | **Loss distribution** | Value at risk and expected shortfall of the portfolio, and the loans that drive the tail |
 | **Model governance** | Every model with its checksum, validation, backtests and limitations, and population drift against the training data |
 | **Workflow** | Cases with enforced transitions, a four-eyes rule and an immutable history; notes, documents, automation rules, notifications, webhooks |
@@ -36,6 +37,16 @@ How the models were built, validated and where they should not be trusted: [MODE
 - [`survival/PortfolioRiskEngine`](backend/risk-engine/src/main/java/com/arthadhruva/riskengine/survival/PortfolioRiskEngine.java):
   thousands of loans per batched model call, merged in the order the work was cut so every figure is
   reproduced bit for bit; a sample with its standard error above 5,000 loans.
+- [`roughset/DecisionService`](backend/risk-engine/src/main/java/com/arthadhruva/riskengine/roughset/DecisionService.java):
+  a rough-set three-way decision laid over the term-structure engine without changing it. A loan's
+  stressed figure is judged over variants of the stress (shock sizes and timing drawn from a
+  counter-based generator, so the same request gives the same variants on any thread count) and the
+  loan falls in the lower approximation (high under every variant), outside the upper approximation
+  (high under none) or on the boundary, which is the set to send to an analyst. It is a robustness
+  classification, not a probability, and the response says so. Held to an independent Python
+  implementation of the generator and the rule by a golden test. Request it with an optional `decision`
+  object on `POST /risk/term-structure` and `/risk/term-structure/compare`, or on `POST /risk/portfolio/runs`
+  (`GET /risk/portfolio/loans?region=BOUNDARY` lists the boundary loans).
 - [`score/ExplanationService`](backend/risk-engine/src/main/java/com/arthadhruva/riskengine/score/ExplanationService.java):
   Shapley values, exact for up to ten differing features and by antithetic sampling beyond, in one model
   call.
@@ -43,9 +54,18 @@ How the models were built, validated and where they should not be trusted: [MODE
 **The platform around them**
 
 - **A long computation as a resource.** Starting a portfolio run answers `202` with a run to poll. The
-  run is a database row with a heartbeat, so any replica answers the poll and a run whose worker died
-  is reported as failed instead of hanging; a partial unique index allows one active run per
-  organization. ([`PortfolioRiskService`](backend/risk-engine/src/main/java/com/arthadhruva/riskengine/survival/PortfolioRiskService.java))
+  run is a database row, so any replica answers the poll, and the table is the queue: a waiting run is
+  taken by whichever replica has a free worker (`FOR UPDATE SKIP LOCKED`), none waits in a JVM's memory.
+  A worker heartbeats on a timer whether or not it is making progress, so a run waiting its turn on a
+  busy compute pool is not mistaken for a dead one. A run whose worker did die is put back in the queue
+  by the leading replica (a lease in Postgres) under a new attempt number, which also fences out a
+  worker that was slow, not dead; the next attempt resumes from the chunks the last one finished and
+  stores the same figures to the bit, and after three attempts the run is failed instead of hanging. A
+  replica that is shut down hands its runs back at once. CI kills one of two replicas in the middle of
+  a run and requires the other to finish it from the checkpoints
+  ([`scripts/failover-test.sh`](scripts/failover-test.sh)). A run can be deferred until a replica is idle.
+  A partial unique index allows one active run per organization.
+  ([`PortfolioRiskService`](backend/risk-engine/src/main/java/com/arthadhruva/riskengine/survival/PortfolioRiskService.java))
 - **Tenant isolation enforced by the database.** Postgres row-level security on every tenant table, and
   the application connects as a role that does not own them. The integration tests run as that role.
 - **An audit trail the application cannot rewrite.** Every API call is recorded with who, what, the
@@ -59,8 +79,10 @@ How the models were built, validated and where they should not be trusted: [MODE
   session version that revokes every outstanding token at once. The token itself lives only in an
   httpOnly, SameSite=Strict cookie -- never in a bearer header or anywhere JavaScript can read it. TOTP
   is mandatory for staff, with replay protection.
-- **Outbound calls.** Webhooks through an outbox with leases and HMAC signatures; every URL a tenant
-  supplies is checked against private address ranges at connection time, not just at registration.
+- **Outbound calls.** Webhooks through an outbox with leases and HMAC signatures, delivered on a few
+  threads with one delivery in progress per subscription, so a slow endpoint does not hold up the
+  others; every URL a tenant supplies is checked against private address ranges at connection time, not
+  just at registration.
 - **Operations that were rehearsed.** Prometheus alert rules with unit tests, including two that are
   about integrity rather than uptime: a decision served without its audit record, and replicas serving
   different binaries of one model. Nightly backups, and a restore that was run end to end onto an empty

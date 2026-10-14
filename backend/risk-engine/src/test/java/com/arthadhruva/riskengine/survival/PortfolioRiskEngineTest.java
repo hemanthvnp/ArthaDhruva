@@ -5,10 +5,13 @@ import com.arthadhruva.riskengine.cvar.CvarResult;
 import com.arthadhruva.riskengine.score.LoanFeatures;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -229,5 +232,100 @@ class PortfolioRiskEngineTest {
         assertEquals(4, risk.projected());
         assertEquals(4, risk.scenarios().get(0).loans());
         assertEquals(4, risk.baselineLoans().size(), "an excluded loan is not in the listing either");
+    }
+
+    /** Finished chunks as a run would keep them, counting what is stored. */
+    private static final class Kept implements PortfolioRiskEngine.Checkpoints {
+        final Map<String, byte[]> chunks = new HashMap<>();
+        int saved;
+
+        @Override
+        public Map<String, byte[]> load() {
+            return new HashMap<>(chunks);
+        }
+
+        @Override
+        public void save(String key, byte[] chunk) {
+            chunks.put(key, chunk);
+            saved++;
+        }
+    }
+
+    /**
+     * Every figure of a result, doubles in their shortest exact form: equal text means equal to the bit. The
+     * one thing left out is how long the loss simulation took.
+     */
+    private static String exact(PortfolioRiskEngine.PortfolioRisk risk) {
+        return new ObjectMapper().writeValueAsString(risk).replaceAll("\"elapsedMillis\":\\d+", "");
+    }
+
+    /** A matured loan and an unknown state among them, so a stored chunk also carries exclusions. */
+    private static List<LoanFeatures> portfolioWithExclusions() {
+        List<LoanFeatures> loans = new ArrayList<>(portfolio());
+        loans.add(loan("matured", 720, 80.0, 6.0, 180, 0.0, "TX", MARKET.macroAsOf().minusMonths(200).toString()));
+        loans.add(loan("unknown-state", 720, 80.0, 6.0, 360, 0.0, "ZZ", null));
+        return loans;
+    }
+
+    @Test
+    void aResumedRunProjectsOnlyTheMissingChunksAndGivesTheSameFigures() {
+        List<LoanFeatures> loans = portfolioWithExclusions();
+        String uninterrupted = exact(engine(THREE, 1000).run(loans, SCENARIOS, 7L, done -> { }));
+
+        Kept first = new Kept();
+        assertEquals(uninterrupted, exact(engine(THREE, 1000).run(loans, SCENARIOS, 7L, done -> { }, first)),
+                "keeping checkpoints changes nothing");
+        assertEquals(3, first.saved, "22 loans in chunks of 8");
+
+        // The worker died with one chunk still to do.
+        Kept second = new Kept();
+        second.chunks.putAll(first.chunks);
+        second.chunks.remove(second.chunks.keySet().iterator().next());
+        AtomicInteger lastProgress = new AtomicInteger();
+        assertEquals(uninterrupted, exact(engine(ONE, 1000).run(loans, SCENARIOS, 7L, lastProgress::set, second)));
+        assertEquals(1, second.saved, "only the missing chunk was projected");
+        assertEquals(22, lastProgress.get(), "progress counts the resumed loans too");
+
+        // With every chunk there, nothing is projected at all.
+        Kept third = new Kept();
+        third.chunks.putAll(first.chunks);
+        assertEquals(uninterrupted, exact(engine(ONE, 1000).run(loans, SCENARIOS, 7L, done -> { }, third)));
+        assertEquals(0, third.saved);
+    }
+
+    @Test
+    void aCheckpointIsNotReusedForAnythingItWasNotComputedFor() {
+        List<LoanFeatures> loans = portfolio();
+        Kept kept = new Kept();
+        engine(THREE, 1000).run(loans, SCENARIOS, 7L, done -> { }, kept);
+        int afterFirst = kept.saved;
+
+        // Other scenarios: every chunk is projected afresh.
+        List<Scenario> others = List.of(Scenario.BASELINE, Scenario.ADVERSE);
+        String fresh = exact(engine(THREE, 1000).run(loans, others, 7L, done -> { }));
+        assertEquals(fresh, exact(engine(THREE, 1000).run(loans, others, 7L, done -> { }, kept)));
+        assertEquals(2 * afterFirst, kept.saved);
+
+        // One loan changed: only its chunk is projected again.
+        List<LoanFeatures> changed = new ArrayList<>(loans);
+        changed.set(0, loan("L100", 700, 60.0, 3.0, 180, 25.0, "CA", null));
+        int before = kept.saved;
+        assertEquals(exact(engine(THREE, 1000).run(changed, SCENARIOS, 7L, done -> { })),
+                exact(engine(THREE, 1000).run(changed, SCENARIOS, 7L, done -> { }, kept)));
+        assertEquals(before + 1, kept.saved);
+    }
+
+    @Test
+    void aCheckpointThatCannotBeReadIsProjectedAgain() {
+        List<LoanFeatures> loans = portfolio();
+        Kept kept = new Kept();
+        String uninterrupted = exact(engine(THREE, 1000).run(loans, SCENARIOS, 7L, done -> { }, kept));
+        String damaged = kept.chunks.keySet().iterator().next();
+        kept.chunks.put(damaged, Arrays.copyOf(kept.chunks.get(damaged), 40));
+        String other = kept.chunks.keySet().stream().filter(key -> !key.equals(damaged)).findFirst().orElseThrow();
+        kept.chunks.put(other, new byte[]{99, 0, 0, 0});
+        int before = kept.saved;
+        assertEquals(uninterrupted, exact(engine(THREE, 1000).run(loans, SCENARIOS, 7L, done -> { }, kept)));
+        assertEquals(before + 2, kept.saved);
     }
 }

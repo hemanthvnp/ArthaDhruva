@@ -1,6 +1,10 @@
 package com.arthadhruva.riskengine.survival;
 
 import com.arthadhruva.riskengine.audit.AuditContext;
+import com.arthadhruva.riskengine.billing.UsageService;
+import com.arthadhruva.riskengine.roughset.DecisionOptions;
+import com.arthadhruva.riskengine.roughset.PortfolioDecisionEngine;
+import com.arthadhruva.riskengine.roughset.Region;
 import com.arthadhruva.riskengine.audit.NotAudited;
 import com.arthadhruva.riskengine.billing.Metered;
 import com.arthadhruva.riskengine.cvar.CvarEngine;
@@ -57,15 +61,33 @@ public class PortfolioRiskController {
     private final PortfolioRiskService service;
     private final LoanCatalogService catalog;
     private final SurvivalModel model;
+    private final PortfolioDecisionEngine decisionEngine;
+    private final UsageService usage;
 
-    public PortfolioRiskController(PortfolioRiskService service, LoanCatalogService catalog, SurvivalModel model) {
+    public PortfolioRiskController(PortfolioRiskService service, LoanCatalogService catalog, SurvivalModel model,
+                                   PortfolioDecisionEngine decisionEngine, UsageService usage) {
         this.service = service;
         this.catalog = catalog;
         this.model = model;
+        this.decisionEngine = decisionEngine;
+        this.usage = usage;
     }
 
-    /** @param scenarios built-in scenario names (default: baseline, adverse and severely adverse) */
-    public record RunRequest(@Size(min = 1, max = 5) List<@NotBlank @Size(max = 30) String> scenarios) {
+    /** Which scenario regions are judged under when none is named: the harshest of those requested. */
+    private static final List<String> SEVERITY = List.of("SEVERELY_ADVERSE", "ADVERSE", "RATES_UP_200", "RATES_DOWN_200", "BASELINE");
+
+    /**
+     * @param scenarios        built-in scenario names (default: baseline, adverse and severely adverse)
+     * @param decision         also judge every loan with a rough-set three-way decision (certain high, certain low,
+     *                         boundary) of a stressed metric against a threshold; omitted, the run is as it always was
+     * @param decisionScenario the scenario the loans are judged under (default: the harshest of {@code scenarios})
+     * @param defer            do not compete with interactive runs: wait until the engine is idle (and for the
+     *                         off-peak window, when one is configured). Never refused as busy.
+     */
+    public record RunRequest(@Size(min = 1, max = 5) List<@NotBlank @Size(max = 30) String> scenarios,
+                             @Valid DecisionOptions decision,
+                             @Size(max = 30) String decisionScenario,
+                             Boolean defer) {
     }
 
     /**
@@ -106,9 +128,21 @@ public class PortfolioRiskController {
         if (loans.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT).body(Map.of("error", "The portfolio has no loans"));
         }
+        PortfolioRiskService.DecisionPlan plan = null;
+        if (request != null && request.decision() != null) {
+            DecisionOptions.Resolved options = request.decision().resolve(DecisionOptions.PORTFOLIO_DEFAULT_MEMBERS,
+                    DecisionOptions.PORTFOLIO_MAX_MEMBERS);
+            Scenario target = decisionTarget(scenarios, request.decisionScenario());
+            decisionEngine.checkSize(loans.size(), options.members());
+            plan = new PortfolioRiskService.DecisionPlan(target, options);
+        }
         AuditContext.modelVersion(model.version());
         try {
-            PortfolioRiskService.Run run = service.start(TenantContext.get(), authentication.getName(), loans, scenarios);
+            PortfolioRiskService.Run run = service.start(TenantContext.get(), authentication.getName(), loans, scenarios, plan,
+                    request != null && Boolean.TRUE.equals(request.defer()));
+            if (plan != null) {
+                usage.record(TenantContext.get(), "DECISION_MEMBER", (long) loans.size() * plan.options().members());
+            }
             return ResponseEntity.accepted().location(URI.create("/v1/risk/portfolio/runs/" + run.id())).body(run);
         } catch (PortfolioRiskService.RunInProgressException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(e.run());
@@ -116,6 +150,16 @@ public class PortfolioRiskController {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).header(HttpHeaders.RETRY_AFTER, "30")
                     .body(Map.of("error", e.getMessage()));
         }
+    }
+
+    private static Scenario decisionTarget(List<Scenario> scenarios, String requested) {
+        if (requested != null && !requested.isBlank()) {
+            String wanted = requested.trim().toUpperCase(java.util.Locale.ROOT);
+            return scenarios.stream().filter(s -> s.name().equals(wanted)).findFirst().orElseThrow(() ->
+                    new TermStructureEngine.InvalidProjectionException("decisionScenario must be one of the run's scenarios: "
+                            + scenarios.stream().map(Scenario::name).toList()));
+        }
+        return SEVERITY.stream().flatMap(name -> scenarios.stream().filter(s -> s.name().equals(name))).findFirst().orElse(scenarios.get(0));
     }
 
     /** Polled while a run is in progress, so kept out of the audit trail; starting a run is recorded. */
@@ -138,11 +182,13 @@ public class PortfolioRiskController {
     /**
      * The latest run's baseline results loan by loan: the listing behind the allowance.
      *
-     * @param stage only loans in this IFRS 9 stage
-     * @param sort  eclLifetime (default), eclIfrs9, pd12m, exposure or loanId
+     * @param stage  only loans in this IFRS 9 stage
+     * @param region only loans in this region (CERTAIN_HIGH, CERTAIN_LOW or BOUNDARY) of the latest region analysis
+     * @param sort   eclLifetime (default), eclIfrs9, pd12m, exposure or loanId
      */
     @GetMapping("/risk/portfolio/loans")
     public ResponseEntity<?> loans(@RequestParam(required = false) @Min(1) @Max(3) Integer stage,
+                                   @RequestParam(required = false) @Size(max = 20) String region,
                                    @RequestParam(defaultValue = "eclLifetime") @Size(max = 20) String sort,
                                    @RequestParam(defaultValue = "25") @Min(1) @Max(500) int limit,
                                    @RequestParam(defaultValue = "0") @Min(0) int offset) {
@@ -157,7 +203,15 @@ public class PortfolioRiskController {
         if (order == null) {
             return ResponseEntity.badRequest().body(Map.of("error", "sort must be one of eclLifetime, eclIfrs9, pd12m, exposure, loanId"));
         }
-        return ResponseEntity.ok(service.loans(TenantContext.get(), stage, order, limit, offset));
+        Region wanted = null;
+        if (region != null && !region.isBlank()) {
+            try {
+                wanted = Region.valueOf(region.trim().toUpperCase(java.util.Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.badRequest().body(Map.of("error", "region must be one of CERTAIN_HIGH, CERTAIN_LOW, BOUNDARY"));
+            }
+        }
+        return ResponseEntity.ok(service.loans(TenantContext.get(), stage, wanted, order, limit, offset));
     }
 
     /** The same listing as CSV, every loan, streamed in keyset pages (bounded memory at any size). */
@@ -166,14 +220,29 @@ public class PortfolioRiskController {
         Long tenantId = TenantContext.get();
         StreamingResponseBody body = out -> {
             try (Writer writer = new OutputStreamWriter(out, StandardCharsets.UTF_8)) {
-                var csv = new CsvWriter.Streaming(writer, List.of("loanId", "state", "exposure", "pd12m", "pdLifetime", "lgd",
-                        "ecl12m", "eclLifetime", "eclIfrs9", "stage", "stageReason", "weight"));
                 TenantContext.set(tenantId);   // the body is written on another thread than the request's
                 try {
-                    service.forEachLoan(tenantId, loan -> csv.row(List.of(loan.loanId(), loan.state(), amount(loan.exposure()),
-                            String.valueOf(loan.pd12m()), String.valueOf(loan.pdLifetime()), String.valueOf(loan.lgd()),
-                            amount(loan.ecl12m()), amount(loan.eclLifetime()), amount(loan.eclIfrs9()), String.valueOf(loan.stage()),
-                            loan.stageReason(), String.valueOf(loan.weight()))));
+                    boolean regions = service.hasRegions(tenantId);
+                    List<String> header = new ArrayList<>(List.of("loanId", "state", "exposure", "pd12m", "pdLifetime", "lgd",
+                            "ecl12m", "eclLifetime", "eclIfrs9", "stage", "stageReason", "weight"));
+                    if (regions) {
+                        header.addAll(List.of("region", "variantsHigh", "variants", "metricMin", "metricMax", "eclLifetimeMin",
+                                "eclLifetimeMax", "extrapolated"));
+                    }
+                    var csv = new CsvWriter.Streaming(writer, header);
+                    service.forEachLoanWithRegion(tenantId, (loan, info) -> {
+                        List<String> row = new ArrayList<>(List.of(loan.loanId(), loan.state(), amount(loan.exposure()),
+                                String.valueOf(loan.pd12m()), String.valueOf(loan.pdLifetime()), String.valueOf(loan.lgd()),
+                                amount(loan.ecl12m()), amount(loan.eclLifetime()), amount(loan.eclIfrs9()), String.valueOf(loan.stage()),
+                                loan.stageReason(), String.valueOf(loan.weight())));
+                        if (regions) {
+                            row.addAll(info == null ? List.of("", "", "", "", "", "", "", "")
+                                    : List.of(info.region().name(), String.valueOf(info.high()), String.valueOf(info.members()),
+                                            String.valueOf(info.metricMin()), String.valueOf(info.metricMax()), amount(info.eclMin()),
+                                            amount(info.eclMax()), String.valueOf(info.extrapolated())));
+                        }
+                        csv.row(row);
+                    });
                 } finally {
                     TenantContext.clear();
                 }
@@ -206,6 +275,16 @@ public class PortfolioRiskController {
                 .<ResponseEntity<?>>map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
                         .body(Map.of("error", "Run a portfolio projection first: the loss distribution is simulated from its loans")));
+    }
+
+    @ExceptionHandler(TermStructureEngine.InvalidProjectionException.class)
+    public ResponseEntity<Map<String, String>> onInvalidDecision(TermStructureEngine.InvalidProjectionException e) {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT).body(Map.of("error", e.getMessage()));
+    }
+
+    @ExceptionHandler(PortfolioDecisionEngine.TooLargeException.class)
+    public ResponseEntity<Map<String, String>> onDecisionTooLarge(PortfolioDecisionEngine.TooLargeException e) {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT).body(Map.of("error", e.getMessage()));
     }
 
     @ExceptionHandler(CvarEngine.TooLargeException.class)

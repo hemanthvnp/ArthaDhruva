@@ -55,5 +55,14 @@ public abstract class AbstractIntegrationTest {
         registry.add("spring.neo4j.uri", NEO4J::getBoltUrl);
         registry.add("spring.neo4j.authentication.username", () -> "neo4j");
         registry.add("spring.neo4j.authentication.password", NEO4J::getAdminPassword);
+        // The run supervisor's own passes are kept out of the tests: the tests that are about supervision make
+        // each pass themselves, and no other test should have a run restarted or started behind its back.
+        registry.add("risk.runs.supervise-ms", () -> "3600000");
+        // Likewise the look at the queue: a run a test leaves waiting is taken when that test says so (and with
+        // the loans it names, not the whole demo catalog). A run started while a worker is free does not wait.
+        registry.add("risk.runs.poll-ms", () -> "3600000");
+        // And webhook delivery: the tests about it call the worker themselves, so a row is attempted when and by
+        // whom the test says.
+        registry.add("webhook.worker.poll-ms", () -> "3600000");
     }
 }
