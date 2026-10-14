@@ -82,7 +82,11 @@ public class SurvivalController {
                                         @JsonInclude(JsonInclude.Include.NON_NULL) DecisionService.Decision decision) {
     }
 
-    /** @param scenarios built-in scenario names to compare (default: all of them) */
+    /**
+     * @param scenarios built-in scenario names to compare (default: all of them)
+     * @param weights   optional probability of each compared scenario (non-negative, summing to 1; a compared
+     *                  scenario left out carries 0); when given, the response adds the probability-weighted figures
+     */
     public record CompareRequest(
             @NotNull @Valid LoanFeatures loan,
             @Size(min = 1, max = 5) List<@Size(max = 30) String> scenarios,
@@ -91,7 +95,8 @@ public class SurvivalController {
             @Min(0) @Max(3650) Integer daysPastDue,
             @DecimalMin("0") @DecimalMax("1") Double originationPd12m,
             @Min(1) @Max(480) Integer months,
-            @Valid DecisionOptions decision
+            @Valid DecisionOptions decision,
+            @Size(max = 5) Map<@Size(max = 30) String, Double> weights
     ) {
     }
 
@@ -103,10 +108,26 @@ public class SurvivalController {
                                 @JsonInclude(JsonInclude.Include.NON_NULL) DecisionService.Decision decision) {
     }
 
-    /** @param decision the three-way decision across the listed scenarios (scenario-set granule only) */
+    /**
+     * @param decision the three-way decision across the listed scenarios (scenario-set granule only)
+     * @param weighted the probability-weighted figures, present only when the request gave weights
+     */
     public record CompareResponse(String modelVersion, int monthsOnBook, int remainingMonths, List<String> months,
                                   List<ScenarioCurve> scenarios, List<String> warnings,
-                                  @JsonInclude(JsonInclude.Include.NON_NULL) DecisionService.Decision decision) {
+                                  @JsonInclude(JsonInclude.Include.NON_NULL) DecisionService.Decision decision,
+                                  @JsonInclude(JsonInclude.Include.NON_NULL) Weighted weighted) {
+    }
+
+    /**
+     * Each figure is {@code sum_s w_s x figure_s} over the compared scenarios, each scenario's figure exactly as
+     * reported for it, so a scenario's allowance is the one staged on its own path ({@link ScenarioWeights}).
+     *
+     * @param method           {@code SCENARIO_WEIGHTED}: how the figures were combined
+     * @param weights          the weights used, by scenario, in compared order (0 for a scenario not named)
+     * @param stageProbability the total weight of the scenarios in which the loan is in stage 1, 2 and 3
+     */
+    public record Weighted(String method, Map<String, Double> weights, double pd12m, double pdLifetime, double ecl12m,
+                           double eclLifetime, double eclIfrs9, double eclCecl, double[] stageProbability) {
     }
 
     @Metered("TERM_STRUCTURE")
@@ -141,6 +162,8 @@ public class SurvivalController {
         List<Scenario> scenarios = request.scenarios() == null ? Scenario.BUILT_IN
                 : request.scenarios().stream().distinct().map(SurvivalController::scenario).toList();
         DecisionOptions.Resolved options = resolve(request.decision());
+        List<String> names = scenarios.stream().map(Scenario::name).toList();
+        double[] weights = request.weights() == null ? null : ScenarioWeights.resolve(request.weights(), names);
         AuditContext.modelVersion(model.version());
         List<TermStructureEngine.Request> requests = new ArrayList<>(scenarios.size());
         for (Scenario scenario : scenarios) {
@@ -173,7 +196,29 @@ public class SurvivalController {
         }
         TermStructureEngine.Outcome first = outcomes.get(0);
         return new CompareResponse(model.version(), first.monthsOnBook(), first.months(), first.monthLabels(months), curves, warnings,
-                setDecision);
+                setDecision, weights == null ? null : weighted(weights, names, outcomes));
+    }
+
+    static Weighted weighted(double[] weights, List<String> names, List<TermStructureEngine.Outcome> outcomes) {
+        int n = outcomes.size();
+        double[] pd12m = new double[n], pdLifetime = new double[n], ecl12m = new double[n], eclLifetime = new double[n],
+                eclIfrs9 = new double[n], eclCecl = new double[n];
+        double[] stageProbability = new double[3];
+        for (int i = 0; i < n; i++) {
+            TermStructureEngine.Summary s = outcomes.get(i).summary();
+            TermStructureEngine.Ecl e = outcomes.get(i).ecl();
+            pd12m[i] = s.pd12m();
+            pdLifetime[i] = s.pdLifetime();
+            ecl12m[i] = e.ecl12m();
+            eclLifetime[i] = e.eclLifetime();
+            eclIfrs9[i] = e.eclIfrs9();
+            eclCecl[i] = e.eclCecl();
+            stageProbability[e.stage() - 1] += weights[i];
+        }
+        return new Weighted("SCENARIO_WEIGHTED", ScenarioWeights.named(weights, names), ScenarioWeights.combine(weights, pd12m),
+                ScenarioWeights.combine(weights, pdLifetime), ScenarioWeights.combine(weights, ecl12m),
+                ScenarioWeights.combine(weights, eclLifetime), ScenarioWeights.combine(weights, eclIfrs9),
+                ScenarioWeights.combine(weights, eclCecl), stageProbability);
     }
 
     @GetMapping("/risk/scenarios")

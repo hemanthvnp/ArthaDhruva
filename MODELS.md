@@ -357,6 +357,30 @@ month-by-month LGD into the simulation and makes the simulated mean exactly the 
 and unexpected loss are statements about the same loss. The asset correlation (0.15 by default, the
 Basel value for residential mortgages) is an input, not an estimate from this data.
 
+## Probability-weighted figures
+
+IFRS 9 asks for one allowance weighted over a range of outcomes; the scenarios above each give their own. A
+caller may give each scenario of a comparison a probability (non-negative, summing to 1) and receive the
+weighted figures beside the scenarios': `weights` on `POST /v1/risk/term-structure/compare` for one loan, and
+`POST /v1/risk/portfolio/weighted` for the latest portfolio run, which is arithmetic over the stored results and
+projects nothing again.
+
+Every weighted figure is `sum_s w_s x figure_s`, each scenario's figure exactly as reported for it
+(`survival.ScenarioWeights`). For the allowance this means each scenario stages the loan on its own path and its
+allowance is then weighted; the response also gives the probability of each stage (the total weight of the
+scenarios in which the loan is in that stage, or for a portfolio the weighted number of loans), so a reader can
+see when the scenarios disagree. The alternative, staging once on a probability-weighted 12-month PD, needs the
+staging rule outside the engine, cannot be done for a portfolio from stored results (only the baseline keeps
+loan-level results), and makes the weighted figure a non-linear function of the scenarios; the response carries
+the method label `SCENARIO_WEIGHTED` so another method could be added without ambiguity. Sums run in the order
+the scenarios are compared, so the weights' order does not change the bits, and a weight of 1 returns that
+scenario's figure exactly.
+
+What it is not: the weights are the caller's judgement, echoed in every response, not an estimate; the console
+offers 50 / 30 / 20 over the three stress scenarios as an illustration only, and the stress scenarios are
+illustrative, not a regulator's. The weighted figure inherits each scenario's limitations, including the stacking
+of forced stress months on a fall in house prices described under the survival model.
+
 ## Region analysis: where the stressed answer is not decided
 
 A stressed figure near a threshold flips with small changes in the stress. `roughset.DecisionService` asks, for

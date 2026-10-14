@@ -376,6 +376,43 @@ class ApiIntegrationTest extends AbstractIntegrationTest {
         assertTrue(lifetimeEcl.get("ADVERSE") < lifetimeEcl.get("SEVERELY_ADVERSE"));
         assertEquals(120, body(compared).get("months").size());
 
+        // Weights add one probability-weighted block, the weighted sum of the scenarios' own figures; without
+        // weights there is no such block.
+        assertFalse(body(compared).has("weighted"));
+        Map<String, Object> weighting = Map.of("loan", loan(null, 700, "NV", "2024-11"),
+                "scenarios", List.of("BASELINE", "ADVERSE", "SEVERELY_ADVERSE"),
+                "weights", Map.of("SEVERELY_ADVERSE", 0.2, "baseline", 0.5, "ADVERSE", 0.3));
+        JsonNode weighed = body(call(post("/v1/risk/term-structure/compare"), ana, weighting));
+        JsonNode weighted = weighed.get("weighted");
+        assertEquals("SCENARIO_WEIGHTED", weighted.get("method").asString());
+        assertEquals("{\"BASELINE\":0.5,\"ADVERSE\":0.3,\"SEVERELY_ADVERSE\":0.2}", weighted.get("weights").toString());
+        double[] share = {0.5, 0.3, 0.2};
+        for (String field : List.of("ecl12m", "eclLifetime", "eclIfrs9", "eclCecl", "pd12m", "pdLifetime")) {
+            String block = field.startsWith("pd") ? "summary" : "ecl";
+            double expected = 0;
+            for (int i = 0; i < 3; i++) {
+                expected += share[i] * weighed.get("scenarios").get(i).get(block).get(field).asDouble();
+            }
+            assertEquals(expected, weighted.get(field).asDouble(), 1e-12 * Math.max(1.0, expected), field);
+        }
+        double stageProbability = 0;
+        for (JsonNode p : weighted.get("stageProbability")) {
+            stageProbability += p.asDouble();
+        }
+        assertEquals(1.0, stageProbability, 1e-12);
+        assertEquals(lifetimeEcl.get("BASELINE"), weighed.get("scenarios").get(0).get("ecl").get("eclLifetime").asDouble(), 0.0,
+                "weighting does not change a scenario's own figures");
+        Map<String, Object> shortfall = Map.of("loan", loan(null, 700, "NV", "2024-11"), "scenarios", List.of("BASELINE", "ADVERSE"),
+                "weights", Map.of("BASELINE", 0.5, "ADVERSE", 0.3));
+        MvcResult badSum = call(post("/v1/risk/term-structure/compare"), ana, shortfall);
+        assertEquals(422, status(badSum));
+        assertTrue(body(badSum).get("error").asString().contains("must sum to 1"));
+        Map<String, Object> elsewhere = Map.of("loan", loan(null, 700, "NV", "2024-11"), "scenarios", List.of("BASELINE", "ADVERSE"),
+                "weights", Map.of("BASELINE", 0.5, "RATES_UP_200", 0.5));
+        MvcResult notCompared = call(post("/v1/risk/term-structure/compare"), ana, elsewhere);
+        assertEquals(422, status(notCompared));
+        assertTrue(body(notCompared).get("error").asString().contains("RATES_UP_200"));
+
         request.put("scenario", "DOOMSDAY");
         assertEquals(422, status(call(post("/v1/risk/term-structure"), ana, request)));
         request.put("scenario", "ADVERSE");
@@ -435,6 +472,24 @@ class ApiIntegrationTest extends AbstractIntegrationTest {
         assertEquals(0.999, stored.get("confidenceLevel").asDouble(), 0.0);
         assertTrue(stored.get("valueAtRisk").asDouble() > stored.get("expectedLoss").asDouble());
 
+        // The stored scenarios weighted into one allowance, without projecting anything again.
+        Map<String, Double> probability = Map.of("BASELINE", 0.5, "ADVERSE", 0.3, "SEVERELY_ADVERSE", 0.2);
+        JsonNode weightedRun = body(call(post("/v1/risk/portfolio/weighted"), gus, Map.of("weights", probability)));
+        double expectedIfrs9 = 0, expectedStage2 = 0;
+        for (JsonNode snapshot : view.get("snapshots")) {
+            double p = probability.get(snapshot.get("scenario").asString());
+            expectedIfrs9 += p * snapshot.get("eclIfrs9").asDouble();
+            expectedStage2 += p * snapshot.get("stage2").asDouble();
+        }
+        assertEquals("SCENARIO_WEIGHTED", weightedRun.get("method").asString());
+        assertEquals(expectedIfrs9, weightedRun.get("eclIfrs9").asDouble(), 1e-12 * Math.max(1.0, expectedIfrs9));
+        assertEquals(expectedStage2, weightedRun.get("stageLoans").get(1).asDouble(), 1e-12);
+        assertEquals(baseline.get("asOf").asString(), weightedRun.get("asOf").asString());
+        assertEquals(10, weightedRun.get("loans").asInt());
+        assertFalse(weightedRun.get("eclCecl").isNull());
+        assertEquals(422, status(call(post("/v1/risk/portfolio/weighted"), gus, Map.of("weights", Map.of("BASELINE", 0.5)))));
+        assertEquals(400, status(call(post("/v1/risk/portfolio/weighted"), gus, Map.of())));
+
         // The listing behind the totals: paged, ordered, filtered by stage, and adding up to the snapshot.
         String gil = token(gamma, "gil", Role.ANALYST);
         JsonNode page = body(call(get("/v1/risk/portfolio/loans?limit=4"), gil, null));
@@ -485,6 +540,7 @@ class ApiIntegrationTest extends AbstractIntegrationTest {
         assertTrue(body(call(get("/v1/risk/portfolio"), bea, null)).get("snapshots").isEmpty());
         assertEquals(0, body(call(get("/v1/risk/portfolio/loans"), bea, null)).get("total").asInt());
         assertEquals(422, status(call(post("/v1/risk/portfolio/loss-distribution"), bea, null)));
+        assertEquals(404, status(call(post("/v1/risk/portfolio/weighted"), bea, Map.of("weights", Map.of("BASELINE", 1.0)))));
 
         // One active run per organization: a second request is answered with the run in progress...
         UUID active = UUID.randomUUID();
@@ -505,6 +561,9 @@ class ApiIntegrationTest extends AbstractIntegrationTest {
         assertEquals("COMPLETED", finished(body(rerun).get("id").asString(), gus).get("status").asString());
         JsonNode after = body(call(get("/v1/risk/portfolio"), gus, null));
         assertEquals(2, after.get("snapshots").size());
+        MvcResult uncovered = call(post("/v1/risk/portfolio/weighted"), gus, Map.of("weights", Map.of("BASELINE", 0.8, "SEVERELY_ADVERSE", 0.2)));
+        assertEquals(422, status(uncovered), "the second run did not cover the severely adverse scenario");
+        assertTrue(body(uncovered).get("error").asString().contains("SEVERELY_ADVERSE"));
         assertEquals(1, body(call(get("/v1/risk/portfolio/history?scenario=BASELINE"), gus, null)).size(), "same date, one snapshot");
         assertEquals(0, body(call(get("/v1/risk/portfolio/history?scenario=SEVERELY_ADVERSE"), gus, null)).size());
         assertEquals(10, body(call(get("/v1/risk/portfolio/loans"), gus, null)).get("total").asInt());

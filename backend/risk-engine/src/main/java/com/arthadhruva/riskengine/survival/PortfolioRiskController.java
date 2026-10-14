@@ -19,6 +19,7 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
@@ -41,6 +42,7 @@ import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -95,6 +97,24 @@ public class PortfolioRiskController {
      * @param portfolioLoans loans in the portfolio now, which may no longer be the number the snapshots cover
      */
     public record PortfolioView(List<PortfolioRiskService.Snapshot> snapshots, PortfolioRiskService.Run run, int portfolioLoans) {
+    }
+
+    /** @param weights the probability of each scenario of the latest run (non-negative, summing to 1) */
+    public record WeightRequest(@NotNull @Size(min = 1, max = 5) Map<@Size(max = 30) String, Double> weights) {
+    }
+
+    /**
+     * The latest run's scenarios weighted into one allowance: each figure is {@code sum_s w_s x figure_s} over the
+     * stored scenarios, each staged on its own path ({@link ScenarioWeights}). Nothing is projected again.
+     *
+     * @param weights    the weights used, by scenario, in stored order (0 for a scenario not named)
+     * @param coverage   the weighted IFRS 9 allowance as a share of the weighted exposure
+     * @param eclCecl    null when a stored scenario predates the CECL figure being kept with it
+     * @param stageLoans the weighted number of loans in stage 1, 2 and 3 (fractional)
+     */
+    public record WeightedPortfolio(String method, LocalDate asOf, String modelVersion, int loans, Map<String, Double> weights,
+                                    double exposure, double ecl12m, double eclLifetime, double eclIfrs9, Double eclCecl,
+                                    double coverage, double[] stageLoans) {
     }
 
     /** Every field optional: the defaults are a one-in-a-thousand year at the Basel mortgage correlation. */
@@ -262,6 +282,51 @@ public class PortfolioRiskController {
      * The portfolio's one-year loss distribution: value at risk, expected shortfall and the loans that
      * drive the tail, simulated from the latest run's loans. 422 until a run has stored any.
      */
+    /**
+     * Weights the scenarios of the latest stored run into one allowance. A read: no run is started and no loan is
+     * projected. 404 before any run; 422 for weights that are not valid for the stored scenarios; 409 if the stored
+     * scenarios of that date were computed by different model versions.
+     */
+    @PostMapping("/risk/portfolio/weighted")
+    public ResponseEntity<?> weighted(@Valid @RequestBody WeightRequest request) {
+        List<PortfolioRiskService.Snapshot> snapshots = service.latestSnapshots(TenantContext.get());
+        if (snapshots.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Run a portfolio projection first: the weights apply to its stored scenarios"));
+        }
+        List<String> names = snapshots.stream().map(PortfolioRiskService.Snapshot::scenario).toList();
+        double[] w = ScenarioWeights.resolve(request.weights(), names);
+        if (snapshots.stream().map(PortfolioRiskService.Snapshot::modelVersion).distinct().count() > 1) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error",
+                    "The stored scenarios were computed by different model versions; run the portfolio again before weighting them"));
+        }
+        int n = snapshots.size();
+        double[] exposure = new double[n], ecl12m = new double[n], eclLifetime = new double[n], eclIfrs9 = new double[n],
+                eclCecl = new double[n], stage1 = new double[n], stage2 = new double[n], stage3 = new double[n];
+        boolean cecl = true;
+        for (int i = 0; i < n; i++) {
+            PortfolioRiskService.Snapshot s = snapshots.get(i);
+            exposure[i] = s.exposure();
+            ecl12m[i] = s.ecl12m();
+            eclLifetime[i] = s.eclLifetime();
+            eclIfrs9[i] = s.eclIfrs9();
+            stage1[i] = s.stage1();
+            stage2[i] = s.stage2();
+            stage3[i] = s.stage3();
+            boolean stored = s.detail() != null && s.detail().hasNonNull("eclCecl");
+            eclCecl[i] = stored ? s.detail().get("eclCecl").asDouble() : Double.NaN;
+            cecl &= stored || w[i] == 0.0;
+        }
+        double weightedExposure = ScenarioWeights.combine(w, exposure);
+        double weightedIfrs9 = ScenarioWeights.combine(w, eclIfrs9);
+        PortfolioRiskService.Snapshot first = snapshots.get(0);
+        return ResponseEntity.ok(new WeightedPortfolio("SCENARIO_WEIGHTED", first.asOf(), first.modelVersion(), first.loans(),
+                ScenarioWeights.named(w, names), weightedExposure, ScenarioWeights.combine(w, ecl12m),
+                ScenarioWeights.combine(w, eclLifetime), weightedIfrs9, cecl ? ScenarioWeights.combine(w, eclCecl) : null,
+                weightedExposure > 0 ? weightedIfrs9 / weightedExposure : 0.0,
+                new double[]{ScenarioWeights.combine(w, stage1), ScenarioWeights.combine(w, stage2), ScenarioWeights.combine(w, stage3)}));
+    }
+
     @Metered("CVAR_RUN")
     @PostMapping("/risk/portfolio/loss-distribution")
     public ResponseEntity<?> lossDistribution(@Valid @RequestBody(required = false) LossRequest request) {

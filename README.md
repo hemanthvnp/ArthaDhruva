@@ -12,6 +12,7 @@ how much worse than expected a bad year can be.
 | **Default risk score** | Probability of default within 24 months of origination, a Shapley explanation that adds up exactly to the score, and adverse-action reason codes |
 | **Lifetime risk** | One loan month by month to maturity: the probability it is still on the book, has prepaid or has defaulted, under a baseline, two stress scenarios and two rate shocks |
 | **Portfolio risk** | Every loan projected and added up: the loss allowance, IFRS 9 staging, the response to stress, a ten-year run-off, and the allowance loan by loan |
+| **Probability-weighted allowance** | One figure across the scenarios, each weighted by the probability the user gives it, for one loan or from the latest portfolio run without projecting again |
 | **Region analysis** | Whether a loan's stressed figure is high under every variant of the stress, under none, or on the boundary where the answer turns on the details, for one loan or the whole book (rough-set three-way decision) |
 | **Loss distribution** | Value at risk and expected shortfall of the portfolio, and the loans that drive the tail |
 | **Model governance** | Every model with its checksum, validation, backtests and limitations, and population drift against the training data |
