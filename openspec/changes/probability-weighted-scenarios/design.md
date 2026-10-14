@@ -44,4 +44,5 @@ Additive. Deploy backend then frontend; no data migration. Rollback is removing 
 
 ## Open Questions
 
-- Whether `eclCecl` is present in the stored snapshot detail for every scenario; settled at implementation by reading `PortfolioRiskService`, with the fallback in D6.
+- ~~Whether `eclCecl` is present in the stored snapshot detail for every scenario.~~ Settled: `latestSnapshots` returns each scenario's full `ScenarioRisk` as `detail`, which holds `eclCecl`; the endpoint reads it there and returns null only if a weighted scenario's detail lacks it (D6). `latestSnapshots` already restricts to the most recent date, so "same date" holds by construction; differing model versions on that date give 409.
+- D3's audit note: the portfolio reads carry no `@NotAudited` annotation (only the run poll does), so the weighted POST is audited like other POSTs; it records only the weights.
