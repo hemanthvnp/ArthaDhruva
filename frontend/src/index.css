@@ -957,3 +957,9 @@ tr.detail-row, tr.detail-row:hover { background: var(--surface-2); }
 tr.detail-row > td { padding: 1rem 1rem 1.1rem; white-space: normal; }
 tr.detail-row .widget-grid { gap: 1rem; }
 pre.code-block { margin: 0; font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace; font-size: 0.78rem; line-height: 1.5; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.7rem 0.8rem; max-height: 280px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* probability-weighted figures: a footer row under the scenarios, and the collapsible weights form */
+tfoot tr.weighted-row > td { border-top: 1px solid var(--border-strong); background: var(--surface-2); }
+details.weights-panel { margin-top: 0.75rem; }
+details.weights-panel > summary { cursor: pointer; font-weight: 600; color: var(--text-muted); }
+details.weights-panel[open] > summary { margin-bottom: 0.5rem; }

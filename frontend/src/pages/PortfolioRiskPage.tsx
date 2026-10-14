@@ -2,10 +2,12 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Area, AreaChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { downloadPortfolioLoanResultsCsv, getPortfolioRisk, portfolioLoanResults, portfolioRiskHistory, startPortfolioRun } from '../api/client';
+import { downloadPortfolioLoanResultsCsv, getPortfolioRisk, portfolioLoanResults, portfolioRiskHistory, startPortfolioRun, weightPortfolioRun } from '../api/client';
 import ErrorBanner from '../components/ErrorBanner';
 import { PortfolioRegions, RunWithRegions } from '../components/PortfolioRegions';
 import RiskMeter from '../components/RiskMeter';
+import ScenarioWeightsForm from '../components/ScenarioWeightsForm';
+import { WEIGHTED_METHOD_NOTE, weightsLabel } from '../components/weights';
 import { REGION_BADGE, REGION_GLYPH, REGION_LABEL, extrapolatedLegend } from '../components/regions';
 import { AXIS, GRID, LEGEND, SCENARIO_STYLE, TOOLTIP, scenarioLabel, yearOf, yearTicks } from '../components/chartTheme';
 import { axisMoney, bps, compactMoney, count, money, monthLabel, pct } from '../format';
@@ -315,6 +317,52 @@ function Trend() {
   );
 }
 
+/** The latest run's scenarios weighted into one allowance by the user's probabilities; nothing is projected again. */
+function WeightedAllowance({ scenarios, asOf }: { scenarios: string[]; asOf: string }) {
+  const [weights, setWeights] = useState<Record<string, number> | null>(null);
+  const weighted = useQuery({
+    queryKey: ['portfolio-weighted', asOf, weights],
+    queryFn: () => weightPortfolioRun(weights!),
+    enabled: weights !== null,
+    retry: false,
+  });
+  const w = weighted.data;
+  return (
+    <div className="card">
+      <div className="card-head"><h3>Probability-weighted allowance</h3></div>
+      <p className="page-subtitle">
+        One allowance across the scenarios of this run, each weighted by how likely you judge it. Computed from the stored results.
+      </p>
+      <ScenarioWeightsForm scenarios={scenarios} applied={weights} onApply={setWeights} />
+      <ErrorBanner error={weighted.error} />
+      {w && (
+        <>
+          <div className="kpi-row" style={{ marginTop: '1rem' }}>
+            <div className="kpi accent">
+              <div className="label">Allowance (IFRS 9)</div>
+              <div className="value">{compactMoney(w.eclIfrs9)}</div>
+              <div className="hint">{bps(w.coverage)} of exposure</div>
+            </div>
+            <div className="kpi">
+              <div className="label">Lifetime ECL</div>
+              <div className="value">{compactMoney(w.eclLifetime)}</div>
+              <div className="hint">{w.eclCecl !== null ? `CECL ${compactMoney(w.eclCecl)}` : 'CECL not stored for every scenario'}</div>
+            </div>
+            <div className="kpi">
+              <div className="label">Loans in stage 2</div>
+              <div className="value">{w.stageLoans[1].toFixed(1)}</div>
+              <div className="hint">weighted; stage 3 {w.stageLoans[2].toFixed(1)}</div>
+            </div>
+          </div>
+          <p className="chart-caption">
+            Weighted {weightsLabel(w.weights, scenarioLabel)}, from the run of {w.asOf} ({w.modelVersion}). {WEIGHTED_METHOD_NOTE}
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
 function Results({ snapshots, portfolioLoans }: { snapshots: PortfolioSnapshot[]; portfolioLoans: number }) {
   const ordered = useMemo(() => [...snapshots].sort((a, b) => ORDER.indexOf(a.scenario) - ORDER.indexOf(b.scenario)), [snapshots]);
   const details = ordered.map((s) => s.detail).filter((d): d is ScenarioRisk => d !== null);
@@ -413,6 +461,8 @@ function Results({ snapshots, portfolioLoans }: { snapshots: PortfolioSnapshot[]
           stage 2, where the allowance is the lifetime loss instead of twelve months of it.
         </p>
       </div>
+
+      <WeightedAllowance scenarios={ordered.map((s) => s.scenario)} asOf={head.asOf} />
 
       <Runoff scenarios={details} />
 

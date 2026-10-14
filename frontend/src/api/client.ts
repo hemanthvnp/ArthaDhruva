@@ -38,6 +38,7 @@ import type {
   SurvivalBacktest,
   TermStructureResponse,
   UsageView,
+  WeightedPortfolio,
   WebhookDelivery,
   WebhookEvent,
   WebhookView,
@@ -330,6 +331,11 @@ export function compareScenarios(input: LifetimeRiskInput): Promise<ScenarioComp
 /** The latest snapshot of every scenario, and the latest run (so a reload can resume watching it). */
 export function getPortfolioRisk(): Promise<PortfolioView> {
   return request('/risk/portfolio');
+}
+
+/** Weights the latest run's stored scenarios into one allowance; nothing is projected again. */
+export function weightPortfolioRun(weights: Record<string, number>): Promise<WeightedPortfolio> {
+  return request('/risk/portfolio/weighted', { method: 'POST', body: JSON.stringify({ weights }) });
 }
 
 /**

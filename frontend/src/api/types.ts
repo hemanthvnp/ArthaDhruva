@@ -304,6 +304,40 @@ export interface LifetimeRiskInput {
   originationPd12m?: number;
   months?: number;
   decision?: DecisionRequest;
+  /** probability of each compared scenario, as fractions summing to 1; adds `weighted` to a comparison */
+  weights?: Record<string, number>;
+}
+
+/** The scenarios' own figures weighted by the caller's probabilities; each scenario is staged on its own path. */
+export interface WeightedFigures {
+  method: 'SCENARIO_WEIGHTED';
+  weights: Record<string, number>;
+  pd12m: number;
+  pdLifetime: number;
+  ecl12m: number;
+  eclLifetime: number;
+  eclIfrs9: number;
+  eclCecl: number;
+  /** total weight of the scenarios in which the loan is in stage 1, 2 and 3 */
+  stageProbability: [number, number, number];
+}
+
+/** The latest portfolio run's stored scenarios weighted into one allowance, without projecting again. */
+export interface WeightedPortfolio {
+  method: 'SCENARIO_WEIGHTED';
+  asOf: string;
+  modelVersion: string;
+  loans: number;
+  weights: Record<string, number>;
+  exposure: number;
+  ecl12m: number;
+  eclLifetime: number;
+  eclIfrs9: number;
+  eclCecl: number | null;
+  /** weighted IFRS 9 allowance over weighted exposure */
+  coverage: number;
+  /** weighted number of loans in stage 1, 2 and 3 (fractional) */
+  stageLoans: [number, number, number];
 }
 
 export interface TermStructureResponse {
@@ -331,6 +365,8 @@ export interface ScenarioComparison {
   months: string[];
   scenarios: ScenarioCurve[];
   warnings: string[];
+  /** present only when the request gave weights */
+  weighted?: WeightedFigures;
 }
 
 // ---- portfolio risk ------------------------------------------------------------------------

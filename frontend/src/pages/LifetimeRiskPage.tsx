@@ -9,8 +9,10 @@ import { DEFAULT_LOAN } from '../components/loanDefaults';
 import LoanPicker from '../components/LoanPicker';
 import RegionPanel from '../components/RegionPanel';
 import RiskMeter from '../components/RiskMeter';
+import ScenarioWeightsForm from '../components/ScenarioWeightsForm';
 import { AXIS, GRID, LEGEND, SCENARIO_STYLE, TOOLTIP, scenarioLabel, yearOf, yearTicks } from '../components/chartTheme';
 import { axisMoney, compactMoney, duration, money, monthLabel, pct } from '../format';
+import { WEIGHTED_METHOD_NOTE, weightsLabel } from '../components/weights';
 import type { Extrapolation, LifetimeRiskInput, LoanFeatures, TermStructure } from '../api/types';
 
 const DRIVER: Record<string, string> = {
@@ -183,6 +185,7 @@ export default function LifetimeRiskPage() {
   const [daysPastDue, setDaysPastDue] = useState('');
   const [chosen, setChosen] = useState<LifetimeRiskInput | null>(null);
   const [scenario, setScenario] = useState('BASELINE');
+  const [weights, setWeights] = useState<Record<string, number> | null>(null);
 
   // Arriving from a loan's page: that loan is projected straight away, until another one is chosen.
   const linked = useQuery({
@@ -202,7 +205,13 @@ export default function LifetimeRiskPage() {
   };
 
   const key = input ? JSON.stringify(input) : '';
-  const comparison = useQuery({ queryKey: ['scenario-comparison', key], queryFn: () => compareScenarios(input!), enabled: input !== null, retry: false });
+  const compared = useMemo(() => (input && weights ? { ...input, weights } : input), [input, weights]);
+  const comparison = useQuery({
+    queryKey: ['scenario-comparison', key, weights],
+    queryFn: () => compareScenarios(compared!),
+    enabled: compared !== null,
+    retry: false,
+  });
   const detail = useQuery({ queryKey: ['term-structure', key, scenario], queryFn: () => termStructure(input!, scenario), enabled: input !== null, retry: false });
 
   const curves = useMemo(() => {
@@ -338,7 +347,32 @@ export default function LifetimeRiskPage() {
                   </tr>
                 ))}
               </tbody>
+              {comparison.data.weighted && (
+                <tfoot>
+                  <tr className="weighted-row">
+                    <td title={WEIGHTED_METHOD_NOTE}><b>Probability-weighted</b></td>
+                    <td className="num">{pct(comparison.data.weighted.pd12m)}</td>
+                    <td className="num">{pct(comparison.data.weighted.pdLifetime)}</td>
+                    <td className="num" />
+                    <td className="num" title="Total weight of the scenarios in which the loan is in stage 2 or 3">
+                      {pct(comparison.data.weighted.stageProbability[1] + comparison.data.weighted.stageProbability[2], 0)} in 2&ndash;3
+                    </td>
+                    <td className="num">{money(comparison.data.weighted.ecl12m)}</td>
+                    <td className="num">{money(comparison.data.weighted.eclLifetime)}</td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
+            {comparison.data.weighted && (
+              <p className="chart-caption">
+                Weighted {weightsLabel(comparison.data.weighted.weights, scenarioLabel)}: IFRS 9 allowance{' '}
+                {money(comparison.data.weighted.eclIfrs9)}, CECL {money(comparison.data.weighted.eclCecl)}. {WEIGHTED_METHOD_NOTE}
+              </p>
+            )}
+            <details className="weights-panel">
+              <summary>Weight the scenarios into one figure</summary>
+              <ScenarioWeightsForm scenarios={comparison.data.scenarios.map((s) => s.scenario)} applied={weights} onApply={setWeights} />
+            </details>
             <p className="page-subtitle" style={{ margin: '0.75rem 0 0.5rem' }}>{selected.description}</p>
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={curves} margin={{ top: 6, right: 8, bottom: 0, left: -8 }}>
