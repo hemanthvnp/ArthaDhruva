@@ -1205,4 +1205,69 @@ class ApiIntegrationTest extends AbstractIntegrationTest {
         assertEquals(403, status(call(post("/v1/assistant/chat"), sam, Map.of("question", "x"))));
         assertEquals(200, status(call(post("/v1/assistant/chat"), ana, Map.of("question", "Summarise this loan."))));
     }
+
+    // ---------------------------------------------------------------- sales-assisted onboarding
+
+    private void accessRequest(String company, String email) throws Exception {
+        assertEquals(202, status(call(post("/v1/access-requests"), null,
+                Map.of("companyName", company, "contactName", "Dee Ortiz", "workEmail", email))));
+    }
+
+    private long pendingRequestId(String operator, String company) throws Exception {
+        for (JsonNode r : body(call(get("/v1/platform/access-requests?status=PENDING"), operator, null))) {
+            if (r.get("companyName").asString().equals(company)) {
+                return r.get("id").asLong();
+            }
+        }
+        throw new AssertionError("no pending request from " + company);
+    }
+
+    @Test
+    void anAccessRequestIsReviewedOnceAndItsInvitedAdminSignsInForTwoFactor() throws Exception {
+        Organization platform = organizations.findOrCreate(Organization.PLATFORM_SLUG, "Platform Operations");
+        String op = token(platform, "op-" + run, Role.PLATFORM_ADMIN);
+        String company = "Delta Credit Union " + run;
+        int organizationsBefore = organizations.listAll().size();
+
+        accessRequest(company, "dee@delta.test");
+        assertEquals(organizationsBefore, organizations.listAll().size(), "a request creates no organization");
+        assertEquals(403, status(call(get("/v1/platform/access-requests"), adam, null)), "a tenant admin is not an operator");
+        long id = pendingRequestId(op, company);
+
+        String slug = "pilot-" + run;
+        MvcResult approved = call(post("/v1/platform/access-requests/" + id + "/approve"), op,
+                Map.of("slug", slug, "adminUsername", "dee", "plan", "TRIAL"));
+        assertEquals(201, status(approved), approved.getResponse().getContentAsString() + " for slug " + slug);
+        Organization pilot = organizations.resolveActiveBySlug(slug).orElseThrow();
+        assertEquals(organizationsBefore + 1, organizations.listAll().size());
+        User invited = inTenant(pilot, () -> users.findByOrganizationIdAndUsername(pilot.getId(), "dee").orElseThrow());
+        assertEquals(Role.ADMIN, invited.getRole());
+        assertFalse(invited.isActivated(), "invited, not yet able to sign in");
+        assertEquals("dee@delta.test", invited.getEmail());
+
+        // Reviewed once: neither a second approval nor a decline touches it again.
+        assertEquals(409, status(call(post("/v1/platform/access-requests/" + id + "/approve"), op,
+                Map.of("slug", "pilot-two-" + run, "adminUsername", "dee2"))));
+        assertEquals(409, status(call(post("/v1/platform/access-requests/" + id + "/decline"), op, null)));
+        assertTrue(organizations.resolveActiveBySlug("pilot-two-" + run).isEmpty());
+
+        // The invited ADMIN sets a password but gets no session: they sign in, which starts 2FA enrollment.
+        String link = body(approved).get("activationLink").asString();
+        MvcResult activated = call(post("/v1/activate"), null,
+                Map.of("activationToken", link.substring(link.indexOf("token=") + "token=".length()), "password", PASSWORD));
+        assertEquals(200, status(activated));
+        assertTrue(body(activated).get("signInRequired").asBoolean());
+        assertEquals(null, activated.getResponse().getCookie(com.arthadhruva.riskengine.security.SessionCookie.NAME));
+
+        // A declined request provisions nothing and cannot be approved afterwards.
+        String other = "Echo Savings " + run;
+        accessRequest(other, "eve@echo.test");
+        long declinedId = pendingRequestId(op, other);
+        MvcResult declined = call(post("/v1/platform/access-requests/" + declinedId + "/decline"), op, null);
+        assertEquals(200, status(declined));
+        assertEquals("DECLINED", body(declined).get("status").asString());
+        assertEquals(409, status(call(post("/v1/platform/access-requests/" + declinedId + "/approve"), op,
+                Map.of("slug", "pilot-echo-" + run, "adminUsername", "eve"))));
+        assertEquals(organizationsBefore + 1, organizations.listAll().size());
+    }
 }

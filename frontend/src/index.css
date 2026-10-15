@@ -1021,3 +1021,12 @@ button.small { padding: 0.35rem 0.75rem; font-size: 0.82rem; min-height: 32px; }
   .fab-panel { right: 16px; left: 16px; width: auto; bottom: 84px; }
   .status-word { font-size: 2rem; }
 }
+
+/* platform operator: access request review */
+.request-card dl.facts { margin-bottom: 0.75rem; }
+.request-message { margin: 0 0 0.5rem; padding: 0.7rem 0.9rem; background: var(--surface-2); border-radius: var(--radius-sm); font-size: 0.9rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.approve-form { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.field .hint { font-size: 0.78rem; color: var(--danger); margin-top: 0.25rem; }
+.notice { margin-top: 0.9rem; padding: 0.8rem 1rem; border-radius: var(--radius-sm); background: var(--ok-bg); color: var(--text); }
+.notice p { margin: 0 0 0.5rem; }
+.notice p:last-child { margin-bottom: 0; }

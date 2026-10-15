@@ -31,6 +31,10 @@ import type {
   PortfolioSnapshot,
   PortfolioView,
   AccessRequestSubmission,
+  AccessRequestStatus,
+  AccessRequestView,
+  ApproveAccessRequest,
+  ApprovedAccessRequest,
   ActivationSignInRequired,
   Scenario,
   ScenarioComparison,
@@ -687,6 +691,18 @@ export function exchangeSsoCode(code: string): Promise<LoginResponse> {
 
 export function requestAccess(req: AccessRequestSubmission): Promise<{ status: string; next: string }> {
   return publicPost('/access-requests', req);
+}
+
+export function listAccessRequests(status?: AccessRequestStatus): Promise<AccessRequestView[]> {
+  return request(`/platform/access-requests${status ? `?status=${status}` : ''}`);
+}
+
+export function approveAccessRequest(id: number, req: ApproveAccessRequest): Promise<ApprovedAccessRequest> {
+  return request(`/platform/access-requests/${id}/approve`, { method: 'POST', body: JSON.stringify(req) });
+}
+
+export function declineAccessRequest(id: number): Promise<AccessRequestView> {
+  return request(`/platform/access-requests/${id}/decline`, { method: 'POST' });
 }
 
 export function requestPasswordReset(orgSlug: string, username: string): Promise<MessageResponse> {

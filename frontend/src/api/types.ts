@@ -1072,6 +1072,40 @@ export interface BulkItemResult {
   error: string | null;
 }
 
+export type AccessRequestStatus = 'PENDING' | 'APPROVED' | 'DECLINED';
+
+/** An access request as a platform operator reviews it (PLATFORM_ADMIN only). */
+export interface AccessRequestView {
+  id: number;
+  companyName: string;
+  contactName: string;
+  workEmail: string;
+  jobTitle: string | null;
+  message: string | null;
+  status: AccessRequestStatus;
+  createdAt: string;
+  reviewedAt: string | null;
+  reviewedBy: string | null;
+  organizationId: number | null;
+}
+
+export type PlanCode = 'TRIAL' | 'STARTER' | 'PRO';
+
+export interface ApproveAccessRequest {
+  slug: string;
+  organizationName?: string;
+  adminUsername: string;
+  plan: PlanCode;
+}
+
+/** The activation link is returned once, for the operator to pass on if the email did not go out. */
+export interface ApprovedAccessRequest {
+  adminUsername: string;
+  activationLink: string;
+  emailed: boolean;
+  organization: { id: number; slug: string; name: string };
+}
+
 export interface AccessRequestSubmission {
   companyName: string;
   contactName: string;

@@ -75,6 +75,11 @@ const CLIENT_GROUPS: NavGroup[] = [
   },
 ];
 
+/** The platform operator reviews access requests here; the rest of /v1/platform/** stays API-only. */
+const PLATFORM_GROUPS: NavGroup[] = [
+  { label: 'Platform', items: [{ to: '/platform/access-requests', label: 'Access requests', icon: 'userplus' }] },
+];
+
 const ACCOUNT_LINKS = [
   { to: '/account/notifications', label: 'Notification preferences' },
   { to: '/account/password', label: 'Change password' },
@@ -150,11 +155,12 @@ export default function Layout() {
     navigate('/login', { replace: true });
   };
 
-  // A platform operator works through the operator API, not this console: only the account pages apply.
+  // A platform operator sees only the operator pages and their own account, never a tenant's console.
   const groups =
     auth?.role === 'CLIENT' ? CLIENT_GROUPS
       : auth?.role === 'ADMIN' ? [...ANALYST_GROUPS, ADMIN_GROUP]
       : auth?.role === 'ANALYST' ? ANALYST_GROUPS
+      : auth?.role === 'PLATFORM_ADMIN' ? PLATFORM_GROUPS
       : [];
   const crumb = (() => {
     const path = location.pathname;
