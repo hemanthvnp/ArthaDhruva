@@ -50,4 +50,4 @@ backtest job) was replaced; `design.md` explains each departure.
 
 - [ ] A scheduled comparison of stored scores with realized outcomes. It needs a servicing feed this deployment does not have (design decision 4).
 - [ ] Model cards and out-of-time validation for the LGD, regime, early-warning and trajectory models. Each is listed as unvalidated in the inventory with its gaps.
-- [ ] Drift monitoring for the survival model's macro inputs.
+- [x] Drift monitoring for the survival model's macro inputs. `MacroDriftService`, `GET /v1/models/survival/drift`, a card on the Model Governance page; `MacroDriftServiceTest` 5/5 and the governance integration test (2026-10-14). Reference is state-months of the training window (design.md, open questions).

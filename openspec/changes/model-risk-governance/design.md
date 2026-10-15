@@ -49,4 +49,4 @@ The first version of this design put model identity in Postgres: a `model_versio
 ## Open Questions
 
 - When a deployment has a servicing feed, a scheduled comparison of stored scores with realized outcomes becomes possible and worth building. The `model_version` column on `loan_score` is what it would group by.
-- The drift report covers the PD model only. The survival model's inputs overlap heavily with it, but its macro drivers need their own reference.
+- ~~The drift report covers the PD model only.~~ Resolved 2026-10-14: `MacroDriftService` (`GET /v1/models/survival/drift`) compares the latest state cross-section of the survival model's macro drivers with the training window's state-months, checks it against the card's training envelope and counts the organization's loans in states outside it. Its reference is state-months, not loan-months; a loan-weighted macro reference written by `export_survival_model.py` would be the better baseline the next time that model is exported.

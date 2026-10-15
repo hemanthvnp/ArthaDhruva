@@ -143,3 +143,42 @@ than duplicate.
   as the analyst assistant (same storage, a distinguishing event type) or a separate table, given the
   difference in who the data is about and what it may contain? Leaning toward the same path with a type
   discriminator, for one review surface, but not decided.
+
+## Decisions taken at implementation (2026-10-14)
+
+- **The probability leaves `MyLoanView` (the one breaking change).** The proposal said `MyLoanView` would only
+  gain fields, but it already carried `calibratedProbability`, and decision 1 and the spec require that no
+  response reachable by a `CLIENT` carries it. It is removed, with `computedAt` folded into `status.checkedAt`.
+  The only consumer was `MyLoanPage.tsx`, changed in the same change. `BorrowerStatusTest` fails if any borrower
+  response type gains a field named like a score, model, explanation, note, reason or flag.
+- **Trend needs a history the score table did not keep.** `loan_score` held only the latest score, so V30 adds
+  `band`, `band_since` and `previous_band`, set on each upsert. The trend is "Unchanged since <month>",
+  "Up from <band> in <month>" or "Improved from <band> in <month>"; a row not rescored since V30 says "No earlier
+  check to compare with yet". The meter pin sits at the middle of the band, never at a position derived from the
+  probability, which would let the figure be read off the screen. Thresholds are the console's (`RiskBand`).
+- **Contact when there is no open case (open question 1).** A tenant-level default contact: a new
+  `borrower_contact` table (one row per organization, row-level security in V30), set by an admin on the
+  Integrations page (`PUT /admin/borrower-contact`). With an open case whose assignee is an active analyst, that
+  analyst is the contact (username, "Loan officer", their email if on file). Without either, the card says to use
+  the contact details on the statement, so it is never missing. There are no teams in the data model, so the case
+  card shows the case's plain-language status and opened date, and the assigned person appears as the contact.
+- **Case status words.** NEW "Received", REVIEWED "Under review", ESCALATED "With a senior reviewer"; CLEARED is
+  not an open case. "Opened" is the case's first event or its last reopening.
+- **Audit path (open question 3).** The same `model_invocation_events` path as every controller, told apart by
+  `endpoint = BorrowerAssistantController.ask` (the analyst assistant's rows carry `AssistantController.chat`),
+  and metered as its own metric, `BORROWER_ASSISTANT_CALL`. The question is redacted by `PiiRedactor` before it
+  leaves for the model, like the analyst assistant's.
+- **What the assistant can verify.** There are no payment records in this service, so the facts block says
+  "Payment history: not available to this assistant" and the prompt forbids claiming otherwise. Scam judgements
+  rest on what the lender never does (stated in the prompt), the borrower's own status, review and documents.
+- **A supplied loan id is ignored, not refused.** The request record takes only `question` and ignores unknown
+  fields explicitly, so a client cannot change which loans the answer draws on, and a stale client sending
+  `loanId` still works.
+- **Notifications.** The trimmed navigation has a Notifications entry, and no notification was ever addressed to a
+  borrower. `/notifications/**` is opened to `CLIENT` (each user reads only their own), and a new
+  `DOCUMENT_ADDED` notification tells the borrowers linked to a loan when someone else attaches a document to it.
+- **Documents** live at `/my/loans/{loanId}/documents` (list, upload, download), check ownership before anything
+  is read or stored, and say "your lender" rather than the staff username. Downloads go through the same
+  attachment-only, nosniff response as staff downloads (`AttachmentDownloads`, moved out of the analyst
+  controller unchanged).
+
