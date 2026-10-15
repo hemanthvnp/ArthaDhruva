@@ -1,0 +1,14 @@
+{
+  "name": "@arthadhruva/risk-engine-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "MCP server over the ArthaDhruva /v1 risk API: loans, scores and explanations, lifetime projections, loss distributions, portfolio runs and the model inventory.",
+  "main": "dist/index.js",
+  "bin": { "risk-engine-mcp": "dist/cli.js" },
+  "dependencies": {
+    "@arthadhruva/mcp-kit": "0.1.0",
+    "@modelcontextprotocol/sdk": "1.31.0",
+    "zod": "4.6.5"
+  }
+}

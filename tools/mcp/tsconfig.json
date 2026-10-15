@@ -1,0 +1,4 @@
+{
+  "files": [],
+  "references": [{ "path": "kit" }, { "path": "ci-guard" }, { "path": "risk-engine" }]
+}
