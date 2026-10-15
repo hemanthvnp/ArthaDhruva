@@ -14,6 +14,7 @@ import type {
   DashboardConfig,
   DeliveryMode,
   DriftReport,
+  MacroDriftReport,
   LifetimeRiskInput,
   LoanResultPage,
   LoanResultSort,
@@ -402,6 +403,10 @@ export function survivalBacktest(): Promise<SurvivalBacktest> {
 
 export function pdDrift(): Promise<DriftReport> {
   return request('/models/pd_24m/drift');
+}
+
+export function survivalDrift(): Promise<MacroDriftReport> {
+  return request('/models/survival/drift');
 }
 
 // ---- portfolio and catalog -------------------------------------------------------------------

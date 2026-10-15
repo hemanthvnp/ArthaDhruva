@@ -281,6 +281,17 @@ input (population stability index). A sample of n loans drawn from exactly the t
 still shows about (bins - 1) / n of PSI, so each PSI is reported with that noise floor and judged after
 subtracting it; otherwise every small portfolio would look like it was drifting.
 
+**Macro drift (survival model).** `GET /v1/models/survival/drift` asks whether the conditions a
+projection starts from are still like the survival model's training window. For each macro driver
+(unemployment, its twelve-month change, the twelve-month change in house prices) the latest month's
+cross-section of the 51 states is compared with every state-month of the window, as PSI over the window's
+quintiles net of the 4/51 noise floor; the report lists the states outside the training sample's own
+range (the card's envelope) and how many of the organization's loans are in them, and places the latest
+mortgage rate in the window's distribution. The reference is state-months, not loan-months: the export
+writes no loan-weighted macro reference, so the distribution check describes the conditions the window
+contained rather than how many loans lived through each. A projection from a state outside the envelope
+is still made, and its response already lists the drivers it extrapolates.
+
 ## From hazards to expected credit loss
 
 `survival.TermStructureEngine` projects one loan month by month under a scenario.

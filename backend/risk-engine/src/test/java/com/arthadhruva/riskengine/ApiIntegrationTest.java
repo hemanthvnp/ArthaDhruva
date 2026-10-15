@@ -959,6 +959,16 @@ class ApiIntegrationTest extends AbstractIntegrationTest {
         JsonNode drift = body(call(get("/v1/models/pd_24m/drift"), ana, null));
         assertEquals(400, drift.get("loans").asInt());
         assertEquals(16, drift.get("features").size());
+
+        // The survival model's macro drivers against its training window, with this organization's exposure.
+        JsonNode macro = body(call(get("/v1/models/survival/drift"), ana, null));
+        assertEquals(3, macro.get("drivers").size());
+        assertEquals(400, macro.get("loans").asInt());
+        assertTrue(macro.get("loansCovered").asInt() > 0);
+        for (JsonNode driver : macro.get("drivers")) {
+            assertTrue(driver.get("loansOutside").asInt() <= macro.get("loansCovered").asInt());
+            assertEquals(5, driver.get("drift").get("bins").size());
+        }
     }
 
     @Test

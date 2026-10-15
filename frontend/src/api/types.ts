@@ -596,6 +596,32 @@ export interface DriftReport {
   computedAt: string;
 }
 
+/** The survival model's macro drivers today against its training window (GET /models/survival/drift). */
+export interface MacroDriver {
+  feature: 'unemployment' | 'unemployment_change_12m' | 'hpi_change_12m';
+  envelopeMin: number;
+  envelopeMax: number;
+  currentMin: number;
+  currentMedian: number;
+  currentMax: number;
+  statesOutside: string[];
+  loansOutside: number;
+  drift: FeatureDrift;
+}
+
+export interface MacroDriftReport {
+  modelVersion: string;
+  macroAsOf: string;
+  trainingWindow: [string, string];
+  states: number;
+  loans: number;
+  loansCovered: number;
+  drivers: MacroDriver[];
+  marketRate: { current: number; asOf: string; trainingMin: number; trainingMax: number; percentile: number; outsideTraining: boolean };
+  reference: string;
+  computedAt: string;
+}
+
 export interface DecileRow {
   decile: number;
   predicted: number;

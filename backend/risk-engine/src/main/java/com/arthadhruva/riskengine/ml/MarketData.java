@@ -99,6 +99,11 @@ public class MarketData {
         return mortgageRate[mortgageRate.length - 1];
     }
 
+    /** Every state with macro data, in alphabetical order. */
+    public java.util.SortedSet<String> states() {
+        return new java.util.TreeSet<>(states.keySet());
+    }
+
     public boolean hasState(String state) {
         return states.containsKey(state);
     }

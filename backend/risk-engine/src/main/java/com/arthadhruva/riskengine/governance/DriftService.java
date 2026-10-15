@@ -182,7 +182,8 @@ public class DriftService {
         return drift(feature, bins, values.size());
     }
 
-    private static FeatureDrift drift(String feature, List<Bin> bins, int n) {
+    /** PSI over bins already filled, with the small-sample floor; shared with {@link MacroDriftService}. */
+    static FeatureDrift drift(String feature, List<Bin> bins, int n) {
         double psi = 0;
         int occupied = 0;
         for (Bin bin : bins) {
@@ -199,7 +200,7 @@ public class DriftService {
         return new FeatureDrift(feature, psi, noiseFloor, status, n, bins);
     }
 
-    private static String number(double v) {
+    static String number(double v) {
         if (v == Math.rint(v) && Math.abs(v) >= 1) {
             return String.format(Locale.ROOT, "%,d", (long) v);
         }

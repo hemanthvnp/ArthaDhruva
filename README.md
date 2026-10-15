@@ -15,7 +15,7 @@ how much worse than expected a bad year can be.
 | **Probability-weighted allowance** | One figure across the scenarios, each weighted by the probability the user gives it, for one loan or from the latest portfolio run without projecting again |
 | **Region analysis** | Whether a loan's stressed figure is high under every variant of the stress, under none, or on the boundary where the answer turns on the details, for one loan or the whole book (rough-set three-way decision) |
 | **Loss distribution** | Value at risk and expected shortfall of the portfolio, and the loans that drive the tail |
-| **Model governance** | Every model with its checksum, validation, backtests and limitations, and population drift against the training data |
+| **Model governance** | Every model with its checksum, validation, backtests and limitations, population drift against the training data, and today's macro conditions against the survival model's training window |
 | **Workflow** | Cases with enforced transitions, a four-eyes rule and an immutable history; notes, documents, automation rules, notifications, webhooks |
 | **Borrower portal** | A borrower's own loan as a status band and a sentence on how it moved (never the probability), the open review and who to contact, their documents, and a safety assistant that checks whether a message they received looks like a scam |
 | **Platform** | Multi-tenant, with single sign-on, API keys, usage metering, an audit trail and rate limits |
