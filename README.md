@@ -17,6 +17,7 @@ how much worse than expected a bad year can be.
 | **Loss distribution** | Value at risk and expected shortfall of the portfolio, and the loans that drive the tail |
 | **Model governance** | Every model with its checksum, validation, backtests and limitations, and population drift against the training data |
 | **Workflow** | Cases with enforced transitions, a four-eyes rule and an immutable history; notes, documents, automation rules, notifications, webhooks |
+| **Borrower portal** | A borrower's own loan as a status band and a sentence on how it moved (never the probability), the open review and who to contact, their documents, and a safety assistant that checks whether a message they received looks like a scam |
 | **Platform** | Multi-tenant, with single sign-on, API keys, usage metering, an audit trail and rate limits |
 
 How the models were built, validated and where they should not be trusted: [MODELS.md](MODELS.md).
@@ -72,6 +73,12 @@ How the models were built, validated and where they should not be trusted: [MODE
 - **An audit trail the application cannot rewrite.** Every API call is recorded with who, what, the
   outcome and the model version; the application's role has no `UPDATE` or `DELETE` on it, and
   credentials are redacted before an entry is written.
+- **A borrower sees a band, not a score.** The borrower API's response types have no field for the
+  probability, the model version, an explanation or a case note (a unit test fails if one is added), and
+  every borrower endpoint resolves the caller's own loans on the server, so a loan id sent by the client
+  can only narrow that set. The borrower's safety assistant is a separate service from the analyst's,
+  sharing nothing but the HTTP client, and its answers always come with the loan officer's contact.
+  ([`borrower/BorrowerPortalService`](backend/risk-engine/src/main/java/com/arthadhruva/riskengine/borrower/BorrowerPortalService.java))
 - **Rate limits that reflect cost.** Token buckets in Redis (one Lua script, atomic across replicas),
   one per organization and one per caller inside it; a simulation costs more tokens than a read.
 - **Model integrity.** A model card that declares a checksum is binding: at start-up the artifact is

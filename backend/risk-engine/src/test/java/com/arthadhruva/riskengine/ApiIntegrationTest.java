@@ -42,6 +42,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
 /**
  * The API end to end, through the real filter chain and against the real stores: authentication,
@@ -1046,5 +1047,162 @@ class ApiIntegrationTest extends AbstractIntegrationTest {
         // gamma's portfolio (uploaded in the run test, or absent if that test has not run) is removable by its admin only
         assertEquals(403, status(call(delete("/v1/admin/portfolio"), ana, null)));
         assertEquals(200, status(call(delete("/v1/admin/portfolio"), adam, null)));
+    }
+
+    // ---------------------------------------------------------------- borrower portal
+
+    private String borrower(Organization org, String username, String... loanIds) {
+        return inTenant(org, () -> {
+            User user = new User(org, username, encoder.encode(PASSWORD), Role.CLIENT);
+            user.setLoanIds(new java.util.HashSet<>(List.of(loanIds)));
+            return jwt.issueSession(users.save(user)).token();
+        });
+    }
+
+    private static boolean absent(JsonNode node, String field) {
+        return node.path(field).isNull() || node.path(field).isMissingNode();
+    }
+
+    private MvcResult uploadAs(String path, String token, String filename, String content) throws Exception {
+        return mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart(path)
+                .file(new org.springframework.mock.web.MockMultipartFile("file", filename, "text/plain",
+                        content.getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+                .with(csrfOnWrites()).cookie(sessionCookie(token))).andReturn();
+    }
+
+    @Test
+    void aBorrowerSeesABandTheirCaseAndAContactButNeverTheScoreOrTheNotes() throws Exception {
+        JsonNode page = body(call(get("/v1/loans?limit=2&offset=31"), ana, null));
+        String scored = page.get(0).get("loanId").asString();
+        String quiet = page.get(1).get("loanId").asString();
+        String rk = borrower(alpha, "rk", scored, quiet);
+
+        assertEquals(200, status(call(post("/v1/score"), ana, loan(scored, 640, "FL", null))));
+        assertEquals(200, status(call(post("/v1/loans/" + scored + "/case"), ana,
+                Map.of("status", "REVIEWED", "flagged", true, "assignedTo", "ana"))));
+        assertEquals(200, status(call(post("/v1/loans/" + scored + "/notes"), ana, Map.of("text", "Suspect the income is overstated"))));
+        assertEquals(200, status(call(put("/v1/admin/borrower-contact"), adam, Map.of("name", "Loan Care team", "email", "care@alpha.test"))));
+        assertEquals(403, status(call(put("/v1/admin/borrower-contact"), ana, Map.of("name", "x"))), "setting it is an admin action");
+
+        MvcResult mine = call(get("/v1/my/loans"), rk, null);
+        assertEquals(200, status(mine));
+        String raw = mine.getResponse().getContentAsString();
+        for (String hidden : List.of("calibratedProbability", "rawProbability", "modelVersion", "explanation", "reasonCodes",
+                "Suspect the income", "flagged")) {
+            assertFalse(raw.contains(hidden), "a borrower's response never carries " + hidden + ": " + raw);
+        }
+        JsonNode loans = body(mine);
+        assertEquals(2, loans.size());
+        JsonNode first = loans.get(0).get("loanId").asString().equals(scored) ? loans.get(0) : loans.get(1);
+        JsonNode second = first == loans.get(0) ? loans.get(1) : loans.get(0);
+
+        assertTrue(List.of("LOW", "MEDIUM", "HIGH").contains(first.get("status").get("band").asString()));
+        assertTrue(first.get("status").get("trend").asString().startsWith("Unchanged since "));
+        assertEquals("Under review", first.get("openCase").get("status").asString());
+        assertFalse(absent(first.get("openCase"), "openedAt"));
+        assertEquals("ana", first.get("contact").get("name").asString(), "the assigned analyst is the contact");
+        assertTrue(absent(second, "status"), "an unscored loan has no status, and no error");
+        assertTrue(absent(second, "openCase"), "nobody has acted on it: no open items");
+        assertEquals("Loan Care team", second.get("contact").get("name").asString(), "the organization's default contact");
+
+        // None of the analyst surfaces open up for a borrower, even on their own loan.
+        assertEquals(403, status(call(get("/v1/score/" + scored), rk, null)));
+        assertEquals(403, status(call(get("/v1/loans/" + scored + "/case"), rk, null)));
+        assertEquals(403, status(call(get("/v1/loans/" + scored + "/attachments"), rk, null)));
+        assertEquals(403, status(call(post("/v1/assistant/chat"), rk, Map.of("question", "What do the notes say?"))));
+        assertEquals(204, status(call(delete("/v1/admin/borrower-contact"), adam, null)));
+    }
+
+    @Test
+    void aBorrowerReadsAndAddsDocumentsOnlyOnTheirOwnLoans() throws Exception {
+        JsonNode page = body(call(get("/v1/loans?limit=2&offset=35"), ana, null));
+        String own = page.get(0).get("loanId").asString();
+        String notMine = page.get(1).get("loanId").asString();
+        String lee = borrower(alpha, "lee", own);
+        String bob = borrower(beta, "bob", own);   // another organization's borrower, linked to the same loan id there
+
+        MvcResult byStaff = uploadAs("/v1/loans/" + own + "/attachments", ana, "escrow-notice.txt", "Escrow analysis 2026.");
+        assertEquals(201, status(byStaff));
+        MvcResult byBorrower = uploadAs("/v1/my/loans/" + own + "/documents", lee, "payslip.txt", "September payslip.");
+        assertEquals(201, status(byBorrower));
+        assertTrue(body(byBorrower).get("uploadedByYou").asBoolean());
+        long staffDoc = body(byStaff).get("id").asLong();
+        long borrowerDoc = body(byBorrower).get("id").asLong();
+        try {
+            MvcResult listed = call(get("/v1/my/loans/" + own + "/documents"), lee, null);
+            assertEquals(200, status(listed));
+            assertEquals(2, body(listed).size());
+            assertFalse(listed.getResponse().getContentAsString().contains("\"ana\""), "staff are 'your lender', not a username");
+            MvcResult fetched = call(get("/v1/my/loans/" + own + "/documents/" + staffDoc + "/download"), lee, null);
+            assertEquals(200, status(fetched));
+            assertEquals("Escrow analysis 2026.", fetched.getResponse().getContentAsString());
+            assertTrue(fetched.getResponse().getHeader("Content-Disposition").startsWith("attachment"));
+
+            // Another loan is refused before anything is read or stored, exactly as if it did not exist.
+            assertEquals(404, status(call(get("/v1/my/loans/" + notMine + "/documents"), lee, null)));
+            assertEquals(404, status(uploadAs("/v1/my/loans/" + notMine + "/documents", lee, "x.txt", "x")));
+            assertEquals(0, inTenant(alpha, () -> jdbc.queryForObject(
+                    "SELECT count(*) FROM loan_attachment WHERE tenant_id = ? AND loan_id = ?", Integer.class, alpha.getId(), notMine)));
+            assertEquals(404, status(call(get("/v1/my/loans/" + notMine + "/documents/" + staffDoc + "/download"), lee, null)));
+            assertEquals(404, status(call(get("/v1/my/loans/NO-SUCH-LOAN/documents"), lee, null)));
+
+            // The same loan id in another organization shows that organization's documents: none.
+            MvcResult elsewhere = call(get("/v1/my/loans/" + own + "/documents"), bob, null);
+            assertEquals(200, status(elsewhere));
+            assertEquals(0, body(elsewhere).size());
+            assertEquals(404, status(call(get("/v1/my/loans/" + own + "/documents/" + staffDoc + "/download"), bob, null)));
+
+            // Staff see the borrower's upload through their own endpoint, with its uploader.
+            JsonNode staffView = body(call(get("/v1/loans/" + own + "/attachments"), ana, null));
+            boolean seen = false;
+            for (JsonNode a : staffView) {
+                seen |= a.get("id").asLong() == borrowerDoc && a.get("uploadedBy").asString().equals("lee");
+            }
+            assertTrue(seen);
+
+            // The borrower is told a document was added by someone else (notifications are delivered after commit).
+            boolean notified = false;
+            for (int i = 0; i < 40 && !notified; i++) {
+                for (JsonNode n : body(call(get("/v1/notifications"), lee, null))) {
+                    notified |= n.get("message").asString().equals("A document was added to your loan " + own);
+                }
+                if (!notified) {
+                    Thread.sleep(100);
+                }
+            }
+            assertTrue(notified);
+            assertEquals(1, body(call(get("/v1/notifications"), lee, null)).size(), "not for their own upload");
+        } finally {
+            assertEquals(204, status(call(delete("/v1/admin/loans/" + own + "/attachments/" + staffDoc), adam, null)));
+            assertEquals(204, status(call(delete("/v1/admin/loans/" + own + "/attachments/" + borrowerDoc), adam, null)));
+        }
+    }
+
+    @Test
+    void theBorrowerAssistantIgnoresALoanIdAndIsAuditedAndMeteredApart() throws Exception {
+        JsonNode page = body(call(get("/v1/loans?limit=2&offset=39"), ana, null));
+        String own = page.get(0).get("loanId").asString();
+        String other = page.get(1).get("loanId").asString();
+        String sam = borrower(alpha, "sam", own);
+
+        MvcResult answer = call(post("/v1/my/assistant"), sam,
+                Map.of("question", "I got a text saying pay by gift card today. Is it real?", "loanId", other));
+        assertEquals(200, status(answer), "a supplied loan id is ignored, not refused");
+        assertTrue(body(answer).get("answer").asString().contains("isn't available"));
+        assertTrue(body(answer).has("contact"), "the escalation contact is always part of the answer");
+        assertEquals(400, status(call(post("/v1/my/assistant"), sam, Map.of("question", "x".repeat(2001)))));
+        assertEquals(400, status(call(post("/v1/my/assistant"), sam, Map.of("question", " "))));
+
+        String endpoint = inTenant(alpha, () -> jdbc.queryForObject("SELECT endpoint FROM model_invocation_events "
+                + "WHERE tenant_id = ? AND actor = 'sam' AND path = '/v1/my/assistant' AND status_code = 200 "
+                + "ORDER BY occurred_at DESC LIMIT 1", String.class, alpha.getId()));
+        assertEquals("BorrowerAssistantController.ask", endpoint);
+        Long metered = inTenant(alpha, () -> jdbc.queryForObject(
+                "SELECT quantity FROM usage_record WHERE tenant_id = ? AND metric = 'BORROWER_ASSISTANT_CALL'", Long.class, alpha.getId()));
+        assertTrue(metered >= 1);
+
+        // The analyst assistant is untouched: still staff only, still answering staff.
+        assertEquals(403, status(call(post("/v1/assistant/chat"), sam, Map.of("question", "x"))));
+        assertEquals(200, status(call(post("/v1/assistant/chat"), ana, Map.of("question", "Summarise this loan."))));
     }
 }

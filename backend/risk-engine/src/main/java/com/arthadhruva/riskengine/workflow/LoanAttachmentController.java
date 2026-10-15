@@ -1,17 +1,14 @@
 package com.arthadhruva.riskengine.workflow;
 
 import com.arthadhruva.riskengine.audit.NotAudited;
+import com.arthadhruva.riskengine.event.LoanDocumentAddedEvent;
 import com.arthadhruva.riskengine.security.JwtService;
 import com.arthadhruva.riskengine.tenant.TenantContext;
 import io.jsonwebtoken.Claims;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.core.io.InputStreamResource;
-import org.springframework.http.CacheControl;
-import org.springframework.http.ContentDisposition;
-import org.springframework.http.HttpHeaders;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -24,7 +21,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -52,11 +48,14 @@ public class LoanAttachmentController {
     private final LoanAttachmentService loanAttachmentService;
     private final LoanCaseService loanCaseService;
     private final JwtService jwt;
+    private final ApplicationEventPublisher events;
 
-    public LoanAttachmentController(LoanAttachmentService loanAttachmentService, LoanCaseService loanCaseService, JwtService jwt) {
+    public LoanAttachmentController(LoanAttachmentService loanAttachmentService, LoanCaseService loanCaseService, JwtService jwt,
+                                    ApplicationEventPublisher events) {
         this.loanAttachmentService = loanAttachmentService;
         this.loanCaseService = loanCaseService;
         this.jwt = jwt;
+        this.events = events;
     }
 
     @PostMapping("/loans/{loanId}/attachments")
@@ -67,6 +66,7 @@ public class LoanAttachmentController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Unknown loan"));
         }
         LoanAttachment attachment = loanAttachmentService.upload(tenantId, loanId, file, authentication.getName());
+        events.publishEvent(new LoanDocumentAddedEvent(tenantId, loanId, authentication.getName()));
         return ResponseEntity.status(HttpStatus.CREATED).body(AttachmentView.of(attachment));
     }
 
@@ -75,15 +75,14 @@ public class LoanAttachmentController {
         return loanAttachmentService.listFor(TenantContext.get(), loanId).stream().map(AttachmentView::of).toList();
     }
 
-    /** Always served as a download ({@code attachment}), with the type detected at upload and nosniff, so a
-     * browser never renders stored content inline. */
+    /** Served as a download, never inline (see {@link AttachmentDownloads}). */
     @GetMapping("/loans/{loanId}/attachments/{attachmentId}/download")
     public ResponseEntity<?> download(@PathVariable String loanId, @PathVariable Long attachmentId) throws IOException {
         var attachment = loanAttachmentService.find(TenantContext.get(), loanId, attachmentId).orElse(null);
         if (attachment == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Attachment not found."));
         }
-        return stream(attachment);
+        return AttachmentDownloads.stream(attachment, loanAttachmentService);
     }
 
     /**
@@ -131,24 +130,7 @@ public class LoanAttachmentController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Attachment not found."));
         }
         log.info("Attachment {} of loan {} (tenant {}) downloaded with a link", attachmentId, loanId, tenantId);
-        return stream(attachment);
-    }
-
-    private ResponseEntity<?> stream(LoanAttachment attachment) throws IOException {
-        MediaType type;
-        try {
-            type = MediaType.parseMediaType(attachment.getContentType());
-        } catch (Exception e) {
-            type = MediaType.APPLICATION_OCTET_STREAM;
-        }
-        return ResponseEntity.ok()
-                .contentType(type)
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        ContentDisposition.attachment().filename(attachment.getFilename(), StandardCharsets.UTF_8).build().toString())
-                .header("X-Content-Type-Options", "nosniff")
-                .cacheControl(CacheControl.noStore())
-                .contentLength(attachment.getSizeBytes())
-                .body(new InputStreamResource(loanAttachmentService.openStream(attachment)));
+        return AttachmentDownloads.stream(attachment, loanAttachmentService);
     }
 
     @DeleteMapping("/admin/loans/{loanId}/attachments/{attachmentId}")

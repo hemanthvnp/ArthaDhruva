@@ -86,7 +86,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         }
         return switch (path) {
             case "/v1/risk/portfolio/runs" -> 20;
-            case "/v1/cvar", "/v1/risk/portfolio/loss-distribution", "/v1/assistant/chat" -> 10;
+            case "/v1/cvar", "/v1/risk/portfolio/loss-distribution", "/v1/assistant/chat", "/v1/my/assistant" -> 10;
             case "/v1/risk/term-structure/compare", "/v1/admin/portfolio", "/v1/ingest/loans" -> 5;
             case "/v1/risk/term-structure" -> 2;
             default -> 1;
