@@ -8,8 +8,8 @@ import { dateTime } from '../format';
 const POLL_MS = 30_000;
 const MAX_POLL_MS = 5 * 60_000;
 
-/** ANALYST/ADMIN only, same as the endpoints it calls. Polls the unread count rather than holding a
- * WebSocket open: 30 seconds of staleness is fine for "you were assigned a case".
+/** Any signed-in ANALYST, ADMIN or CLIENT, each reading their own notifications. Polls the unread count rather
+ * than holding a WebSocket open: 30 seconds of staleness is fine for "you were assigned a case".
  *
  * The polling adapts instead of ticking blindly: a hidden tab does not poll at all and catches up the
  * moment it is shown again; failures double the interval (up to five minutes) so a struggling server is

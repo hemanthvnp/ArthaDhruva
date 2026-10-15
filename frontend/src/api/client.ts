@@ -61,6 +61,10 @@ import type {
   LoginResponse,
   MessageResponse,
   MyLoanView,
+  BorrowerAssistantAnswer,
+  BorrowerContact,
+  BorrowerContactSetting,
+  BorrowerDocument,
   NotificationView,
   RecentNoteView,
   RegimeForecast,
@@ -451,6 +455,47 @@ export function auditLog(limit = 50): Promise<AuditLogEntry[]> {
 
 export function myLoans(): Promise<MyLoanView[]> {
   return request('/my/loans');
+}
+
+export function myDocuments(loanId: string): Promise<BorrowerDocument[]> {
+  return request(`/my/loans/${encodeURIComponent(loanId)}/documents`);
+}
+
+/** Multipart, like uploadAttachment: no Content-Type header, so the browser sets the boundary. */
+export async function uploadMyDocument(loanId: string, file: File): Promise<BorrowerDocument> {
+  await ensureFreshSession();
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await fetch(`${API_BASE}/my/loans/${encodeURIComponent(loanId)}/documents`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: await csrfHeaders('POST'),
+    body: formData,
+  });
+  if (res.status === 401) sessionExpired();
+  if (!res.ok) throw await errorFrom(res);
+  return res.json();
+}
+
+export function downloadMyDocument(loanId: string, documentId: number, filename: string): Promise<void> {
+  return downloadBlob(`/my/loans/${encodeURIComponent(loanId)}/documents/${documentId}/download`, filename);
+}
+
+/** The borrower safety assistant. Takes only a question: the backend decides which loans it may draw on. */
+export function askBorrowerAssistant(question: string): Promise<BorrowerAssistantAnswer> {
+  return request('/my/assistant', { method: 'POST', body: JSON.stringify({ question }) });
+}
+
+export function getBorrowerContact(): Promise<BorrowerContactSetting> {
+  return request('/admin/borrower-contact');
+}
+
+export function saveBorrowerContact(contact: { name: string; title?: string; email?: string }): Promise<BorrowerContact> {
+  return request('/admin/borrower-contact', { method: 'PUT', body: JSON.stringify(contact) });
+}
+
+export function clearBorrowerContact(): Promise<void> {
+  return remove('/admin/borrower-contact');
 }
 
 export function createUser(req: CreateUserRequest): Promise<CreateUserResponse> {

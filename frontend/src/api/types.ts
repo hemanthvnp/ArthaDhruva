@@ -875,10 +875,55 @@ export interface LoginAttemptEntry {
   occurredAt: string;
 }
 
+/** A borrower's own loan. Deliberately carries no probability, model version or explanation: the band and a
+ * sentence on how it moved stand in for the score, and the backend never sends more (MyLoansController). */
 export interface MyLoanView {
   loanId: string;
-  calibratedProbability: number | null;
-  computedAt: string | null;
+  /** null while the loan has not been scored */
+  status: BorrowerStatus | null;
+  /** null when nothing is open on the loan */
+  openCase: BorrowerCase | null;
+  /** null when the loan has no assigned analyst and the organization set no default contact */
+  contact: BorrowerContact | null;
+}
+
+export interface BorrowerStatus {
+  band: 'LOW' | 'MEDIUM' | 'HIGH';
+  label: string;
+  trend: string;
+  checkedAt: string;
+}
+
+export interface BorrowerCase {
+  status: string;
+  description: string;
+  openedAt: string | null;
+}
+
+export interface BorrowerContact {
+  name: string;
+  title: string | null;
+  email: string | null;
+}
+
+export interface BorrowerDocument {
+  id: number;
+  filename: string;
+  sizeBytes: number;
+  uploadedAt: string;
+  uploadedByYou: boolean;
+}
+
+export interface BorrowerAssistantAnswer {
+  answer: string;
+  contact: BorrowerContact | null;
+}
+
+export interface BorrowerContactSetting {
+  configured: boolean;
+  name: string | null;
+  title: string | null;
+  email: string | null;
 }
 
 /** password is required for ANALYST/ADMIN and must be omitted for CLIENT -- CLIENT accounts are

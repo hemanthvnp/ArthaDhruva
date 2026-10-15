@@ -20,6 +20,8 @@ const SegmentGraphPage = lazy(() => import('./pages/SegmentGraphPage'));
 const AuditLogPage = lazy(() => import('./pages/AuditLogPage'));
 const LoginAttemptsPage = lazy(() => import('./pages/LoginAttemptsPage'));
 const MyLoanPage = lazy(() => import('./pages/MyLoanPage'));
+const MyDocumentsPage = lazy(() => import('./pages/MyDocumentsPage'));
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
 const AdminCreateUserPage = lazy(() => import('./pages/AdminCreateUserPage'));
 const ManageUsersPage = lazy(() => import('./pages/ManageUsersPage'));
 const ChangePasswordPage = lazy(() => import('./pages/ChangePasswordPage'));
@@ -274,6 +276,8 @@ function AppRoutes() {
         <Route path="/account/password" element={<ChangePasswordPage />} />
         <Route path="/account/2fa" element={<TwoFactorPage />} />
         <Route path="/my-loan" element={<MyLoanPage />} />
+        <Route path="/my-documents" element={<MyDocumentsPage />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
       </Route>
       </Routes>
     </Suspense>
