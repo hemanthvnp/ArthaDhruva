@@ -1,0 +1,14 @@
+{
+  "name": "@arthadhruva/mcp-kit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "What every ArthaDhruva MCP server shares: result envelope, typed errors, config, redaction, subprocess allowlist, read-only guard, annotations, progress, test harness.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.31.0",
+    "zod": "4.6.5"
+  }
+}

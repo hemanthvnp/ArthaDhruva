@@ -67,6 +67,14 @@ Measured with JMH on the real model artifacts (one idle desktop core, full tiere
 | One loan's term structure to maturity (720 model rows) | 52.6 ms |
 | Loss simulation, 1,000 loans x 20,000 scenarios, 1 thread / 4 threads | 145 ms / 53 ms |
 
+These were measured before the survival model was re-exported with the 2006 to 2008 vintages
+(2026-10-13). That model has 1,392 boosting rounds against 596 and its ONNX file is 34.8 MB against
+16.4 MB, and the time is inside ONNX Runtime, so every term-structure figure in this section should be
+read as roughly doubled until the benchmark is rerun: the engine test classes took 2.0 to 2.2 times as
+long on the same machine (`TermStructureEngineTest` 1.8 s to 4.0 s, `PortfolioRiskEngineTest` 10.5 s to
+21.9 s), and the region tests about three times (`DecisionServiceTest` 22 s to 68 s). The JMH benchmark
+and the k6 smoke test have not been rerun against it.
+
 A projection is about 73 microseconds per model row, nearly all inside ONNX Runtime, so a new 30-year
 loan under three scenarios costs around 150 ms and a portfolio of thousands costs minutes of CPU. That
 arithmetic is the design: a portfolio run is a background job with a progress row and a heartbeat, a
@@ -74,6 +82,38 @@ worker pool bounded below the core count keeps it from starving request threads,
 loans are sampled with a reported standard error, and the rate limiter charges twenty tokens to start
 one. In the 1.5-CPU container, 400 loans under three scenarios (1,200 projections) take 48 s on its
 single worker.
+
+Three things follow from runs being that expensive, and each is a setting:
+
+- **Runs take turns on the compute pool.** The pool's queue is first in, first out, so a run that queued
+  all of its chunks at once would stand in front of every run started after it. A run keeps only a
+  window of chunks in the queue (`ChunkWindow`, at least 8), and two runs then advance together. The
+  window does not change the order results are merged in, so the figures are unchanged.
+- **The run queue is shared.** `risk.runs.concurrent` (2) is per replica; `risk.runs.queue` (8) is how
+  many runs may wait across all replicas, in the run table. A replica with a free worker looks for a
+  waiting run every `risk.runs.poll-ms` (2 s); the replica that records a run takes it at once if it can,
+  so the poll only matters for runs recorded on a busy replica or put back in the queue.
+- **A restarted run does not start again.** Each finished chunk (8 loans under every scenario; for a
+  region analysis, 4 loans under every variant) is stored with the run and deleted when the run ends. A
+  projection chunk is, by its layout, 4 to 5 KB per scenario (four 120-month series). A restart, whether
+  after a crash or a deploy, projects only the chunks that are missing. Not measured: the cost of the
+  writes, one small insert per chunk, against a chunk's seconds of model time.
+
+Scheduled work (webhook polling, the dashboard flush, run supervision, the cron jobs) runs on
+`spring.task.scheduling.pool.size` threads (4). Spring's default is one, on which a slow job delays every
+other; the monthly snapshot no longer projects on that pool at all, it queues deferred runs.
+
+A region analysis (`decision` on a portfolio run, see MODELS.md) projects every loan once per variant, so
+it costs `loans x variants` projections on top of the run, not `loans x scenarios`. On a development
+machine with two compute threads, `PortfolioDecisionEngineTest` judges 5 loans x 8 variants (40
+projections) in about 1.7 s on two threads, but that run is too short to trust. Timed properly, on one
+worker thread after a warm-up (`PortfolioCostMeasurement`), 20 loans x 8 variants (160 projections) took
+18.3 s, **114 ms a projection**, nearly three times a plain projection: each variant also checks which
+drivers leave the trained range. That is a development machine, not the 1.5-CPU container, which has
+not been run. At 114 ms a projection the default limit of 2,000 projections
+(`risk.portfolio.decision.max-projections`) is about four minutes on one worker, and a run above the limit
+is refused with the product and the limit instead of being sampled. A single-loan decision at the default
+32 variants is one batched call of 32 projections, a few seconds.
 
 The loss distribution, by contrast, is cheap once the loans are projected: the portfolio run stores each
 loan's result, and a simulation at any confidence level or correlation reuses them in about 100 ms

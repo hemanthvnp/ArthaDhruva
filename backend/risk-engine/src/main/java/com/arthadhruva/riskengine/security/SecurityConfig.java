@@ -60,10 +60,11 @@ import jakarta.servlet.http.HttpServletResponse;
  * (a CLIENT completing an admin-issued invite -- see ActivationController), and the actuator
  * health/prometheus endpoints (Prometheus itself carries no bearer token) are public; {@code
  * /admin/**} requires the ADMIN role; {@code /my/**} (a CLIENT's
- * own-loan view) and {@code /account/**} (self-service actions like changing your own password)
+ * own-loan view, documents and safety assistant), {@code /notifications/**} (each user's own) and
+ * {@code /account/**} (self-service actions like changing your own password)
  * require being logged in as a real role (ANALYST/ADMIN/CLIENT); everything else -- the scoring/
  * analysis tools -- requires ANALYST or ADMIN specifically, excluding CLIENT: a borrower can see
- * their own loan's score, but can't submit new applications or run any analysis tool.
+ * their own loan's status band, but can't submit new applications or run any analysis tool.
  *
  * The two TOTP enrollment endpoints are the one exception carved out of {@code /account/**}'s
  * real-role requirement: they also accept {@code ROLE_TOTP_SETUP}, the narrow authority
@@ -215,6 +216,8 @@ public class SecurityConfig {
                         // A client cannot start an ASYNC dispatch; only the server does, for a request it accepted.
                         .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
                         .requestMatchers("/v1/login", "/v1/access-requests", "/v1/sso/**", "/v1/password-reset/request", "/v1/password-reset/complete", "/v1/activate", "/actuator/health", "/actuator/health/**", "/actuator/prometheus", "/error").permitAll()
+                        // A download link's signed, single-attachment token is the credential (LoanAttachmentController).
+                        .requestMatchers(HttpMethod.GET, "/v1/attachment-downloads").permitAll()
                         .requestMatchers("/v1/ingest/**").hasRole("API_INGEST")
                         .requestMatchers("/v1/platform/**").hasRole("PLATFORM_ADMIN")
                         .requestMatchers("/v1/admin/**").hasRole("ADMIN")
@@ -222,6 +225,7 @@ public class SecurityConfig {
                                 .hasAnyRole("TOTP_SETUP", "ANALYST", "ADMIN", "CLIENT", "PLATFORM_ADMIN")
                         .requestMatchers("/v1/account/**").hasAnyRole("ANALYST", "ADMIN", "CLIENT", "PLATFORM_ADMIN")
                         .requestMatchers("/v1/my/**").hasAnyRole("ANALYST", "ADMIN", "CLIENT")
+                        .requestMatchers("/v1/notifications", "/v1/notifications/**").hasAnyRole("ANALYST", "ADMIN", "CLIENT")
                         .anyRequest().hasAnyRole("ANALYST", "ADMIN"))
                 .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)

@@ -1,0 +1,24 @@
+{
+  "name": "arthadhruva-mcp",
+  "private": true,
+  "description": "MCP servers and the analyst agent for ArthaDhruva (openspec/changes/mcp-servers-and-analyst-agent).",
+  "type": "module",
+  "workspaces": [
+    "kit",
+    "ci-guard",
+    "risk-engine"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run",
+    "pretest": "tsc -b kit"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.3",
+    "typescript": "6.0.3",
+    "vitest": "5.0.3"
+  }
+}

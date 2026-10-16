@@ -2,6 +2,7 @@
 for N-step-ahead regime forecasting: the transition matrix and the most recent known regime.
 Matrix exponentiation of the transition matrix is enough to forecast -- no need to reimplement
 the HMM fitting itself in Java, just the (much simpler) Markov chain forecast on top of it."""
+import glob
 import json
 import numpy as np
 import pandas as pd
@@ -13,18 +14,22 @@ from pomegranate.hmm import DenseHMM
 MONTHLY_PANEL_GLOB = "../data/processed/monthly_panel/orig_year=*/orig_quarter=*/*/part-*.parquet"
 
 print("Rebuilding the portfolio series...")
-lf = pl.scan_parquet(MONTHLY_PANEL_GLOB).select(
-    "monthly_reporting_period", "current_loan_delinquency_status", "current_interest_rate", "loan_age"
-)
 numeric_status = pl.col("current_loan_delinquency_status").cast(pl.Int32, strict=False)
+parts = []
+for path in glob.glob(MONTHLY_PANEL_GLOB):  # one file at a time: scanning the whole panel at once exhausts memory
+    parts.append(
+        pl.scan_parquet(path)
+        .select("monthly_reporting_period", "current_loan_delinquency_status", "current_interest_rate", "loan_age")
+        .group_by("monthly_reporting_period")
+        .agg(n_active=pl.len(), n_delinquent_90=(numeric_status >= 3).sum(),
+             rate_sum=pl.col("current_interest_rate").sum(), max_loan_age=pl.col("loan_age").max())
+        .collect())
 agg = (
-    lf.group_by("monthly_reporting_period")
-    .agg(n_active=pl.len(), n_delinquent_90=(numeric_status >= 3).sum(),
-         avg_interest_rate=pl.col("current_interest_rate").mean(),
-         max_loan_age=pl.col("loan_age").max())
+    pl.concat(parts).group_by("monthly_reporting_period")
+    .agg(pl.col("n_active").sum(), pl.col("n_delinquent_90").sum(), pl.col("rate_sum").sum(), pl.col("max_loan_age").max())
     .sort("monthly_reporting_period")
-    .collect()
-    .with_columns(delinquency_rate_90=pl.col("n_delinquent_90") / pl.col("n_active"))
+    .with_columns(delinquency_rate_90=pl.col("n_delinquent_90") / pl.col("n_active"),
+                  avg_interest_rate=pl.col("rate_sum") / pl.col("n_active"))
 )
 pdf_full = agg.to_pandas().set_index("monthly_reporting_period")
 pdf_full.index = pd.to_datetime(pdf_full.index).to_period("M").to_timestamp()
@@ -35,6 +40,16 @@ pdf_full.index = pd.to_datetime(pdf_full.index).to_period("M").to_timestamp()
 MATURE_LOAN_AGE_THRESHOLD = 6
 first_mature_month = pdf_full.index[pdf_full["max_loan_age"] >= MATURE_LOAN_AGE_THRESHOLD].min()
 pdf = pdf_full.loc[first_mature_month:]
+
+# End-of-series coverage cliff (same rule as sarimax_portfolio_forecast.ipynb): the vintage files were pulled
+# at different times, so from some month on most vintages drop out of the panel, n_active collapses, and the
+# rates are artifacts. Fitting on those months made the expected stress spell 37 months instead of 25 (experiments/
+# hmm_stability.py), so stop at the last month before n_active falls below half of the previous month's.
+coverage = pdf["n_active"] / pdf["n_active"].shift(1)
+cliff = coverage[coverage < 0.5].index
+if len(cliff) > 0:
+    pdf = pdf.loc[: cliff.min() - pd.DateOffset(months=1)]
+    print(f"Coverage cliff at {cliff.min().date()}: series truncated to end {pdf.index[-1].date()}")
 print(f"Ramp-up window ends at {first_mature_month.date()}; training on {len(pdf)} months "
       f"({pdf.index.min().date()} to {pdf.index.max().date()})")
 

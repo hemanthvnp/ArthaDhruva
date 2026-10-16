@@ -1,5 +1,7 @@
 # Weekly dependency updates against `dev`, grouped so that routine minor and patch bumps arrive as one
 # pull request per ecosystem instead of a dozen. Each one runs the full CI, including the load test.
+# Majors listed under `ignore` are upgrades in their own right (Java version, Jackson 3, Postgres data
+# directory format, Node runtime), so they are planned as a change rather than offered weekly.
 version: 2
 updates:
   - package-ecosystem: maven
@@ -11,6 +13,11 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      - dependency-name: "org.testcontainers:*"
+        update-types: [version-update:semver-major]
+      - dependency-name: net.logstash.logback:logstash-logback-encoder
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: npm
     directory: /frontend
@@ -21,6 +28,9 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions
     directory: /
@@ -37,6 +47,16 @@ updates:
     target-branch: dev
     schedule:
       interval: weekly
+    # The tags float within the Java and Python version (17-jre-jammy, 3.9-eclipse-temurin-17,
+    # 3.12-slim), so a rebuild already takes patches. Changing the version is a planned upgrade, and
+    # Dependabot reads the JDK in a suffix such as -temurin-26 as a minor change, so these are ignored.
+    groups:
+      base-images:
+        patterns: ["*"]
+    ignore:
+      - dependency-name: eclipse-temurin
+      - dependency-name: maven
+      - dependency-name: python
 
   # Image tags in the compose files.
   - package-ecosystem: docker-compose
@@ -47,3 +67,12 @@ updates:
     groups:
       compose-images:
         patterns: ["*"]
+    ignore:
+      - dependency-name: postgres
+        update-types: [version-update:semver-major]
+      - dependency-name: redis
+        update-types: [version-update:semver-major]
+      - dependency-name: prom/prometheus
+        update-types: [version-update:semver-major]
+      - dependency-name: "grafana/*"
+        update-types: [version-update:semver-major]

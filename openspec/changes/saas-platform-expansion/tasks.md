@@ -34,8 +34,10 @@
 - [x] 3.13 Verify: password reset round-trip works end-to-end with a configured SMTP provider and degrades gracefully without one; a seat-limit-exceeded signup is rejected with the correct error; two orgs on different plan tiers are throttled at different rates
 - [x] 3.14 Replace self-service signup (3.11) with sales-assisted onboarding: public `POST /v1/access-requests` records a pending request only; `PLATFORM_ADMIN` endpoints list, approve (provision org on a pilot/trial plan with an invited, not-yet-activated first ADMIN and an emailed activation link), and decline requests; the signup page becomes a request-access form
 - [x] 3.15 Make invite activation respect mandatory 2FA: activating a role that requires TOTP issues no session and sends the user to sign in (which starts 2FA enrollment)
-- [ ] 3.16 Add a platform-admin UI for reviewing access requests (today these endpoints are API-only, like the rest of `/v1/platform/**`)
-- [ ] 3.17 Add tests for the access-request flow: submission creates no organization; approval provisions org + invited admin; double review is rejected; invited ADMIN activation returns no session
+- [x] 3.16 Add a platform-admin UI for reviewing access requests (today these endpoints are API-only, like the rest of `/v1/platform/**`)
+      Done 2026-10-14: `AccessRequestsPage` at `/platform/access-requests`, the PLATFORM_ADMIN landing page and its only nav entry; filter by status, approve (slug suggested from the company, checked against the backend rule, plan, first admin username; the activation link is shown once when email is not configured) or decline (two-step). The rest of `/v1/platform/**` stays API-only.
+- [x] 3.17 Add tests for the access-request flow: submission creates no organization; approval provisions org + invited admin; double review is rejected; invited ADMIN activation returns no session
+      Done 2026-10-14: `ApiIntegrationTest.anAccessRequestIsReviewedOnceAndItsInvitedAdminSignsInForTwoFactor` (also: a tenant ADMIN cannot list requests, a declined request cannot be approved); `ApiIntegrationTest` 28/28. Frontend helpers `accessRequests.test.ts`.
 
 ## 4. Workflow depth
 

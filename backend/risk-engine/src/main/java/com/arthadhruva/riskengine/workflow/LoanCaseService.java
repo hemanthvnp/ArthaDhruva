@@ -17,6 +17,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
@@ -125,6 +126,31 @@ public class LoanCaseService {
                 && userService.findActiveStaff(tenantId, after.assignedTo()).isEmpty()) {
             throw CaseRuleException.unprocessable("'" + after.assignedTo() + "' is not an active analyst or admin in your organization.");
         }
+    }
+
+    /** What a borrower may know about the open case on their own loan: no notes, no reasons, no flag. */
+    public record OpenCase(LoanCaseStatus status, String assignedTo, Instant openedAt) {
+    }
+
+    /**
+     * The case on {@code loanId} if one exists and is not CLEARED. Unlike {@link #getOrCreate} it never
+     * invents a case: a loan nobody has acted on has none. {@code openedAt} is when the current open spell
+     * began (the case's first event, or its last reopening); null if that event is beyond the history read.
+     * The caller decides whose loan this is: borrower endpoints pass only the caller's own loan ids.
+     */
+    public Optional<OpenCase> openCase(Long tenantId, String loanId) {
+        return loanCaseRepository.findById(new LoanCaseId(tenantId, loanId))
+                .filter(loanCase -> loanCase.getStatus() != LoanCaseStatus.CLEARED)
+                .map(loanCase -> new OpenCase(loanCase.getStatus(), loanCase.getAssignedTo(), openedAt(tenantId, loanId)));
+    }
+
+    private Instant openedAt(Long tenantId, String loanId) {
+        for (LoanCaseEvent event : history(tenantId, loanId, MAX_LIMIT)) {
+            if (event.getFromStatus() == null || event.getFromStatus() == LoanCaseStatus.CLEARED) {
+                return event.getOccurredAt();
+            }
+        }
+        return null;
     }
 
     /** Most recent history entries for one case, newest first. */

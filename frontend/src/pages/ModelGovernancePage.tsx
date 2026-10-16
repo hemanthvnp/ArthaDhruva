@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { listModels, modelCard, pdDrift, survivalBacktest } from '../api/client';
+import { listModels, modelCard, pdDrift, survivalBacktest, survivalDrift } from '../api/client';
 import ErrorBanner from '../components/ErrorBanner';
 import { AXIS, GRID, LEGEND, TOOLTIP, yearOf, yearTicks } from '../components/chartTheme';
 import { count, dateTime, monthLabel, pct } from '../format';
 import { featureLabel } from '../labels';
-import type { FeatureDrift, ModelCard, ModelEntry, OverlayCause, OverlayTrial, PdCard, SurvivalBacktest, SurvivalCard } from '../api/types';
+import type { FeatureDrift, MacroDriver, ModelCard, ModelEntry, OverlayCause, OverlayTrial, PdCard, SurvivalBacktest, SurvivalCard } from '../api/types';
 
 const HEADLINE: Record<string, string> = {
   outOfTimeAuc: 'Out-of-time AUC',
@@ -493,6 +493,66 @@ function Drift() {
   );
 }
 
+/** How a macro driver's value reads: unemployment in points, house prices as a percentage change. */
+function macroValue(d: MacroDriver, v: number): string {
+  return d.feature === 'hpi_change_12m' ? pct(v, 1) : `${v.toFixed(1)} pt`;
+}
+
+function MacroDrift() {
+  const drift = useQuery({ queryKey: ['survival-drift'], queryFn: survivalDrift });
+  if (drift.isPending) return <div className="card"><div className="skeleton" style={{ height: 120 }} /></div>;
+  if (!drift.data) return <ErrorBanner error={drift.error} />;
+  const r = drift.data;
+  const rate = r.marketRate;
+  return (
+    <div className="card">
+      <div className="card-head"><h3>Are today's conditions like the training window?</h3></div>
+      <p className="page-subtitle">
+        The macro drivers a projection starts from, across the {r.states} states in {monthLabel(r.macroAsOf)}, against every
+        state-month of the training window ({monthLabel(r.trainingWindow[0])} to {monthLabel(r.trainingWindow[1])}), as
+        PSI over the window's quintiles net of the noise {r.states} states carry. A state outside the training range projects by
+        extrapolation from its first month; the last column counts your loans in such states.
+      </p>
+      <div className="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Driver</th>
+              <th className="num">Training range</th>
+              <th className="num">States now (min / median / max)</th>
+              <th className="num">PSI</th>
+              <th>Verdict</th>
+              <th>States outside the range</th>
+              <th className="num">Your loans there</th>
+            </tr>
+          </thead>
+          <tbody>
+            {r.drivers.map((d) => (
+              <tr key={d.feature}>
+                <td>{featureLabel(d.feature)}</td>
+                <td className="num">{macroValue(d, d.envelopeMin)} to {macroValue(d, d.envelopeMax)}</td>
+                <td className="num">{macroValue(d, d.currentMin)} / {macroValue(d, d.currentMedian)} / {macroValue(d, d.currentMax)}</td>
+                <td className="num">{d.drift.psi.toFixed(3)}</td>
+                <td><span className={`badge ${DRIFT_BADGE[d.drift.status]}`}>{DRIFT_LABEL[d.drift.status]}</span></td>
+                <td style={{ whiteSpace: 'normal' }}>{d.statesOutside.length === 0 ? 'None' : d.statesOutside.join(', ')}</td>
+                <td className="num">{count(d.loansOutside)} of {count(r.loansCovered)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="page-subtitle" style={{ marginTop: '0.9rem' }}>
+        The 30-year mortgage rate in {monthLabel(rate.asOf)} was {rate.current.toFixed(2)}%, against {rate.trainingMin.toFixed(2)}% to{' '}
+        {rate.trainingMax.toFixed(2)}% in the training window; {pct(rate.percentile, 0)} of its months were at or below today's rate.
+        {rate.outsideTraining && ' That is outside the training range: every rate incentive is extrapolated.'}
+      </p>
+      <p className="chart-caption">
+        {r.reference} Model {r.modelVersion} · computed {dateTime(r.computedAt)}, refreshed every ten minutes.
+      </p>
+    </div>
+  );
+}
+
 export default function ModelGovernancePage() {
   const models = useQuery({ queryKey: ['models'], queryFn: listModels });
   const [selected, setSelected] = useState('survival');
@@ -516,6 +576,7 @@ export default function ModelGovernancePage() {
       {models.data && <Inventory models={models.data} selected={selected} onSelect={setSelected} />}
       {model && <CardDetail model={model} card={card.data} />}
       {selected === 'survival' && backtest.data && <SurvivalEvidence backtest={backtest.data} card={card.data as SurvivalCard | undefined} />}
+      {selected === 'survival' && <MacroDrift />}
       {selected === 'pd_24m' && card.data && <PdEvidence card={card.data as PdCard} />}
       {selected === 'pd_24m' && <Drift />}
     </div>

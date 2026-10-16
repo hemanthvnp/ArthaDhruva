@@ -8,14 +8,17 @@ wrapper runs the same trained lstm/fc submodules unpacked over exactly the real 
 which is mathematically identical to the packed/trained forward for a single non-padded sequence.
 That equivalence is verified directly below (not just asserted) before anything is exported.
 """
+import hashlib
 import json
+from pathlib import Path
 import numpy as np
 import polars as pl
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
+from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import roc_auc_score, average_precision_score
+from sklearn.metrics import brier_score_loss, roc_auc_score, average_precision_score
 
 MAX_SEQ_LEN = 25
 INPUT_CUTOFF = 12
@@ -74,15 +77,24 @@ lengths_clean = np.minimum(lengths[keep_mask], INPUT_CUTOFF)
 y_clean = y[keep_mask]
 print(f"Leakage-excluded loans: {len(leaked_ids):,}   Remaining: {keep_mask.sum():,}")
 
+# Out-of-time split by vintage (the year is in the id: F<YY>Q<q><n>): fit on the 2020-2021 vintages, judge on
+# 2022-2023. A random split would score the model on loans originated alongside the ones it learned from.
+# 15% of the fitting vintages is held out to calibrate the probabilities (not used to fit the weights).
+vintage = np.array([2000 + int(lid[1:3]) for lid, keep in zip(loan_ids, keep_mask) if keep])
+TEST_FROM_VINTAGE = 2022
 idx = np.arange(keep_mask.sum())
-idx_train, idx_test = train_test_split(idx, test_size=0.2, random_state=42, stratify=y_clean)
+idx_fit_all, idx_test = idx[vintage < TEST_FROM_VINTAGE], idx[vintage >= TEST_FROM_VINTAGE]
+idx_train, idx_cal = train_test_split(idx_fit_all, test_size=0.15, random_state=42, stratify=y_clean[idx_fit_all])
+print(f"Train {len(idx_train):,}  calibration {len(idx_cal):,}  out-of-time test {len(idx_test):,} (vintages >= {TEST_FROM_VINTAGE})")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Device: {device}")
 
-train_flat = X_clean[idx_train].reshape(-1, N_FEATURES)
-feat_mean = train_flat[:, :2].mean(axis=0)
-feat_std = train_flat[:, :2].std(axis=0) + 1e-6
+# Standardise from the real months only: the zero padding after a loan's last month is not an observation.
+real = np.arange(INPUT_CUTOFF)[None, :] < lengths_clean[idx_train][:, None]
+train_real = X_clean[idx_train][real][:, :2]
+feat_mean = train_real.mean(axis=0)
+feat_std = train_real.std(axis=0) + 1e-6
 X_norm = X_clean.copy()
 X_norm[:, :, :2] = (X_clean[:, :, :2] - feat_mean) / feat_std
 
@@ -101,9 +113,7 @@ class TrajectoryDataset(Dataset):
 
 
 train_ds = TrajectoryDataset(X_norm, lengths_clean, y_clean, idx_train)
-test_ds = TrajectoryDataset(X_norm, lengths_clean, y_clean, idx_test)
 train_loader = DataLoader(train_ds, batch_size=512, shuffle=True)
-test_loader = DataLoader(test_ds, batch_size=2048, shuffle=False)
 
 
 class TrajectoryLSTM(nn.Module):
@@ -139,18 +149,41 @@ for epoch in range(N_EPOCHS):
     print(f"Epoch {epoch + 1}/{N_EPOCHS}  train loss={total_loss / len(train_ds):.4f}")
 
 model.eval()
-all_logits, all_labels = [], []
+
+
+def logits_for(indices):
+    loader = DataLoader(TrajectoryDataset(X_norm, lengths_clean, y_clean, indices), batch_size=2048, shuffle=False)
+    with torch.no_grad():
+        return np.concatenate([model(xb.to(device), lb).cpu().numpy() for xb, lb, _ in loader])
+
+
+def summarise(logits, labels):
+    p = 1 / (1 + np.exp(-logits))
+    return {"n": int(len(labels)), "defaults": int(labels.sum()), "roc_auc": round(float(roc_auc_score(labels, p)), 4),
+            "pr_auc": round(float(average_precision_score(labels, p)), 4), "brier": round(float(brier_score_loss(labels, p)), 5),
+            "mean_predicted": round(float(p.mean()), 5), "actual_rate": round(float(labels.mean()), 5),
+            "predicted_over_actual": round(float(p.mean() / labels.mean()), 3)}
+
+
+# pos_weight (above) makes the raw sigmoid an over-estimate of the default probability, and the service serves
+# it as a probability. Platt scaling (a * logit + b, fit on the held-out calibration loans) is affine, so it is
+# folded into the final linear layer: the exported graph and the Java feature code stay exactly as they were.
+cal_logits = logits_for(idx_cal)
+platt = LogisticRegression(C=1e6).fit(cal_logits.reshape(-1, 1), y_clean[idx_cal])
+slope, intercept = float(platt.coef_[0, 0]), float(platt.intercept_[0])
+test_logits = logits_for(idx_test)
+before = summarise(test_logits, y_clean[idx_test])
 with torch.no_grad():
-    for xb, lb, yb in test_loader:
-        logits = model(xb.to(device), lb)
-        all_logits.append(logits.cpu().numpy())
-        all_labels.append(yb.numpy())
-all_logits = np.concatenate(all_logits)
-all_labels = np.concatenate(all_labels)
-all_proba = 1 / (1 + np.exp(-all_logits))
-roc = roc_auc_score(all_labels, all_proba)
-pr = average_precision_score(all_labels, all_proba)
-print(f"ROC-AUC={roc:.4f}  PR-AUC={pr:.4f}  (notebook reported: ROC-AUC=0.7131  PR-AUC=0.1558)")
+    model.fc.weight.mul_(slope)
+    model.fc.bias.mul_(slope).add_(intercept)
+after = summarise(slope * test_logits + intercept, y_clean[idx_test])
+print(f"Platt: slope={slope:.4f} intercept={intercept:.4f}")
+print("Out-of-time, raw        :", before)
+print("Out-of-time, calibrated :", after)
+
+order = np.argsort(slope * test_logits + intercept)
+deciles = [{"decile": d + 1, "predicted": round(float((1 / (1 + np.exp(-(slope * test_logits + intercept)[g]))).mean()), 5),
+            "actual": round(float(y_clean[idx_test][g].mean()), 5)} for d, g in enumerate(np.array_split(order, 10))]
 
 # --- Verify the unpacked ONNX-export wrapper matches the trained (packed) model exactly ---
 class TrajectoryLSTMOnnx(nn.Module):
@@ -203,4 +236,21 @@ export_meta = {
 }
 with open("risk-engine/src/main/resources/lstm_meta.json", "w") as f:
     json.dump(export_meta, f, indent=2)
-print("Saved risk-engine/src/main/resources/lstm_model.onnx and lstm_meta.json")
+card = {
+    "model": "trajectory_lstm",
+    "artifact_sha256": hashlib.sha256(Path("risk-engine/src/main/resources/lstm_model.onnx").read_bytes()).hexdigest(),
+    "input": f"first {INPUT_CUTOFF} months of status, UPB ratio, modification flag",
+    "target": "ever reaches 90+ days past due after month 12 (loans already adverse in the window are excluded)",
+    "protocol": f"fit on vintages < {TEST_FROM_VINTAGE} (85%), Platt-calibrated on the other 15%, judged on vintages >= {TEST_FROM_VINTAGE}",
+    "calibration": {"method": "Platt scaling folded into the final linear layer", "slope": slope, "intercept": intercept},
+    "out_of_time_raw": before, "out_of_time_calibrated": after, "out_of_time_deciles": deciles,
+    "limitations": [
+        "'Ever defaulted' is right-censored: later vintages have had less time to default, so predicted/actual drifts with vintage",
+        "100,000-loan stratified sample of 2020-2023 vintages; one stress episode",
+        "A month missing inside the window is encoded as status 0 / UPB ratio 0, indistinguishable from a real zero",
+        "The Java feature code is pinned to backend/golden_lstm.py by TrajectoryParityTest (regenerate it after any re-export)",
+    ],
+}
+with open("risk-engine/src/main/resources/lstm_card.json", "w") as f:
+    json.dump(card, f, indent=2)
+print("Saved risk-engine/src/main/resources/lstm_model.onnx, lstm_meta.json and lstm_card.json")

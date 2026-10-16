@@ -2,6 +2,8 @@ package com.arthadhruva.riskengine.notification;
 
 import com.arthadhruva.riskengine.event.LoanCaseAssignedEvent;
 import com.arthadhruva.riskengine.event.LoanCaseNoteAddedEvent;
+import com.arthadhruva.riskengine.event.LoanDocumentAddedEvent;
+import com.arthadhruva.riskengine.security.UserService;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -19,9 +21,11 @@ import java.util.Objects;
 public class NotificationEventListener {
 
     private final NotificationService notificationService;
+    private final UserService userService;
 
-    public NotificationEventListener(NotificationService notificationService) {
+    public NotificationEventListener(NotificationService notificationService, UserService userService) {
         this.notificationService = notificationService;
+        this.userService = userService;
     }
 
     @Async("eventExecutor")
@@ -38,6 +42,19 @@ public class NotificationEventListener {
         if (assignee != null && !Objects.equals(assignee, event.getAuthor())) {
             notificationService.notify(event.getTenantId(), assignee, NotificationType.NOTE_ADDED,
                     event.getAuthor() + " added a note on loan " + event.getLoanId(), "/loans/" + event.getLoanId());
+        }
+    }
+
+    /** Tells the borrowers linked to the loan, never the person who uploaded it. The message names no file:
+     * the borrower reads the list behind the link, under their own access rule. */
+    @Async("eventExecutor")
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
+    public void onDocumentAdded(LoanDocumentAddedEvent event) {
+        for (String owner : userService.findUsernamesOwningLoan(event.getTenantId(), event.getLoanId())) {
+            if (!owner.equals(event.getUploadedBy())) {
+                notificationService.notify(event.getTenantId(), owner, NotificationType.DOCUMENT_ADDED,
+                        "A document was added to your loan " + event.getLoanId(), "/my-documents");
+            }
         }
     }
 }

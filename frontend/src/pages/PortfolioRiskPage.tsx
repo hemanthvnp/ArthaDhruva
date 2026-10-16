@@ -2,13 +2,17 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Area, AreaChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { downloadPortfolioLoanResultsCsv, getPortfolioRisk, portfolioLoanResults, portfolioRiskHistory, startPortfolioRun } from '../api/client';
+import { downloadPortfolioLoanResultsCsv, getPortfolioRisk, portfolioLoanResults, portfolioRiskHistory, startPortfolioRun, weightPortfolioRun } from '../api/client';
 import ErrorBanner from '../components/ErrorBanner';
+import { PortfolioRegions, RunWithRegions } from '../components/PortfolioRegions';
 import RiskMeter from '../components/RiskMeter';
+import ScenarioWeightsForm from '../components/ScenarioWeightsForm';
+import { WEIGHTED_METHOD_NOTE, weightsLabel } from '../components/weights';
+import { REGION_BADGE, REGION_GLYPH, REGION_LABEL, extrapolatedLegend } from '../components/regions';
 import { AXIS, GRID, LEGEND, SCENARIO_STYLE, TOOLTIP, scenarioLabel, yearOf, yearTicks } from '../components/chartTheme';
 import { axisMoney, bps, compactMoney, count, money, monthLabel, pct } from '../format';
 import { isActive, usePortfolioRun } from '../hooks/usePortfolioRun';
-import type { CvarResult, LoanResultSort, PortfolioRun, PortfolioSnapshot, ScenarioRisk, StageBreakdown } from '../api/types';
+import type { CvarResult, DecisionRegion, DecisionRequest, LoanResultSort, PortfolioRun, PortfolioSnapshot, ScenarioRisk, StageBreakdown } from '../api/types';
 
 const ORDER = ['BASELINE', 'ADVERSE', 'SEVERELY_ADVERSE', 'RATES_UP_200', 'RATES_DOWN_200'];
 const DRIVER: Record<string, string> = {
@@ -113,14 +117,20 @@ const SORTS: [LoanResultSort, string][] = [
 const PAGE_SIZE = 12;
 
 /** The loans behind the totals: stage and allowance loan by loan, as an auditor would ask to see them. */
-function LoanListing({ asOf, stages }: { asOf: string; stages: StageBreakdown[] }) {
+function LoanListing({ asOf, stages, hasRegions, region, onRegion }: {
+  asOf: string;
+  stages: StageBreakdown[];
+  hasRegions: boolean;
+  region: DecisionRegion | undefined;
+  onRegion: (region: DecisionRegion | undefined) => void;
+}) {
   const [stage, setStage] = useState<number | undefined>(undefined);
   const [sort, setSort] = useState<LoanResultSort>('eclLifetime');
   const [page, setPage] = useState(0);
   const [exportError, setExportError] = useState<unknown>(null);
   const listing = useQuery({
-    queryKey: ['portfolio-risk-loans', asOf, stage, sort, page],
-    queryFn: () => portfolioLoanResults({ stage, sort, limit: PAGE_SIZE, offset: page * PAGE_SIZE }),
+    queryKey: ['portfolio-risk-loans', asOf, stage, region, sort, page],
+    queryFn: () => portfolioLoanResults({ stage, region, sort, limit: PAGE_SIZE, offset: page * PAGE_SIZE }),
     placeholderData: keepPreviousData,
   });
   const filter = (next: number | undefined) => {
@@ -129,6 +139,7 @@ function LoanListing({ asOf, stages }: { asOf: string; stages: StageBreakdown[] 
   };
   const total = listing.data?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const shownRegions = hasRegions && listing.data !== undefined && Object.keys(listing.data.regions).length > 0;
 
   return (
     <div className="card">
@@ -145,6 +156,16 @@ function LoanListing({ asOf, stages }: { asOf: string; stages: StageBreakdown[] 
             </button>
           ))}
         </div>
+        {hasRegions && (
+          <div className="segmented" role="tablist" aria-label="Region">
+            <button role="tab" aria-selected={region === undefined} className={region === undefined ? 'on' : ''} onClick={() => { onRegion(undefined); setPage(0); }}>Any region</button>
+            {(['CERTAIN_HIGH', 'BOUNDARY', 'CERTAIN_LOW'] as DecisionRegion[]).map((r) => (
+              <button key={r} role="tab" aria-selected={region === r} className={region === r ? 'on' : ''} onClick={() => { onRegion(r); setPage(0); }}>
+                <span aria-hidden="true">{REGION_GLYPH[r]}</span> {REGION_LABEL[r]}
+              </button>
+            ))}
+          </div>
+        )}
         <label className="sub" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           Largest first by
           <select aria-label="Order" value={sort} onChange={(e) => { setSort(e.target.value as LoanResultSort); setPage(0); }}>
@@ -154,7 +175,7 @@ function LoanListing({ asOf, stages }: { asOf: string; stages: StageBreakdown[] 
       </div>
       <ErrorBanner error={listing.error ?? exportError} />
       {listing.isPending && <div className="skeleton" style={{ height: 140 }} />}
-      {listing.data && listing.data.loans.length === 0 && <p className="empty">No loans in this stage.</p>}
+      {listing.data && listing.data.loans.length === 0 && <p className="empty">No loans in this selection.</p>}
       {listing.data && listing.data.loans.length > 0 && (
         <div className="table-scroll">
           <table>
@@ -168,6 +189,7 @@ function LoanListing({ asOf, stages }: { asOf: string; stages: StageBreakdown[] 
                 <th className="num">LGD</th>
                 <th className="num">Allowance</th>
                 <th className="num">Lifetime loss</th>
+                {shownRegions && <th>Region</th>}
               </tr>
             </thead>
             <tbody>
@@ -181,6 +203,17 @@ function LoanListing({ asOf, stages }: { asOf: string; stages: StageBreakdown[] 
                   <td className="num">{pct(l.lgd, 1)}</td>
                   <td className="num">{money(l.eclIfrs9)}</td>
                   <td className="num">{money(l.eclLifetime)}</td>
+                  {shownRegions && (
+                    <td>
+                      {listing.data.regions[l.loanId] ? (
+                        <span className={`badge badge-region ${REGION_BADGE[listing.data.regions[l.loanId].region]}`}
+                          title={`${listing.data.regions[l.loanId].high} of ${listing.data.regions[l.loanId].members} variants high${listing.data.regions[l.loanId].extrapolated ? '; the stress goes beyond the trained data' : ''}`}>
+                          <span aria-hidden="true">{REGION_GLYPH[listing.data.regions[l.loanId].region]}</span>&nbsp;{REGION_LABEL[listing.data.regions[l.loanId].region]}
+                          {listing.data.regions[l.loanId].extrapolated ? ' *' : ''}
+                        </span>
+                      ) : null}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -197,6 +230,7 @@ function LoanListing({ asOf, stages }: { asOf: string; stages: StageBreakdown[] 
       <p className="chart-caption">
         Baseline scenario. A stage 1 loan carries twelve months of expected loss as its allowance, a stage 2 loan its lifetime
         loss, a stage 3 loan the loss on the balance outstanding; hover a stage for the reason. The export has every loan.
+        {shownRegions && ` ${extrapolatedLegend()}`}
       </p>
     </div>
   );
@@ -283,6 +317,52 @@ function Trend() {
   );
 }
 
+/** The latest run's scenarios weighted into one allowance by the user's probabilities; nothing is projected again. */
+function WeightedAllowance({ scenarios, asOf }: { scenarios: string[]; asOf: string }) {
+  const [weights, setWeights] = useState<Record<string, number> | null>(null);
+  const weighted = useQuery({
+    queryKey: ['portfolio-weighted', asOf, weights],
+    queryFn: () => weightPortfolioRun(weights!),
+    enabled: weights !== null,
+    retry: false,
+  });
+  const w = weighted.data;
+  return (
+    <div className="card">
+      <div className="card-head"><h3>Probability-weighted allowance</h3></div>
+      <p className="page-subtitle">
+        One allowance across the scenarios of this run, each weighted by how likely you judge it. Computed from the stored results.
+      </p>
+      <ScenarioWeightsForm scenarios={scenarios} applied={weights} onApply={setWeights} />
+      <ErrorBanner error={weighted.error} />
+      {w && (
+        <>
+          <div className="kpi-row" style={{ marginTop: '1rem' }}>
+            <div className="kpi accent">
+              <div className="label">Allowance (IFRS 9)</div>
+              <div className="value">{compactMoney(w.eclIfrs9)}</div>
+              <div className="hint">{bps(w.coverage)} of exposure</div>
+            </div>
+            <div className="kpi">
+              <div className="label">Lifetime ECL</div>
+              <div className="value">{compactMoney(w.eclLifetime)}</div>
+              <div className="hint">{w.eclCecl !== null ? `CECL ${compactMoney(w.eclCecl)}` : 'CECL not stored for every scenario'}</div>
+            </div>
+            <div className="kpi">
+              <div className="label">Loans in stage 2</div>
+              <div className="value">{w.stageLoans[1].toFixed(1)}</div>
+              <div className="hint">weighted; stage 3 {w.stageLoans[2].toFixed(1)}</div>
+            </div>
+          </div>
+          <p className="chart-caption">
+            Weighted {weightsLabel(w.weights, scenarioLabel)}, from the run of {w.asOf} ({w.modelVersion}). {WEIGHTED_METHOD_NOTE}
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
 function Results({ snapshots, portfolioLoans }: { snapshots: PortfolioSnapshot[]; portfolioLoans: number }) {
   const ordered = useMemo(() => [...snapshots].sort((a, b) => ORDER.indexOf(a.scenario) - ORDER.indexOf(b.scenario)), [snapshots]);
   const details = ordered.map((s) => s.detail).filter((d): d is ScenarioRisk => d !== null);
@@ -290,6 +370,8 @@ function Results({ snapshots, portfolioLoans }: { snapshots: PortfolioSnapshot[]
   const base = head.detail!;
   const stageExposure = base.stages.map((s) => s.exposure);
   const extrapolated = Object.entries(details[details.length - 1].extrapolatedLoans);
+  const regionSummary = ordered.find((s) => s.decision)?.decision;
+  const [region, setRegion] = useState<DecisionRegion | undefined>(undefined);
 
   return (
     <>
@@ -380,6 +462,8 @@ function Results({ snapshots, portfolioLoans }: { snapshots: PortfolioSnapshot[]
         </p>
       </div>
 
+      <WeightedAllowance scenarios={ordered.map((s) => s.scenario)} asOf={head.asOf} />
+
       <Runoff scenarios={details} />
 
       <div className="widget-grid" style={{ marginBottom: '1.25rem' }}>
@@ -402,7 +486,9 @@ function Results({ snapshots, portfolioLoans }: { snapshots: PortfolioSnapshot[]
         <BadYear loss={base.lossDistribution ?? null} ecl12m={base.ecl12m} />
       </div>
 
-      <LoanListing asOf={head.asOf} stages={base.stages} />
+      {regionSummary && <PortfolioRegions summary={regionSummary} onShowRegion={setRegion} />}
+
+      <LoanListing asOf={head.asOf} stages={base.stages} hasRegions={regionSummary !== undefined} region={region} onRegion={setRegion} />
 
       <Trend />
 
@@ -450,11 +536,11 @@ export default function PortfolioRiskPage() {
     void queryClient.invalidateQueries({ queryKey: ['portfolio-risk-loans'] });
   });
 
-  const start = async () => {
+  const start = async (decision?: DecisionRequest) => {
     setStarting(true);
     setError(null);
     try {
-      setStarted(await startPortfolioRun());
+      setStarted(await startPortfolioRun(undefined, decision));
     } catch (e) {
       setError(e);
     } finally {
@@ -475,12 +561,16 @@ export default function PortfolioRiskPage() {
             stress, and when the losses are expected to arrive.
           </p>
         </div>
-        <button onClick={start} disabled={starting || running}>
+        <button onClick={() => void start()} disabled={starting || running}>
           {running ? 'Running...' : snapshots.length > 0 ? 'Run again' : 'Run projection'}
         </button>
       </div>
 
       <ErrorBanner error={error ?? view.error} />
+      <details className="card" style={{ padding: 0 }}>
+        <summary style={{ cursor: 'pointer', padding: '0.9rem 1.1rem', fontWeight: 600 }}>Region analysis (optional)</summary>
+        <RunWithRegions busy={starting || running} onRun={(d) => void start(d)} />
+      </details>
       {run && running && <Progress run={run} />}
       {run?.status === 'FAILED' && <p className="error-banner">The last run did not finish: {run.error ?? 'unknown error'}</p>}
 

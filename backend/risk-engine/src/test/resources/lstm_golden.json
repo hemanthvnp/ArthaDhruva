@@ -1,0 +1,400 @@
+{
+  "artifact_sha256": "8973cb19766bb1bc6eb25e758a19da4a28d5130b0dcc67c27baf20ff7b15dabc",
+  "cases": [
+    {
+      "name": "clean-12-months",
+      "loan": {
+        "originalUpb": 300000.0,
+        "months": [
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 300000.0,
+            "modificationFlag": ""
+          },
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 299600.0,
+            "modificationFlag": ""
+          },
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 299200.0,
+            "modificationFlag": ""
+          },
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 298800.0,
+            "modificationFlag": ""
+          },
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 298400.0,
+            "modificationFlag": ""
+          },
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 298000.0,
+            "modificationFlag": ""
+          },
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 297600.0,
+            "modificationFlag": ""
+          },
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 297200.0,
+            "modificationFlag": ""
+          },
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 296800.0,
+            "modificationFlag": ""
+          },
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 296400.0,
+            "modificationFlag": ""
+          },
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 296000.0,
+            "modificationFlag": ""
+          },
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 295600.0,
+            "modificationFlag": ""
+          }
+        ]
+      },
+      "featureVector": [
+        -0.05854443088173866,
+        0.27756577730178833,
+        0.0,
+        -0.05854443088173866,
+        0.2578035295009613,
+        0.0,
+        -0.05854443088173866,
+        0.23804128170013428,
+        0.0,
+        -0.05854443088173866,
+        0.21827903389930725,
+        0.0,
+        -0.05854443088173866,
+        0.19851678609848022,
+        0.0,
+        -0.05854443088173866,
+        0.1787545382976532,
+        0.0,
+        -0.05854443088173866,
+        0.15899229049682617,
+        0.0,
+        -0.05854443088173866,
+        0.13923004269599915,
+        0.0,
+        -0.05854443088173866,
+        0.11946779489517212,
+        0.0,
+        -0.05854443088173866,
+        0.09970554709434509,
+        0.0,
+        -0.05854443088173866,
+        0.07994329929351807,
+        0.0,
+        -0.05854443088173866,
+        0.06018105149269104,
+        0.0
+      ],
+      "probability": 0.016863355506931455
+    },
+    {
+      "name": "single-month",
+      "loan": {
+        "originalUpb": 250000.0,
+        "months": [
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 250000.0,
+            "modificationFlag": ""
+          }
+        ]
+      },
+      "featureVector": [
+        -0.05854443088173866,
+        0.27756577730178833,
+        0.0
+      ],
+      "probability": 0.012586691327800655
+    },
+    {
+      "name": "late-payments",
+      "loan": {
+        "originalUpb": 300000.0,
+        "months": [
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 299000.0,
+            "modificationFlag": ""
+          },
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 299000.0,
+            "modificationFlag": ""
+          },
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 299000.0,
+            "modificationFlag": ""
+          },
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 299000.0,
+            "modificationFlag": ""
+          },
+          {
+            "currentLoanDelinquencyStatus": "1",
+            "currentActualUpb": 298800.0,
+            "modificationFlag": ""
+          },
+          {
+            "currentLoanDelinquencyStatus": "2",
+            "currentActualUpb": 298800.0,
+            "modificationFlag": ""
+          },
+          {
+            "currentLoanDelinquencyStatus": "3",
+            "currentActualUpb": 298800.0,
+            "modificationFlag": ""
+          },
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 298000.0,
+            "modificationFlag": ""
+          },
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 298000.0,
+            "modificationFlag": ""
+          },
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 298000.0,
+            "modificationFlag": ""
+          }
+        ]
+      },
+      "featureVector": [
+        -0.05854443088173866,
+        0.22816015779972076,
+        0.0,
+        -0.05854443088173866,
+        0.22816015779972076,
+        0.0,
+        -0.05854443088173866,
+        0.22816015779972076,
+        0.0,
+        -0.05854443088173866,
+        0.22816015779972076,
+        0.0,
+        15.024333000183105,
+        0.21827903389930725,
+        0.0,
+        30.107210159301758,
+        0.21827903389930725,
+        0.0,
+        45.190086364746094,
+        0.21827903389930725,
+        0.0,
+        -0.05854443088173866,
+        0.1787545382976532,
+        0.0,
+        -0.05854443088173866,
+        0.1787545382976532,
+        0.0,
+        -0.05854443088173866,
+        0.1787545382976532,
+        0.0
+      ],
+      "probability": 0.16718493897117284
+    },
+    {
+      "name": "non-numeric-status",
+      "loan": {
+        "originalUpb": 300000.0,
+        "months": [
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 299000.0,
+            "modificationFlag": ""
+          },
+          {
+            "currentLoanDelinquencyStatus": "RA",
+            "currentActualUpb": 299000.0,
+            "modificationFlag": ""
+          },
+          {
+            "currentLoanDelinquencyStatus": "XX",
+            "currentActualUpb": 299000.0,
+            "modificationFlag": ""
+          }
+        ]
+      },
+      "featureVector": [
+        -0.05854443088173866,
+        0.22816015779972076,
+        0.0,
+        180.9359893798828,
+        0.22816015779972076,
+        0.0,
+        180.9359893798828,
+        0.22816015779972076,
+        0.0
+      ],
+      "probability": 0.6003344684334954
+    },
+    {
+      "name": "modified",
+      "loan": {
+        "originalUpb": 300000.0,
+        "months": [
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 299000.0,
+            "modificationFlag": ""
+          },
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 298500.0,
+            "modificationFlag": "Y"
+          },
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 298000.0,
+            "modificationFlag": "Y"
+          }
+        ]
+      },
+      "featureVector": [
+        -0.05854443088173866,
+        0.22816015779972076,
+        0.0,
+        -0.05854443088173866,
+        0.20345734059810638,
+        1.0,
+        -0.05854443088173866,
+        0.1787545382976532,
+        1.0
+      ],
+      "probability": 0.021806026021923632
+    },
+    {
+      "name": "modified-lowercase-ignored",
+      "loan": {
+        "originalUpb": 300000.0,
+        "months": [
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 299000.0,
+            "modificationFlag": "y"
+          },
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 298500.0,
+            "modificationFlag": "N"
+          }
+        ]
+      },
+      "featureVector": [
+        -0.05854443088173866,
+        0.22816015779972076,
+        0.0,
+        -0.05854443088173866,
+        0.20345734059810638,
+        0.0
+      ],
+      "probability": 0.013631224278998088
+    },
+    {
+      "name": "upb-above-original-clipped",
+      "loan": {
+        "originalUpb": 100000.0,
+        "months": [
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 900000.0,
+            "modificationFlag": ""
+          },
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 100000.0,
+            "modificationFlag": ""
+          }
+        ]
+      },
+      "featureVector": [
+        -0.05854443088173866,
+        59.564308166503906,
+        0.0,
+        -0.05854443088173866,
+        0.27756577730178833,
+        0.0
+      ],
+      "probability": 0.031860297052850435
+    },
+    {
+      "name": "zero-balance",
+      "loan": {
+        "originalUpb": 300000.0,
+        "months": [
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 100000.0,
+            "modificationFlag": ""
+          },
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 0.0,
+            "modificationFlag": ""
+          }
+        ]
+      },
+      "featureVector": [
+        -0.05854443088173866,
+        -9.603557586669922,
+        0.0,
+        -0.05854443088173866,
+        -14.544119834899902,
+        0.0
+      ],
+      "probability": 0.0010018655424496176
+    },
+    {
+      "name": "padded-status",
+      "loan": {
+        "originalUpb": 300000.0,
+        "months": [
+          {
+            "currentLoanDelinquencyStatus": " 2 ",
+            "currentActualUpb": 299000.0,
+            "modificationFlag": ""
+          },
+          {
+            "currentLoanDelinquencyStatus": "0",
+            "currentActualUpb": 298000.0,
+            "modificationFlag": ""
+          }
+        ]
+      },
+      "featureVector": [
+        30.107210159301758,
+        0.22816015779972076,
+        0.0,
+        -0.05854443088173866,
+        0.1787545382976532,
+        0.0
+      ],
+      "probability": 0.132711352737484
+    }
+  ]
+}

@@ -4,6 +4,8 @@ import com.arthadhruva.riskengine.tenant.TenantAware;
 import jakarta.persistence.Column;
 import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.FilterDef;
@@ -45,6 +47,20 @@ public class LoanScoreRecord implements TenantAware {
     @Column(name = "model_version")
     private String modelVersion;
 
+    /** The band of {@code calibratedProbability}, since when the loan has been in it, and the band it was in
+     * before (V30). Null on rows not rescored since that migration; {@code previousBand} is also null while
+     * the loan has only ever been in one band. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "band")
+    private RiskBand band;
+
+    @Column(name = "band_since")
+    private Instant bandSince;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "previous_band")
+    private RiskBand previousBand;
+
     protected LoanScoreRecord() {
         // required by JPA
     }
@@ -56,6 +72,8 @@ public class LoanScoreRecord implements TenantAware {
         this.calibratedProbability = calibratedProbability;
         this.computedAt = computedAt;
         this.modelVersion = modelVersion;
+        this.band = RiskBand.of(calibratedProbability);
+        this.bandSince = computedAt;
     }
 
     public String getModelVersion() {
@@ -87,7 +105,28 @@ public class LoanScoreRecord implements TenantAware {
         return computedAt;
     }
 
+    public RiskBand getBand() {
+        return band;
+    }
+
+    public Instant getBandSince() {
+        return bandSince;
+    }
+
+    public RiskBand getPreviousBand() {
+        return previousBand;
+    }
+
     public void update(double rawProbability, double calibratedProbability, Instant computedAt, String modelVersion) {
+        RiskBand next = RiskBand.of(calibratedProbability);
+        if (band == null) {
+            // First score since V30: what came before is unknown, so no previous band is claimed.
+            bandSince = computedAt;
+        } else if (next != band) {
+            previousBand = band;
+            bandSince = computedAt;
+        }
+        this.band = next;
         this.rawProbability = rawProbability;
         this.calibratedProbability = calibratedProbability;
         this.computedAt = computedAt;

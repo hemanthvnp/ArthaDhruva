@@ -98,8 +98,23 @@ public class ModelRegistry {
         entries.add(unvalidated("early_warning", "Early warning", "Flags performing loans drifting toward delinquency from "
                 + "their payment history", 2, "early_warning_model.onnx", "LightGBM with isotonic calibration",
                 List.of("No model card or out-of-time validation in this release")));
-        entries.add(unvalidated("trajectory_lstm", "Delinquency trajectory", "Sequence model over a loan's monthly payment "
-                + "history", 2, "lstm_model.onnx", "LSTM", List.of("No model card or out-of-time validation in this release")));
+        JsonNode lstmCard = mapper.readTree(read("lstm_card.json"));
+        String lstmSha = sha256(read("lstm_model.onnx"));
+        if (!lstmSha.equals(lstmCard.get("artifact_sha256").asString())) {
+            throw new IllegalStateException("lstm_model.onnx does not match the checksum in lstm_card.json");
+        }
+        JsonNode lstmOot = lstmCard.get("out_of_time_calibrated");
+        Map<String, Object> lstmHeadline = new LinkedHashMap<>();
+        lstmHeadline.put("outOfTimeAuc", lstmOot.get("roc_auc").asDouble());
+        lstmHeadline.put("outOfTimePrAuc", lstmOot.get("pr_auc").asDouble());
+        lstmHeadline.put("predictedOverActual", lstmOot.get("predicted_over_actual").asDouble());
+        lstmHeadline.put("outOfTimeLoans", lstmOot.get("n").asLong());
+        List<String> lstmGaps = new ArrayList<>();
+        lstmCard.get("limitations").forEach(l -> lstmGaps.add(l.asString()));
+        entries.add(new Entry("trajectory_lstm", "Delinquency trajectory", "Sequence model over a loan's monthly payment "
+                + "history", 2, true, "unversioned", "lstm_model.onnx", lstmSha, true, null, "LSTM, Platt-calibrated",
+                lstmHeadline, lstmGaps));
+        cards.put("trajectory_lstm", lstmCard);
         Map<String, Object> copula = new LinkedHashMap<>();
         copula.put("defaultAssetCorrelation", CvarRequest.DEFAULT_ASSET_CORRELATION);
         entries.add(new Entry("portfolio_copula", "Portfolio loss distribution", "Value-at-Risk, expected shortfall and tail "

@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -47,8 +48,21 @@ public class AdminBootstrap implements ApplicationRunner {
         this.configuredPassword = configuredPassword;
     }
 
+    /**
+     * Several replicas starting together on an empty database all find no admin and all try to create one.
+     * The unique keys let exactly one succeed; for the others the accounts are there, which is all this
+     * bootstrap is for, so losing that race is not a reason to fail the start.
+     */
     @Override
     public void run(ApplicationArguments args) {
+        try {
+            bootstrap();
+        } catch (DataIntegrityViolationException e) {
+            log.info("Another replica created the bootstrap accounts first; nothing to do here.");
+        }
+    }
+
+    private void bootstrap() {
         // On a real deployment this row already exists (seeded by V2__create_organization_table.sql
         // against a pre-existing database); on a brand-new, entirely empty database (e.g. a fresh
         // CI/test run against a schema that's never had the seed data applied) it won't, so create
