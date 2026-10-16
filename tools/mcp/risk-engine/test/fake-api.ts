@@ -43,7 +43,7 @@ export class FakeApi {
         const n = (this.counts.get(key) ?? 0) + 1;
         this.counts.set(key, n);
         const handler = this.routes.get(key) ?? (path === '/v1/csrf' ? () => ({ status: 401, headers: { 'Set-Cookie': 'XSRF-TOKEN=csrf-api; Path=/' } }) : undefined);
-        const reply = handler ? handler(seen, n) : { status: 404, body: { error: 'Not Found' } };
+        const reply = typeof handler === 'function' ? handler(seen, n) : { status: 404, body: { error: 'Not Found' } };
         const send = () => {
           if (res.destroyed) return;
           res.writeHead(reply.status ?? 200, { 'Content-Type': 'application/json', ...(reply.headers ?? {}) });
