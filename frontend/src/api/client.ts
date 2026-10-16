@@ -244,7 +244,9 @@ async function request<T>(path: string, options?: RequestInit, background = fals
  * that `request()` applies to every other endpoint. */
 async function setupRequest<T>(token: string, path: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers: { ...headers, ...options?.headers } });
+  // credentials:'include' so the browser keeps the ad_session cookie that /account/2fa/confirm sets: without
+  // it a cross-origin response's cookie is dropped, and the first sign-in ends back on the login page.
+  const res = await fetch(`${API_BASE}${path}`, { ...options, credentials: 'include', headers: { ...headers, ...options?.headers } });
   if (!res.ok) throw await errorFrom(res);
   return res.json() as Promise<T>;
 }
