@@ -1,6 +1,10 @@
 package com.arthadhruva.riskengine.survival;
 
 import com.arthadhruva.riskengine.audit.AuditContext;
+import com.arthadhruva.riskengine.billing.UsageService;
+import com.arthadhruva.riskengine.roughset.DecisionOptions;
+import com.arthadhruva.riskengine.roughset.PortfolioDecisionEngine;
+import com.arthadhruva.riskengine.roughset.Region;
 import com.arthadhruva.riskengine.audit.NotAudited;
 import com.arthadhruva.riskengine.billing.Metered;
 import com.arthadhruva.riskengine.cvar.CvarEngine;
@@ -15,6 +19,7 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
@@ -37,6 +42,7 @@ import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -57,15 +63,33 @@ public class PortfolioRiskController {
     private final PortfolioRiskService service;
     private final LoanCatalogService catalog;
     private final SurvivalModel model;
+    private final PortfolioDecisionEngine decisionEngine;
+    private final UsageService usage;
 
-    public PortfolioRiskController(PortfolioRiskService service, LoanCatalogService catalog, SurvivalModel model) {
+    public PortfolioRiskController(PortfolioRiskService service, LoanCatalogService catalog, SurvivalModel model,
+                                   PortfolioDecisionEngine decisionEngine, UsageService usage) {
         this.service = service;
         this.catalog = catalog;
         this.model = model;
+        this.decisionEngine = decisionEngine;
+        this.usage = usage;
     }
 
-    /** @param scenarios built-in scenario names (default: baseline, adverse and severely adverse) */
-    public record RunRequest(@Size(min = 1, max = 5) List<@NotBlank @Size(max = 30) String> scenarios) {
+    /** Which scenario regions are judged under when none is named: the harshest of those requested. */
+    private static final List<String> SEVERITY = List.of("SEVERELY_ADVERSE", "ADVERSE", "RATES_UP_200", "RATES_DOWN_200", "BASELINE");
+
+    /**
+     * @param scenarios        built-in scenario names (default: baseline, adverse and severely adverse)
+     * @param decision         also judge every loan with a rough-set three-way decision (certain high, certain low,
+     *                         boundary) of a stressed metric against a threshold; omitted, the run is as it always was
+     * @param decisionScenario the scenario the loans are judged under (default: the harshest of {@code scenarios})
+     * @param defer            do not compete with interactive runs: wait until the engine is idle (and for the
+     *                         off-peak window, when one is configured). Never refused as busy.
+     */
+    public record RunRequest(@Size(min = 1, max = 5) List<@NotBlank @Size(max = 30) String> scenarios,
+                             @Valid DecisionOptions decision,
+                             @Size(max = 30) String decisionScenario,
+                             Boolean defer) {
     }
 
     /**
@@ -73,6 +97,24 @@ public class PortfolioRiskController {
      * @param portfolioLoans loans in the portfolio now, which may no longer be the number the snapshots cover
      */
     public record PortfolioView(List<PortfolioRiskService.Snapshot> snapshots, PortfolioRiskService.Run run, int portfolioLoans) {
+    }
+
+    /** @param weights the probability of each scenario of the latest run (non-negative, summing to 1) */
+    public record WeightRequest(@NotNull @Size(min = 1, max = 5) Map<@Size(max = 30) String, Double> weights) {
+    }
+
+    /**
+     * The latest run's scenarios weighted into one allowance: each figure is {@code sum_s w_s x figure_s} over the
+     * stored scenarios, each staged on its own path ({@link ScenarioWeights}). Nothing is projected again.
+     *
+     * @param weights    the weights used, by scenario, in stored order (0 for a scenario not named)
+     * @param coverage   the weighted IFRS 9 allowance as a share of the weighted exposure
+     * @param eclCecl    null when a stored scenario predates the CECL figure being kept with it
+     * @param stageLoans the weighted number of loans in stage 1, 2 and 3 (fractional)
+     */
+    public record WeightedPortfolio(String method, LocalDate asOf, String modelVersion, int loans, Map<String, Double> weights,
+                                    double exposure, double ecl12m, double eclLifetime, double eclIfrs9, Double eclCecl,
+                                    double coverage, double[] stageLoans) {
     }
 
     /** Every field optional: the defaults are a one-in-a-thousand year at the Basel mortgage correlation. */
@@ -106,9 +148,21 @@ public class PortfolioRiskController {
         if (loans.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT).body(Map.of("error", "The portfolio has no loans"));
         }
+        PortfolioRiskService.DecisionPlan plan = null;
+        if (request != null && request.decision() != null) {
+            DecisionOptions.Resolved options = request.decision().resolve(DecisionOptions.PORTFOLIO_DEFAULT_MEMBERS,
+                    DecisionOptions.PORTFOLIO_MAX_MEMBERS);
+            Scenario target = decisionTarget(scenarios, request.decisionScenario());
+            decisionEngine.checkSize(loans.size(), options.members());
+            plan = new PortfolioRiskService.DecisionPlan(target, options);
+        }
         AuditContext.modelVersion(model.version());
         try {
-            PortfolioRiskService.Run run = service.start(TenantContext.get(), authentication.getName(), loans, scenarios);
+            PortfolioRiskService.Run run = service.start(TenantContext.get(), authentication.getName(), loans, scenarios, plan,
+                    request != null && Boolean.TRUE.equals(request.defer()));
+            if (plan != null) {
+                usage.record(TenantContext.get(), "DECISION_MEMBER", (long) loans.size() * plan.options().members());
+            }
             return ResponseEntity.accepted().location(URI.create("/v1/risk/portfolio/runs/" + run.id())).body(run);
         } catch (PortfolioRiskService.RunInProgressException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(e.run());
@@ -116,6 +170,16 @@ public class PortfolioRiskController {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).header(HttpHeaders.RETRY_AFTER, "30")
                     .body(Map.of("error", e.getMessage()));
         }
+    }
+
+    private static Scenario decisionTarget(List<Scenario> scenarios, String requested) {
+        if (requested != null && !requested.isBlank()) {
+            String wanted = requested.trim().toUpperCase(java.util.Locale.ROOT);
+            return scenarios.stream().filter(s -> s.name().equals(wanted)).findFirst().orElseThrow(() ->
+                    new TermStructureEngine.InvalidProjectionException("decisionScenario must be one of the run's scenarios: "
+                            + scenarios.stream().map(Scenario::name).toList()));
+        }
+        return SEVERITY.stream().flatMap(name -> scenarios.stream().filter(s -> s.name().equals(name))).findFirst().orElse(scenarios.get(0));
     }
 
     /** Polled while a run is in progress, so kept out of the audit trail; starting a run is recorded. */
@@ -138,11 +202,13 @@ public class PortfolioRiskController {
     /**
      * The latest run's baseline results loan by loan: the listing behind the allowance.
      *
-     * @param stage only loans in this IFRS 9 stage
-     * @param sort  eclLifetime (default), eclIfrs9, pd12m, exposure or loanId
+     * @param stage  only loans in this IFRS 9 stage
+     * @param region only loans in this region (CERTAIN_HIGH, CERTAIN_LOW or BOUNDARY) of the latest region analysis
+     * @param sort   eclLifetime (default), eclIfrs9, pd12m, exposure or loanId
      */
     @GetMapping("/risk/portfolio/loans")
     public ResponseEntity<?> loans(@RequestParam(required = false) @Min(1) @Max(3) Integer stage,
+                                   @RequestParam(required = false) @Size(max = 20) String region,
                                    @RequestParam(defaultValue = "eclLifetime") @Size(max = 20) String sort,
                                    @RequestParam(defaultValue = "25") @Min(1) @Max(500) int limit,
                                    @RequestParam(defaultValue = "0") @Min(0) int offset) {
@@ -157,7 +223,15 @@ public class PortfolioRiskController {
         if (order == null) {
             return ResponseEntity.badRequest().body(Map.of("error", "sort must be one of eclLifetime, eclIfrs9, pd12m, exposure, loanId"));
         }
-        return ResponseEntity.ok(service.loans(TenantContext.get(), stage, order, limit, offset));
+        Region wanted = null;
+        if (region != null && !region.isBlank()) {
+            try {
+                wanted = Region.valueOf(region.trim().toUpperCase(java.util.Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.badRequest().body(Map.of("error", "region must be one of CERTAIN_HIGH, CERTAIN_LOW, BOUNDARY"));
+            }
+        }
+        return ResponseEntity.ok(service.loans(TenantContext.get(), stage, wanted, order, limit, offset));
     }
 
     /** The same listing as CSV, every loan, streamed in keyset pages (bounded memory at any size). */
@@ -166,14 +240,29 @@ public class PortfolioRiskController {
         Long tenantId = TenantContext.get();
         StreamingResponseBody body = out -> {
             try (Writer writer = new OutputStreamWriter(out, StandardCharsets.UTF_8)) {
-                var csv = new CsvWriter.Streaming(writer, List.of("loanId", "state", "exposure", "pd12m", "pdLifetime", "lgd",
-                        "ecl12m", "eclLifetime", "eclIfrs9", "stage", "stageReason", "weight"));
                 TenantContext.set(tenantId);   // the body is written on another thread than the request's
                 try {
-                    service.forEachLoan(tenantId, loan -> csv.row(List.of(loan.loanId(), loan.state(), amount(loan.exposure()),
-                            String.valueOf(loan.pd12m()), String.valueOf(loan.pdLifetime()), String.valueOf(loan.lgd()),
-                            amount(loan.ecl12m()), amount(loan.eclLifetime()), amount(loan.eclIfrs9()), String.valueOf(loan.stage()),
-                            loan.stageReason(), String.valueOf(loan.weight()))));
+                    boolean regions = service.hasRegions(tenantId);
+                    List<String> header = new ArrayList<>(List.of("loanId", "state", "exposure", "pd12m", "pdLifetime", "lgd",
+                            "ecl12m", "eclLifetime", "eclIfrs9", "stage", "stageReason", "weight"));
+                    if (regions) {
+                        header.addAll(List.of("region", "variantsHigh", "variants", "metricMin", "metricMax", "eclLifetimeMin",
+                                "eclLifetimeMax", "extrapolated"));
+                    }
+                    var csv = new CsvWriter.Streaming(writer, header);
+                    service.forEachLoanWithRegion(tenantId, (loan, info) -> {
+                        List<String> row = new ArrayList<>(List.of(loan.loanId(), loan.state(), amount(loan.exposure()),
+                                String.valueOf(loan.pd12m()), String.valueOf(loan.pdLifetime()), String.valueOf(loan.lgd()),
+                                amount(loan.ecl12m()), amount(loan.eclLifetime()), amount(loan.eclIfrs9()), String.valueOf(loan.stage()),
+                                loan.stageReason(), String.valueOf(loan.weight())));
+                        if (regions) {
+                            row.addAll(info == null ? List.of("", "", "", "", "", "", "", "")
+                                    : List.of(info.region().name(), String.valueOf(info.high()), String.valueOf(info.members()),
+                                            String.valueOf(info.metricMin()), String.valueOf(info.metricMax()), amount(info.eclMin()),
+                                            amount(info.eclMax()), String.valueOf(info.extrapolated())));
+                        }
+                        csv.row(row);
+                    });
                 } finally {
                     TenantContext.clear();
                 }
@@ -193,6 +282,51 @@ public class PortfolioRiskController {
      * The portfolio's one-year loss distribution: value at risk, expected shortfall and the loans that
      * drive the tail, simulated from the latest run's loans. 422 until a run has stored any.
      */
+    /**
+     * Weights the scenarios of the latest stored run into one allowance. A read: no run is started and no loan is
+     * projected. 404 before any run; 422 for weights that are not valid for the stored scenarios; 409 if the stored
+     * scenarios of that date were computed by different model versions.
+     */
+    @PostMapping("/risk/portfolio/weighted")
+    public ResponseEntity<?> weighted(@Valid @RequestBody WeightRequest request) {
+        List<PortfolioRiskService.Snapshot> snapshots = service.latestSnapshots(TenantContext.get());
+        if (snapshots.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Run a portfolio projection first: the weights apply to its stored scenarios"));
+        }
+        List<String> names = snapshots.stream().map(PortfolioRiskService.Snapshot::scenario).toList();
+        double[] w = ScenarioWeights.resolve(request.weights(), names);
+        if (snapshots.stream().map(PortfolioRiskService.Snapshot::modelVersion).distinct().count() > 1) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error",
+                    "The stored scenarios were computed by different model versions; run the portfolio again before weighting them"));
+        }
+        int n = snapshots.size();
+        double[] exposure = new double[n], ecl12m = new double[n], eclLifetime = new double[n], eclIfrs9 = new double[n],
+                eclCecl = new double[n], stage1 = new double[n], stage2 = new double[n], stage3 = new double[n];
+        boolean cecl = true;
+        for (int i = 0; i < n; i++) {
+            PortfolioRiskService.Snapshot s = snapshots.get(i);
+            exposure[i] = s.exposure();
+            ecl12m[i] = s.ecl12m();
+            eclLifetime[i] = s.eclLifetime();
+            eclIfrs9[i] = s.eclIfrs9();
+            stage1[i] = s.stage1();
+            stage2[i] = s.stage2();
+            stage3[i] = s.stage3();
+            boolean stored = s.detail() != null && s.detail().hasNonNull("eclCecl");
+            eclCecl[i] = stored ? s.detail().get("eclCecl").asDouble() : Double.NaN;
+            cecl &= stored || w[i] == 0.0;
+        }
+        double weightedExposure = ScenarioWeights.combine(w, exposure);
+        double weightedIfrs9 = ScenarioWeights.combine(w, eclIfrs9);
+        PortfolioRiskService.Snapshot first = snapshots.get(0);
+        return ResponseEntity.ok(new WeightedPortfolio("SCENARIO_WEIGHTED", first.asOf(), first.modelVersion(), first.loans(),
+                ScenarioWeights.named(w, names), weightedExposure, ScenarioWeights.combine(w, ecl12m),
+                ScenarioWeights.combine(w, eclLifetime), weightedIfrs9, cecl ? ScenarioWeights.combine(w, eclCecl) : null,
+                weightedExposure > 0 ? weightedIfrs9 / weightedExposure : 0.0,
+                new double[]{ScenarioWeights.combine(w, stage1), ScenarioWeights.combine(w, stage2), ScenarioWeights.combine(w, stage3)}));
+    }
+
     @Metered("CVAR_RUN")
     @PostMapping("/risk/portfolio/loss-distribution")
     public ResponseEntity<?> lossDistribution(@Valid @RequestBody(required = false) LossRequest request) {
@@ -206,6 +340,16 @@ public class PortfolioRiskController {
                 .<ResponseEntity<?>>map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
                         .body(Map.of("error", "Run a portfolio projection first: the loss distribution is simulated from its loans")));
+    }
+
+    @ExceptionHandler(TermStructureEngine.InvalidProjectionException.class)
+    public ResponseEntity<Map<String, String>> onInvalidDecision(TermStructureEngine.InvalidProjectionException e) {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT).body(Map.of("error", e.getMessage()));
+    }
+
+    @ExceptionHandler(PortfolioDecisionEngine.TooLargeException.class)
+    public ResponseEntity<Map<String, String>> onDecisionTooLarge(PortfolioDecisionEngine.TooLargeException e) {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT).body(Map.of("error", e.getMessage()));
     }
 
     @ExceptionHandler(CvarEngine.TooLargeException.class)

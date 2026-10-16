@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  clearPortfolio, createApiKey, createWebhook, deleteWebhook, getPortfolioStatus, getSsoConfig, getUsage, listApiKeys,
-  listWebhookDeliveries, listWebhooks, revokeApiKey, saveSsoConfig, ssoCallbackUrl, uploadPortfolio,
+  clearBorrowerContact, clearPortfolio, createApiKey, createWebhook, deleteWebhook, getBorrowerContact, getPortfolioStatus, getSsoConfig, getUsage, listApiKeys,
+  listWebhookDeliveries, listWebhooks, revokeApiKey, saveBorrowerContact, saveSsoConfig, ssoCallbackUrl, uploadPortfolio,
   type PortfolioUploadResult,
 } from '../api/client';
 import ErrorBanner from '../components/ErrorBanner';
@@ -17,6 +17,7 @@ const METRIC: Record<string, string> = {
   PORTFOLIO_RUN: 'Portfolio runs',
   CVAR_RUN: 'Loss simulations',
   ASSISTANT_CALL: 'Assistant questions',
+  BORROWER_ASSISTANT_CALL: 'Borrower assistant questions',
 };
 const DELIVERY: Record<string, { label: string; badge: string }> = {
   DELIVERED: { label: 'Delivered', badge: 'badge-low' },
@@ -95,6 +96,66 @@ function SingleSignOn() {
         {save.isSuccess && <span className="sub" role="status">Saved.</span>}
       </div>
       <ErrorBanner error={config.error ?? save.error} />
+    </div>
+  );
+}
+
+/** Who borrowers are pointed to when their loan has no open case with an assigned analyst. */
+function BorrowerContactCard() {
+  const queryClient = useQueryClient();
+  const config = useQuery({ queryKey: ['borrower-contact'], queryFn: getBorrowerContact });
+  const [name, setName] = useState('');
+  const [title, setTitle] = useState('');
+  const [email, setEmail] = useState('');
+
+  const [loaded, setLoaded] = useState(config.data);
+  if (config.data !== loaded) {
+    setLoaded(config.data);
+    setName(config.data?.name ?? '');
+    setTitle(config.data?.title ?? '');
+    setEmail(config.data?.email ?? '');
+  }
+
+  const refresh = () => void queryClient.invalidateQueries({ queryKey: ['borrower-contact'] });
+  const save = useMutation({
+    mutationFn: () => saveBorrowerContact({ name: name.trim(), title: title.trim() || undefined, email: email.trim() || undefined }),
+    onSuccess: refresh,
+  });
+  const clear = useMutation({ mutationFn: clearBorrowerContact, onSuccess: refresh });
+  const configured = config.data?.configured === true;
+
+  return (
+    <div className="card">
+      <div className="card-head">
+        <h3>Borrower contact</h3>
+        <span className={`badge ${configured ? 'badge-low' : ''}`}>{configured ? 'Set' : 'Not set'}</span>
+      </div>
+      <p className="page-subtitle">
+        Shown to borrowers whose loan has no open case with an assigned analyst, on their loan page and under every
+        answer from their assistant. Without it they are told to use the contact details on their statement.
+      </p>
+      <div className="field-grid">
+        <div className="field">
+          <label htmlFor="bc-name">Name</label>
+          <input id="bc-name" value={name} maxLength={120} onChange={(e) => setName(e.target.value)} placeholder="Loan Care team" />
+        </div>
+        <div className="field">
+          <label htmlFor="bc-title">Title</label>
+          <input id="bc-title" value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} placeholder="Customer support" />
+        </div>
+        <div className="field">
+          <label htmlFor="bc-email">Email</label>
+          <input id="bc-email" type="email" value={email} maxLength={254} onChange={(e) => setEmail(e.target.value)} />
+        </div>
+      </div>
+      <div className="actions">
+        <button onClick={() => save.mutate()} disabled={save.isPending || !name.trim()}>Save</button>
+        {configured && (
+          <button className="secondary" onClick={() => clear.mutate()} disabled={clear.isPending}>Remove</button>
+        )}
+        {save.isSuccess && <span className="sub" role="status">Saved.</span>}
+      </div>
+      <ErrorBanner error={config.error ?? save.error ?? clear.error} />
     </div>
   );
 }
@@ -335,6 +396,7 @@ export default function IntegrationsPage() {
       </div>
 
       <SingleSignOn />
+      <BorrowerContactCard />
     </div>
   );
 }

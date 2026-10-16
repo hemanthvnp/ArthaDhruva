@@ -40,9 +40,21 @@ server {
     ssl_protocols TLSv1.2 TLSv1.3;
     server_tokens off;
 
+    # Gatekeeper: this proxy is the only way in (the backend publishes no port), and what it can refuse
+    # without understanding the application it refuses here, before a backend thread is spent on it. A
+    # client that trickles its headers or body is cut off instead of holding a connection open, and
+    # oversized request lines and headers are rejected (414/400) at a fixed, small buffer cost.
+    client_header_timeout 15s;
+    client_body_timeout 30s;
+    send_timeout 60s;
+    large_client_header_buffers 4 16k;
+
     gzip on;
     gzip_comp_level 5;
     gzip_min_length 1024;
+    # Vary: Accept-Encoding, so a shared cache or CDN in front never serves a compressed copy to a client
+    # that did not ask for one.
+    gzip_vary on;
     gzip_types text/css application/javascript application/json image/svg+xml;
 
     root /usr/share/nginx/html;
@@ -68,6 +80,10 @@ server {
         limit_req zone=api burst=40 nodelay;
         limit_req_status 429;
         client_max_body_size 10m;
+        # Only the methods the API uses reach it; TRACE, CONNECT and the WebDAV verbs are answered here.
+        if ($request_method !~ ^(GET|HEAD|POST|PUT|PATCH|DELETE|OPTIONS)$) {
+            return 405;
+        }
         # Variable + resolver: nginx re-resolves the service name every few seconds, so scaling the
         # backend (docker compose up --scale backend=N) load-balances round-robin across replicas
         # without restarting the proxy. A literal hostname is resolved once at startup and pinned.

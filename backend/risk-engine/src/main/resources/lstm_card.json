@@ -1,0 +1,90 @@
+{
+  "model": "trajectory_lstm",
+  "artifact_sha256": "8973cb19766bb1bc6eb25e758a19da4a28d5130b0dcc67c27baf20ff7b15dabc",
+  "input": "first 12 months of status, UPB ratio, modification flag",
+  "target": "ever reaches 90+ days past due after month 12 (loans already adverse in the window are excluded)",
+  "protocol": "fit on vintages < 2022 (85%), Platt-calibrated on the other 15%, judged on vintages >= 2022",
+  "calibration": {
+    "method": "Platt scaling folded into the final linear layer",
+    "slope": 1.1228164434432983,
+    "intercept": -4.41339635848999
+  },
+  "out_of_time_raw": {
+    "n": 22613,
+    "defaults": 490,
+    "roc_auc": 0.6759,
+    "pr_auc": 0.1919,
+    "brier": 0.30015,
+    "mean_predicted": 0.53654,
+    "actual_rate": 0.02167,
+    "predicted_over_actual": 24.761
+  },
+  "out_of_time_calibrated": {
+    "n": 22613,
+    "defaults": 490,
+    "roc_auc": 0.6759,
+    "pr_auc": 0.1919,
+    "brier": 0.01908,
+    "mean_predicted": 0.02109,
+    "actual_rate": 0.02167,
+    "predicted_over_actual": 0.973
+  },
+  "out_of_time_deciles": [
+    {
+      "decile": 1,
+      "predicted": 0.00289,
+      "actual": 0.00707
+    },
+    {
+      "decile": 2,
+      "predicted": 0.00856,
+      "actual": 0.01194
+    },
+    {
+      "decile": 3,
+      "predicted": 0.01349,
+      "actual": 0.0137
+    },
+    {
+      "decile": 4,
+      "predicted": 0.01503,
+      "actual": 0.01371
+    },
+    {
+      "decile": 5,
+      "predicted": 0.01606,
+      "actual": 0.02079
+    },
+    {
+      "decile": 6,
+      "predicted": 0.01705,
+      "actual": 0.02211
+    },
+    {
+      "decile": 7,
+      "predicted": 0.01793,
+      "actual": 0.01725
+    },
+    {
+      "decile": 8,
+      "predicted": 0.01877,
+      "actual": 0.01636
+    },
+    {
+      "decile": 9,
+      "predicted": 0.01971,
+      "actual": 0.01017
+    },
+    {
+      "decile": 10,
+      "predicted": 0.08147,
+      "actual": 0.08359
+    }
+  ],
+  "limitations": [
+    "'Ever defaulted' is right-censored: later vintages have had less time to default, so predicted/actual drifts with vintage",
+    "100,000-loan stratified sample of 2020-2023 vintages; one stress episode",
+    "A month missing inside the window is encoded as status 0 / UPB ratio 0, indistinguishable from a real zero",
+    "The Java feature code is pinned to backend/golden_lstm.py by TrajectoryParityTest (regenerate it after any re-export)"
+  ]
+}

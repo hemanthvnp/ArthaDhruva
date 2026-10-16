@@ -12,19 +12,30 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Random;
 import java.util.TreeMap;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.function.IntConsumer;
+import java.util.function.Supplier;
 
 /**
  * Lifetime risk of a whole portfolio under several scenarios: every loan's term structure, added up into
@@ -32,9 +43,15 @@ import java.util.function.IntConsumer;
  * emerging) and concentrations by state and by loan.
  *
  * <p><b>Cost.</b> A loan-scenario needs up to 2 x 480 model rows, so the work is cut into chunks of a few
- * loans, each chunk evaluated in one batched model call on the shared compute pool. Chunks are merged in
- * the order they were cut, not the order they finish, so a rerun reproduces every figure bit for bit
- * whatever the thread count.
+ * loans, each chunk evaluated in one batched model call on the shared compute pool, a window of chunks at
+ * a time so that concurrent runs take turns ({@link ChunkWindow}). Chunks are merged in the order they
+ * were cut, not the order they finish, so a rerun reproduces every figure bit for bit whatever the thread
+ * count.
+ *
+ * <p><b>Resuming.</b> A run may be given {@link Checkpoints}: each finished chunk is handed to them, and a
+ * chunk they already hold is merged as stored instead of being projected again. A stored chunk is the
+ * chunk's exact sums (doubles by their bits), keyed by a hash of everything those sums depend on, so a
+ * resumed run produces the figures an uninterrupted one would have.
  *
  * <p><b>Large portfolios.</b> Above {@code risk.portfolio.max-loans} a simple random sample of that size
  * is projected and every total scaled by N/n; the result then carries the relative standard error of the
@@ -139,12 +156,44 @@ public class PortfolioRiskEngine {
                                 List<ScenarioRisk> scenarios, List<LoanResult> baselineLoans) {
     }
 
-    /**
-     * @param seed     fixes which loans are sampled when the portfolio exceeds the limit, and the random
-     *                 streams of the loss simulation
-     * @param progress called with the number of loans finished so far, from the calling thread
-     */
+    /** The chunks a run has finished, kept somewhere that outlives the worker computing them. */
+    public interface Checkpoints {
+
+        /** Keeps nothing: every chunk is projected. */
+        Checkpoints NONE = new Checkpoints() {
+            @Override
+            public Map<String, byte[]> load() {
+                return Map.of();
+            }
+
+            @Override
+            public void save(String key, byte[] chunk) {
+            }
+        };
+
+        /** Every chunk stored so far, by key; called once, before any chunk is started. */
+        Map<String, byte[]> load();
+
+        /** Called from the thread that called {@link #run}, once per chunk projected. */
+        void save(String key, byte[] chunk);
+    }
+
+    /** A chunk as it reaches the merge: {@code key} is set when it was projected just now and is to be stored. */
+    private record Done(Chunk chunk, String key) {
+    }
+
     public PortfolioRisk run(List<LoanFeatures> portfolio, List<Scenario> scenarios, long seed, IntConsumer progress) {
+        return run(portfolio, scenarios, seed, progress, Checkpoints.NONE);
+    }
+
+    /**
+     * @param seed        fixes which loans are sampled when the portfolio exceeds the limit, and the random
+     *                    streams of the loss simulation
+     * @param progress    called with the number of loans finished so far, from the calling thread
+     * @param checkpoints where finished chunks are kept and found again
+     */
+    public PortfolioRisk run(List<LoanFeatures> portfolio, List<Scenario> scenarios, long seed, IntConsumer progress,
+                             Checkpoints checkpoints) {
         // A fixed order first: the sample, and the order figures are summed in, must not depend on how
         // the caller happened to list the loans.
         List<LoanFeatures> loans = new ArrayList<>(portfolio);
@@ -157,23 +206,30 @@ public class PortfolioRiskEngine {
         double scale = loans.isEmpty() ? 1.0 : (double) portfolio.size() / loans.size();
         int baseline = baselineIndex(scenarios);
 
-        List<Future<Chunk>> pending = new ArrayList<>();
+        boolean keep = checkpoints != Checkpoints.NONE;
+        Map<String, byte[]> stored = keep ? checkpoints.load() : Map.of();
+        String runKey = keep ? runKey(scenarios, baseline, scale) : null;
+        List<Supplier<Future<Done>>> starts = new ArrayList<>();
         for (int from = 0; from < loans.size(); from += LOANS_PER_CHUNK) {
             List<LoanFeatures> slice = loans.subList(from, Math.min(loans.size(), from + LOANS_PER_CHUNK));
-            pending.add(workers.submit(() -> evaluate(slice, scenarios, baseline, scale)));
+            String key = keep ? sha256(runKey + slice) : null;
+            Chunk found = key == null ? null : Chunk.read(stored.get(key), scenarios.size());
+            starts.add(found != null ? () -> CompletableFuture.completedFuture(new Done(found, null))
+                    : () -> workers.submit(() -> new Done(evaluate(slice, scenarios, baseline, scale), key)));
         }
         Chunk total = new Chunk(scenarios.size());
         try {
-            for (Future<Chunk> chunk : pending) {
-                total.merge(chunk.get());
+            ChunkWindow.run(starts, done -> {
+                total.merge(done.chunk());
+                if (done.key() != null) {
+                    checkpoints.save(done.key(), done.chunk().write());
+                }
                 progress.accept(total.projected + total.excluded);
-            }
+            });
         } catch (InterruptedException e) {
-            pending.forEach(f -> f.cancel(true));
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Portfolio run interrupted", e);
         } catch (ExecutionException e) {
-            pending.forEach(f -> f.cancel(true));
             throw new IllegalStateException("Portfolio run failed", e.getCause());
         }
 
@@ -192,6 +248,31 @@ public class PortfolioRiskEngine {
         }
         return new PortfolioRisk(model.version(), engine.forecastOrigin().toString(), portfolio.size(), excluded,
                 total.projected, results, List.copyOf(baselineLoans));
+    }
+
+    /**
+     * What every chunk of one run has in common, of the things its figures depend on: the model, the month
+     * the projection starts from, the scenarios and their order, and the scale a sample is weighted by.
+     */
+    private String runKey(List<Scenario> scenarios, int baseline, double scale) {
+        return CHECKPOINT_FORMAT + "|" + modelKey() + "|" + scenarios + "|" + baseline + "|" + Double.doubleToLongBits(scale) + "|";
+    }
+
+    /**
+     * The model a projection made now comes from, and the month it starts from: what any checkpoint of
+     * projected figures has to be keyed by, whichever engine wrote it.
+     */
+    public String modelKey() {
+        return model.version() + "|" + model.artifactSha256() + "|" + engine.forecastOrigin();
+    }
+
+    /** Hex SHA-256 of {@code text}: the key of a checkpoint, from everything its content depends on. */
+    public static String sha256(String text) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private static int baselineIndex(List<Scenario> scenarios) {
@@ -312,6 +393,87 @@ public class PortfolioRiskEngine {
                 byScenario[s].merge(other.byScenario[s]);
             }
         }
+
+        /** The chunk exactly as it is: every double by its bits, every collection in the order it is held. */
+        byte[] write() {
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream(4096);
+            try (DataOutputStream out = new DataOutputStream(bytes)) {
+                out.writeByte(CHECKPOINT_FORMAT);
+                out.writeInt(byScenario.length);
+                out.writeInt(projected);
+                out.writeInt(excluded);
+                out.writeInt(baselineLoans.size());
+                for (LoanResult loan : baselineLoans) {
+                    writeText(out, loan.loanId());
+                    writeText(out, loan.state());
+                    writeAll(out, new double[]{loan.exposure(), loan.pd12m(), loan.pdLifetime(), loan.lgd(), loan.ecl12m(),
+                            loan.eclLifetime(), loan.eclIfrs9()});
+                    out.writeInt(loan.stage());
+                    writeText(out, loan.stageReason());
+                    out.writeDouble(loan.weight());
+                }
+                for (Totals totals : byScenario) {
+                    totals.write(out);
+                }
+            } catch (IOException e) {
+                throw new IllegalStateException(e);   // an in-memory stream does not fail
+            }
+            return bytes.toByteArray();
+        }
+
+        /** The chunk {@link #write} stored; null when there is none or it cannot be read, so it is projected again. */
+        static Chunk read(byte[] stored, int scenarios) {
+            if (stored == null) {
+                return null;
+            }
+            try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(stored))) {
+                if (in.readByte() != CHECKPOINT_FORMAT || in.readInt() != scenarios) {
+                    return null;
+                }
+                Chunk chunk = new Chunk(scenarios);
+                chunk.projected = in.readInt();
+                chunk.excluded = in.readInt();
+                int loans = in.readInt();
+                for (int i = 0; i < loans; i++) {
+                    chunk.baselineLoans.add(new LoanResult(readText(in), readText(in), in.readDouble(), in.readDouble(),
+                            in.readDouble(), in.readDouble(), in.readDouble(), in.readDouble(), in.readDouble(), in.readInt(),
+                            readText(in), in.readDouble()));
+                }
+                for (Totals totals : chunk.byScenario) {
+                    totals.read(in);
+                }
+                return in.available() == 0 ? chunk : null;
+            } catch (IOException | RuntimeException e) {
+                log.warn("A stored chunk of a portfolio run could not be read; projecting it again: {}", e.toString());
+                return null;
+            }
+        }
+    }
+
+    /** Changes whenever a chunk's stored form or what it depends on does, so an older checkpoint is not read. */
+    private static final int CHECKPOINT_FORMAT = 1;
+
+    private static void writeText(DataOutputStream out, String text) throws IOException {
+        out.writeBoolean(text != null);
+        if (text != null) {
+            out.writeUTF(text);
+        }
+    }
+
+    private static String readText(DataInputStream in) throws IOException {
+        return in.readBoolean() ? in.readUTF() : null;
+    }
+
+    private static void writeAll(DataOutputStream out, double[] values) throws IOException {
+        for (double value : values) {
+            out.writeDouble(value);
+        }
+    }
+
+    private static void readAll(DataInputStream in, double[] values) throws IOException {
+        for (int i = 0; i < values.length; i++) {
+            values[i] = in.readDouble();
+        }
     }
 
     private static final class Totals {
@@ -369,6 +531,73 @@ public class PortfolioRiskEngine {
             top.add(loan);
             if (top.size() > TOP_LOANS) {
                 top.poll();
+            }
+        }
+
+        void write(DataOutputStream out) throws IOException {
+            out.writeInt(loans);
+            writeAll(out, new double[]{exposure, exposurePd12, exposurePdLifetime, ecl12, eclLifetime, eclLifetimeSquares, eclIfrs9, eclCecl});
+            for (int count : stageLoans) {
+                out.writeInt(count);
+            }
+            writeAll(out, stageExposure);
+            writeAll(out, stageEcl);
+            writeAll(out, balanceAtRisk);
+            writeAll(out, defaults);
+            writeAll(out, prepayments);
+            writeAll(out, expectedLoss);
+            out.writeInt(states.size());
+            for (Map.Entry<String, double[]> state : states.entrySet()) {
+                writeText(out, state.getKey());
+                writeAll(out, state.getValue());
+            }
+            out.writeInt(extrapolated.size());
+            for (Map.Entry<String, Integer> driver : extrapolated.entrySet()) {
+                out.writeUTF(driver.getKey());
+                out.writeInt(driver.getValue());
+            }
+            // In the queue's own order: added back in that order, the queue is the same heap, so a later
+            // merge breaks ties between equal losses exactly as it would have.
+            out.writeInt(top.size());
+            for (LoanRisk loan : top) {
+                writeText(out, loan.loanId());
+                writeText(out, loan.state());
+                writeAll(out, new double[]{loan.exposure(), loan.pd12m(), loan.pdLifetime(), loan.eclLifetime()});
+                out.writeInt(loan.stage());
+            }
+        }
+
+        void read(DataInputStream in) throws IOException {
+            loans = in.readInt();
+            exposure = in.readDouble();
+            exposurePd12 = in.readDouble();
+            exposurePdLifetime = in.readDouble();
+            ecl12 = in.readDouble();
+            eclLifetime = in.readDouble();
+            eclLifetimeSquares = in.readDouble();
+            eclIfrs9 = in.readDouble();
+            eclCecl = in.readDouble();
+            for (int i = 0; i < stageLoans.length; i++) {
+                stageLoans[i] = in.readInt();
+            }
+            readAll(in, stageExposure);
+            readAll(in, stageEcl);
+            readAll(in, balanceAtRisk);
+            readAll(in, defaults);
+            readAll(in, prepayments);
+            readAll(in, expectedLoss);
+            for (int i = in.readInt(); i > 0; i--) {
+                String state = readText(in);
+                double[] values = new double[4];
+                readAll(in, values);
+                states.put(state, values);
+            }
+            for (int i = in.readInt(); i > 0; i--) {
+                extrapolated.put(in.readUTF(), in.readInt());
+            }
+            for (int i = in.readInt(); i > 0; i--) {
+                top.add(new LoanRisk(readText(in), readText(in), in.readDouble(), in.readDouble(), in.readDouble(), in.readDouble(),
+                        in.readInt()));
             }
         }
 

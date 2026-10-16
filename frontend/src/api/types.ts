@@ -247,6 +247,55 @@ export interface TermStructure {
   assumptions: TermAssumptions;
 }
 
+export type DecisionMetric = 'PD_12M' | 'PD_LIFETIME' | 'ECL_LIFETIME_RATE';
+export type DecisionRegion = 'CERTAIN_HIGH' | 'CERTAIN_LOW' | 'BOUNDARY';
+
+/** Asks for a rough-set three-way decision of a stressed metric against a threshold (a fraction, 0 to 1). */
+export interface DecisionRequest {
+  metric: DecisionMetric;
+  threshold: number;
+  tolerance?: number;
+  granule?: {
+    kind?: 'PERTURBATION' | 'SCENARIO_SET';
+    members?: number;
+    shockBand?: number;
+    timingBandMonths?: number;
+    scenarios?: string[];
+  };
+  seed?: number;
+}
+
+/** Whether the metric is high under every variant of the stress (certain high), under none (certain low),
+ * or under some (boundary). Not a probability and not a coverage-guaranteed interval. */
+export interface Decision {
+  region: DecisionRegion;
+  metric: DecisionMetric;
+  threshold: number;
+  tolerance: number;
+  /** variants at or above the threshold */
+  high: number;
+  members: number;
+  min: number;
+  median: number;
+  max: number;
+  width: number;
+  /** the metric under the unperturbed scenario */
+  baseMetric: number;
+  exposure: number;
+  /** lifetime expected credit loss under the unperturbed scenario, and its lowest and highest across the variants */
+  eclBase: number;
+  eclMin: number;
+  eclMax: number;
+  extrapolated: boolean;
+  extrapolations: Extrapolation[];
+  granuleKind: 'PERTURBATION' | 'SCENARIO_SET';
+  shockBand: number;
+  timingBandMonths: number;
+  scenarios: string[];
+  seed: number;
+  method: string;
+}
+
 export interface LifetimeRiskInput {
   loan: LoanFeatures;
   monthsOnBook?: number;
@@ -254,11 +303,47 @@ export interface LifetimeRiskInput {
   daysPastDue?: number;
   originationPd12m?: number;
   months?: number;
+  decision?: DecisionRequest;
+  /** probability of each compared scenario, as fractions summing to 1; adds `weighted` to a comparison */
+  weights?: Record<string, number>;
+}
+
+/** The scenarios' own figures weighted by the caller's probabilities; each scenario is staged on its own path. */
+export interface WeightedFigures {
+  method: 'SCENARIO_WEIGHTED';
+  weights: Record<string, number>;
+  pd12m: number;
+  pdLifetime: number;
+  ecl12m: number;
+  eclLifetime: number;
+  eclIfrs9: number;
+  eclCecl: number;
+  /** total weight of the scenarios in which the loan is in stage 1, 2 and 3 */
+  stageProbability: [number, number, number];
+}
+
+/** The latest portfolio run's stored scenarios weighted into one allowance, without projecting again. */
+export interface WeightedPortfolio {
+  method: 'SCENARIO_WEIGHTED';
+  asOf: string;
+  modelVersion: string;
+  loans: number;
+  weights: Record<string, number>;
+  exposure: number;
+  ecl12m: number;
+  eclLifetime: number;
+  eclIfrs9: number;
+  eclCecl: number | null;
+  /** weighted IFRS 9 allowance over weighted exposure */
+  coverage: number;
+  /** weighted number of loans in stage 1, 2 and 3 (fractional) */
+  stageLoans: [number, number, number];
 }
 
 export interface TermStructureResponse {
   termStructure: TermStructure;
   warnings: string[];
+  decision?: Decision;
 }
 
 export interface ScenarioCurve {
@@ -280,6 +365,8 @@ export interface ScenarioComparison {
   months: string[];
   scenarios: ScenarioCurve[];
   warnings: string[];
+  /** present only when the request gave weights */
+  weighted?: WeightedFigures;
 }
 
 // ---- portfolio risk ------------------------------------------------------------------------
@@ -371,11 +458,26 @@ export interface LoanResult {
   weight: number;
 }
 
+/** Where one loan fell in the region analysis of the latest run that asked for one. */
+export interface LoanRegionInfo {
+  region: DecisionRegion;
+  /** variants at or above the threshold, out of `members` */
+  high: number;
+  members: number;
+  metricMin: number;
+  metricMax: number;
+  eclMin: number;
+  eclMax: number;
+  extrapolated: boolean;
+}
+
 export interface LoanResultPage {
   /** The date of the run the loans belong to; null when there has been none. */
   asOf: string | null;
   total: number;
   loans: LoanResult[];
+  /** Region of each listed loan by loan id; empty when the latest run did not ask for regions. */
+  regions: Record<string, LoanRegionInfo>;
 }
 
 export type LoanResultSort = 'eclLifetime' | 'eclIfrs9' | 'pd12m' | 'exposure' | 'loanId';
@@ -415,6 +517,35 @@ export interface PortfolioSnapshot {
   computedAt: string;
   /** Present on the latest snapshots, absent in the history list. */
   detail: ScenarioRisk | null;
+  /** The region analysis, on the snapshot of the scenario it judged the loans under. */
+  decision?: PortfolioRegionSummary;
+}
+
+export interface PortfolioRegionSummary {
+  scenario: string;
+  parameters: {
+    metric: DecisionMetric;
+    threshold: number;
+    tolerance: number;
+    granuleKind: 'PERTURBATION' | 'SCENARIO_SET';
+    members: number;
+    shockBand: number;
+    timingBandMonths: number;
+    scenarios: string[];
+    seed: number | null;
+  };
+  loans: number;
+  excluded: number;
+  exposure: number;
+  regions: { region: DecisionRegion; loans: number; exposure: number; loanShare: number; exposureShare: number }[];
+  /** Lifetime loss of the certainly-high loans, each at its lowest across the variants. */
+  eclLower: number;
+  /** Lifetime loss of the certainly-high and boundary loans, each at its highest across the variants. */
+  eclUpper: number;
+  /** Lifetime loss of the loans that are high under the unperturbed scenario. */
+  eclHighBase: number;
+  boundaryByState: { state: string; loans: number; exposure: number }[];
+  method: string;
 }
 
 export interface PortfolioView {
@@ -462,6 +593,32 @@ export interface DriftReport {
   loans: number;
   features: FeatureDrift[];
   score: FeatureDrift | null;
+  computedAt: string;
+}
+
+/** The survival model's macro drivers today against its training window (GET /models/survival/drift). */
+export interface MacroDriver {
+  feature: 'unemployment' | 'unemployment_change_12m' | 'hpi_change_12m';
+  envelopeMin: number;
+  envelopeMax: number;
+  currentMin: number;
+  currentMedian: number;
+  currentMax: number;
+  statesOutside: string[];
+  loansOutside: number;
+  drift: FeatureDrift;
+}
+
+export interface MacroDriftReport {
+  modelVersion: string;
+  macroAsOf: string;
+  trainingWindow: [string, string];
+  states: number;
+  loans: number;
+  loansCovered: number;
+  drivers: MacroDriver[];
+  marketRate: { current: number; asOf: string; trainingMin: number; trainingMax: number; percentile: number; outsideTraining: boolean };
+  reference: string;
   computedAt: string;
 }
 
@@ -744,10 +901,55 @@ export interface LoginAttemptEntry {
   occurredAt: string;
 }
 
+/** A borrower's own loan. Deliberately carries no probability, model version or explanation: the band and a
+ * sentence on how it moved stand in for the score, and the backend never sends more (MyLoansController). */
 export interface MyLoanView {
   loanId: string;
-  calibratedProbability: number | null;
-  computedAt: string | null;
+  /** null while the loan has not been scored */
+  status: BorrowerStatus | null;
+  /** null when nothing is open on the loan */
+  openCase: BorrowerCase | null;
+  /** null when the loan has no assigned analyst and the organization set no default contact */
+  contact: BorrowerContact | null;
+}
+
+export interface BorrowerStatus {
+  band: 'LOW' | 'MEDIUM' | 'HIGH';
+  label: string;
+  trend: string;
+  checkedAt: string;
+}
+
+export interface BorrowerCase {
+  status: string;
+  description: string;
+  openedAt: string | null;
+}
+
+export interface BorrowerContact {
+  name: string;
+  title: string | null;
+  email: string | null;
+}
+
+export interface BorrowerDocument {
+  id: number;
+  filename: string;
+  sizeBytes: number;
+  uploadedAt: string;
+  uploadedByYou: boolean;
+}
+
+export interface BorrowerAssistantAnswer {
+  answer: string;
+  contact: BorrowerContact | null;
+}
+
+export interface BorrowerContactSetting {
+  configured: boolean;
+  name: string | null;
+  title: string | null;
+  email: string | null;
 }
 
 /** password is required for ANALYST/ADMIN and must be omitted for CLIENT -- CLIENT accounts are
@@ -894,6 +1096,40 @@ export interface BulkItemResult {
   loanId: string;
   ok: boolean;
   error: string | null;
+}
+
+export type AccessRequestStatus = 'PENDING' | 'APPROVED' | 'DECLINED';
+
+/** An access request as a platform operator reviews it (PLATFORM_ADMIN only). */
+export interface AccessRequestView {
+  id: number;
+  companyName: string;
+  contactName: string;
+  workEmail: string;
+  jobTitle: string | null;
+  message: string | null;
+  status: AccessRequestStatus;
+  createdAt: string;
+  reviewedAt: string | null;
+  reviewedBy: string | null;
+  organizationId: number | null;
+}
+
+export type PlanCode = 'TRIAL' | 'STARTER' | 'PRO';
+
+export interface ApproveAccessRequest {
+  slug: string;
+  organizationName?: string;
+  adminUsername: string;
+  plan: PlanCode;
+}
+
+/** The activation link is returned once, for the operator to pass on if the email did not go out. */
+export interface ApprovedAccessRequest {
+  adminUsername: string;
+  activationLink: string;
+  emailed: boolean;
+  organization: { id: number; slug: string; name: string };
 }
 
 export interface AccessRequestSubmission {

@@ -13,10 +13,9 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
-/** ANALYST/ADMIN only (SecurityConfig's default access rule) -- today's only notification
- * triggers are case-assignment/note events in {@code workflow}, which are themselves
- * ANALYST/ADMIN-only, so a CLIENT never has a notification to read yet. Revisit this rule if a
- * CLIENT-facing notification trigger is ever added. */
+/** Any signed-in ANALYST, ADMIN or CLIENT (SecurityConfig's {@code /notifications/**} rule): every call
+ * reads or marks only the caller's own notifications. Staff hear about case assignments and notes; a
+ * borrower hears when a document is added to their loan (NotificationEventListener). */
 @RestController
 public class NotificationController {
 

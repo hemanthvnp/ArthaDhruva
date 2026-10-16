@@ -5,6 +5,7 @@ import { landingPathFor } from './auth/session';
 import { useAuth } from './auth/useAuth';
 import BrandMark from './components/BrandMark';
 import Icon from './components/Icon';
+import AssistantLauncher from './components/AssistantLauncher';
 import NotificationBell from './components/NotificationBell';
 
 type NavItem = { to: string; label: string; icon: string };
@@ -61,7 +62,23 @@ const ADMIN_GROUP: NavGroup = {
   ],
 };
 
-const CLIENT_GROUPS: NavGroup[] = [{ label: 'My account', items: [{ to: '/my-loan', label: 'My Loan', icon: 'home' }] }];
+/** A borrower sees their own account only: nothing that reaches a tenant-wide or analyst view. */
+const CLIENT_GROUPS: NavGroup[] = [
+  {
+    label: 'Your account',
+    items: [
+      { to: '/my-loan', label: 'My loan', icon: 'home' },
+      { to: '/my-documents', label: 'Documents', icon: 'file' },
+      { to: '/notifications', label: 'Notifications', icon: 'bell' },
+      { to: '/account/password', label: 'Account', icon: 'user' },
+    ],
+  },
+];
+
+/** The platform operator reviews access requests here; the rest of /v1/platform/** stays API-only. */
+const PLATFORM_GROUPS: NavGroup[] = [
+  { label: 'Platform', items: [{ to: '/platform/access-requests', label: 'Access requests', icon: 'userplus' }] },
+];
 
 const ACCOUNT_LINKS = [
   { to: '/account/notifications', label: 'Notification preferences' },
@@ -138,11 +155,12 @@ export default function Layout() {
     navigate('/login', { replace: true });
   };
 
-  // A platform operator works through the operator API, not this console: only the account pages apply.
+  // A platform operator sees only the operator pages and their own account, never a tenant's console.
   const groups =
     auth?.role === 'CLIENT' ? CLIENT_GROUPS
       : auth?.role === 'ADMIN' ? [...ANALYST_GROUPS, ADMIN_GROUP]
       : auth?.role === 'ANALYST' ? ANALYST_GROUPS
+      : auth?.role === 'PLATFORM_ADMIN' ? PLATFORM_GROUPS
       : [];
   const crumb = (() => {
     const path = location.pathname;
@@ -215,7 +233,7 @@ export default function Layout() {
               {auth?.sandbox && <span className="badge badge-medium">Sandbox</span>}
             </span>
             <span className="spacer" />
-            {isStaff && <NotificationBell />}
+            {(isStaff || auth?.role === 'CLIENT') && <NotificationBell />}
             <button
               className="icon-btn"
               onClick={() => setTheme(nextTheme)}
@@ -253,6 +271,7 @@ export default function Layout() {
           <main className="content">
             <Outlet />
           </main>
+          {auth?.role === 'CLIENT' && <AssistantLauncher />}
         </div>
       </div>
     </>

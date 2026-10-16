@@ -14,6 +14,7 @@ import type {
   DashboardConfig,
   DeliveryMode,
   DriftReport,
+  MacroDriftReport,
   LifetimeRiskInput,
   LoanResultPage,
   LoanResultSort,
@@ -26,9 +27,15 @@ import type {
   PageResult,
   PortfolioLossDistribution,
   PortfolioRun,
+  DecisionRegion,
+  DecisionRequest,
   PortfolioSnapshot,
   PortfolioView,
   AccessRequestSubmission,
+  AccessRequestStatus,
+  AccessRequestView,
+  ApproveAccessRequest,
+  ApprovedAccessRequest,
   ActivationSignInRequired,
   Scenario,
   ScenarioComparison,
@@ -36,6 +43,7 @@ import type {
   SurvivalBacktest,
   TermStructureResponse,
   UsageView,
+  WeightedPortfolio,
   WebhookDelivery,
   WebhookEvent,
   WebhookView,
@@ -58,6 +66,10 @@ import type {
   LoginResponse,
   MessageResponse,
   MyLoanView,
+  BorrowerAssistantAnswer,
+  BorrowerContact,
+  BorrowerContactSetting,
+  BorrowerDocument,
   NotificationView,
   RecentNoteView,
   RegimeForecast,
@@ -232,7 +244,9 @@ async function request<T>(path: string, options?: RequestInit, background = fals
  * that `request()` applies to every other endpoint. */
 async function setupRequest<T>(token: string, path: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers: { ...headers, ...options?.headers } });
+  // credentials:'include' so the browser keeps the ad_session cookie that /account/2fa/confirm sets: without
+  // it a cross-origin response's cookie is dropped, and the first sign-in ends back on the login page.
+  const res = await fetch(`${API_BASE}${path}`, { ...options, credentials: 'include', headers: { ...headers, ...options?.headers } });
   if (!res.ok) throw await errorFrom(res);
   return res.json() as Promise<T>;
 }
@@ -330,12 +344,18 @@ export function getPortfolioRisk(): Promise<PortfolioView> {
   return request('/risk/portfolio');
 }
 
+/** Weights the latest run's stored scenarios into one allowance; nothing is projected again. */
+export function weightPortfolioRun(weights: Record<string, number>): Promise<WeightedPortfolio> {
+  return request('/risk/portfolio/weighted', { method: 'POST', body: JSON.stringify({ weights }) });
+}
+
 /**
  * Starts a projection of the whole portfolio. It runs in the background: the returned run is polled
  * with {@link getPortfolioRun}. If one is already in progress for the organization, that one is returned.
  */
-export async function startPortfolioRun(scenarios?: string[]): Promise<PortfolioRun> {
-  const res = await authorizedFetch('/risk/portfolio/runs', { method: 'POST', body: JSON.stringify(scenarios ? { scenarios } : {}) });
+export async function startPortfolioRun(scenarios?: string[], decision?: DecisionRequest): Promise<PortfolioRun> {
+  const body = { ...(scenarios ? { scenarios } : {}), ...(decision ? { decision } : {}) };
+  const res = await authorizedFetch('/risk/portfolio/runs', { method: 'POST', body: JSON.stringify(body) });
   if (res.status === 401) sessionExpired();
   if (res.status === 409) return res.json();
   if (!res.ok) throw await errorFrom(res);
@@ -352,9 +372,10 @@ export function portfolioRiskHistory(scenario: string, limit = 36): Promise<Port
 }
 
 /** The latest run's baseline results loan by loan, one page of them. */
-export function portfolioLoanResults(options: { stage?: number; sort?: LoanResultSort; limit?: number; offset?: number } = {}): Promise<LoanResultPage> {
+export function portfolioLoanResults(options: { stage?: number; region?: DecisionRegion; sort?: LoanResultSort; limit?: number; offset?: number } = {}): Promise<LoanResultPage> {
   const q = new URLSearchParams({ sort: options.sort ?? 'eclLifetime', limit: String(options.limit ?? 25), offset: String(options.offset ?? 0) });
   if (options.stage !== undefined) q.set('stage', String(options.stage));
+  if (options.region !== undefined) q.set('region', options.region);
   return request(`/risk/portfolio/loans?${q.toString()}`);
 }
 
@@ -384,6 +405,10 @@ export function survivalBacktest(): Promise<SurvivalBacktest> {
 
 export function pdDrift(): Promise<DriftReport> {
   return request('/models/pd_24m/drift');
+}
+
+export function survivalDrift(): Promise<MacroDriftReport> {
+  return request('/models/survival/drift');
 }
 
 // ---- portfolio and catalog -------------------------------------------------------------------
@@ -441,6 +466,47 @@ export function auditLog(limit = 50): Promise<AuditLogEntry[]> {
 
 export function myLoans(): Promise<MyLoanView[]> {
   return request('/my/loans');
+}
+
+export function myDocuments(loanId: string): Promise<BorrowerDocument[]> {
+  return request(`/my/loans/${encodeURIComponent(loanId)}/documents`);
+}
+
+/** Multipart, like uploadAttachment: no Content-Type header, so the browser sets the boundary. */
+export async function uploadMyDocument(loanId: string, file: File): Promise<BorrowerDocument> {
+  await ensureFreshSession();
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await fetch(`${API_BASE}/my/loans/${encodeURIComponent(loanId)}/documents`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: await csrfHeaders('POST'),
+    body: formData,
+  });
+  if (res.status === 401) sessionExpired();
+  if (!res.ok) throw await errorFrom(res);
+  return res.json();
+}
+
+export function downloadMyDocument(loanId: string, documentId: number, filename: string): Promise<void> {
+  return downloadBlob(`/my/loans/${encodeURIComponent(loanId)}/documents/${documentId}/download`, filename);
+}
+
+/** The borrower safety assistant. Takes only a question: the backend decides which loans it may draw on. */
+export function askBorrowerAssistant(question: string): Promise<BorrowerAssistantAnswer> {
+  return request('/my/assistant', { method: 'POST', body: JSON.stringify({ question }) });
+}
+
+export function getBorrowerContact(): Promise<BorrowerContactSetting> {
+  return request('/admin/borrower-contact');
+}
+
+export function saveBorrowerContact(contact: { name: string; title?: string; email?: string }): Promise<BorrowerContact> {
+  return request('/admin/borrower-contact', { method: 'PUT', body: JSON.stringify(contact) });
+}
+
+export function clearBorrowerContact(): Promise<void> {
+  return remove('/admin/borrower-contact');
 }
 
 export function createUser(req: CreateUserRequest): Promise<CreateUserResponse> {
@@ -632,6 +698,18 @@ export function exchangeSsoCode(code: string): Promise<LoginResponse> {
 
 export function requestAccess(req: AccessRequestSubmission): Promise<{ status: string; next: string }> {
   return publicPost('/access-requests', req);
+}
+
+export function listAccessRequests(status?: AccessRequestStatus): Promise<AccessRequestView[]> {
+  return request(`/platform/access-requests${status ? `?status=${status}` : ''}`);
+}
+
+export function approveAccessRequest(id: number, req: ApproveAccessRequest): Promise<ApprovedAccessRequest> {
+  return request(`/platform/access-requests/${id}/approve`, { method: 'POST', body: JSON.stringify(req) });
+}
+
+export function declineAccessRequest(id: number): Promise<AccessRequestView> {
+  return request(`/platform/access-requests/${id}/decline`, { method: 'POST' });
 }
 
 export function requestPasswordReset(orgSlug: string, username: string): Promise<MessageResponse> {

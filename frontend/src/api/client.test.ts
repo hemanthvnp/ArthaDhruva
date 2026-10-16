@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { activateAccount, ApiError, getLoan, getPortfolioRun, listModels, listScenarios, regimeForecast, score, signOut, startPortfolioRun, unreadNotificationCount, uploadAttachment } from './client';
+import { activateAccount, ApiError, getLoan, getPortfolioRun, listModels, listScenarios, regimeForecast, score, signOut, startPortfolioRun, totpConfirmWithToken, totpSetupWithToken, unreadNotificationCount, uploadAttachment } from './client';
 import { DEFAULT_LOAN } from '../components/loanDefaults';
 
 const STORAGE_KEY = 'arthadhruva-auth';
@@ -166,6 +166,15 @@ describe('the CSRF token', () => {
     const write = calls().find((c) => c.method === 'POST')!;
     expect(write).toBeDefined();
     expect(write.csrf).toBeUndefined(); // the server will refuse it; the failure surfaces from the write itself
+  });
+});
+
+describe('two-factor setup at first sign-in', () => {
+  it('lets the browser keep the session cookie that confirming sets, as on any other origin', async () => {
+    await totpSetupWithToken('setup-token');
+    await totpConfirmWithToken('setup-token', '123456');
+    expect(calls().map((c) => c.url.split('/v1')[1])).toEqual(['/account/2fa/setup', '/account/2fa/confirm']);
+    expect(calls().every((c) => c.credentials === 'include')).toBe(true);
   });
 });
 

@@ -55,5 +55,5 @@ export function sessionFrom(response: LoginResponse): AuthState {
 /** Single source of truth for "where does this role land after login" -- shared by LoginPage
  * (post-login redirect) and App's index-route redirect, so they can't drift out of sync again. */
 export function landingPathFor(role: Role): string {
-  return role === 'CLIENT' ? '/my-loan' : role === 'PLATFORM_ADMIN' ? '/account/password' : '/dashboard';
+  return role === 'CLIENT' ? '/my-loan' : role === 'PLATFORM_ADMIN' ? '/platform/access-requests' : '/dashboard';
 }

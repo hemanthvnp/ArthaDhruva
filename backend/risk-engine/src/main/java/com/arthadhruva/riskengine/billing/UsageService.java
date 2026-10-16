@@ -32,10 +32,16 @@ public class UsageService {
     }
 
     public void record(Long tenantId, String metric) {
+        record(tenantId, metric, 1);
+    }
+
+    /** Adds {@code quantity} units (at least 1) of {@code metric}, for a call whose cost scales with its size. */
+    public void record(Long tenantId, String metric, long quantity) {
+        long units = Math.max(1, quantity);
         try {
-            jdbc.update("INSERT INTO usage_record (tenant_id, period, metric, quantity) VALUES (?, ?, ?, 1) "
-                            + "ON CONFLICT (tenant_id, period, metric) DO UPDATE SET quantity = usage_record.quantity + 1",
-                    tenantId, YearMonth.now(ZoneOffset.UTC).toString(), metric);
+            jdbc.update("INSERT INTO usage_record (tenant_id, period, metric, quantity) VALUES (?, ?, ?, ?) "
+                            + "ON CONFLICT (tenant_id, period, metric) DO UPDATE SET quantity = usage_record.quantity + EXCLUDED.quantity",
+                    tenantId, YearMonth.now(ZoneOffset.UTC).toString(), metric, units);
         } catch (Exception e) {
             failures.increment();
             log.error("Could not record {} usage for tenant {}", metric, tenantId, e);

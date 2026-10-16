@@ -1,7 +1,7 @@
 # ArthaDhruva
 
 A credit risk platform for mortgage lenders, built on the Freddie Mac Single-Family Loan-Level Dataset
-(2017 to 2026 vintages). It answers three questions about a loan book: how likely each loan is to
+(2017 to 2026 vintages, and 2006 to 2008 for the housing downturn). It answers three questions about a loan book: how likely each loan is to
 default and why, what the book is expected to lose over a year and over its life (IFRS 9 and CECL), and
 how much worse than expected a bad year can be.
 
@@ -12,9 +12,12 @@ how much worse than expected a bad year can be.
 | **Default risk score** | Probability of default within 24 months of origination, a Shapley explanation that adds up exactly to the score, and adverse-action reason codes |
 | **Lifetime risk** | One loan month by month to maturity: the probability it is still on the book, has prepaid or has defaulted, under a baseline, two stress scenarios and two rate shocks |
 | **Portfolio risk** | Every loan projected and added up: the loss allowance, IFRS 9 staging, the response to stress, a ten-year run-off, and the allowance loan by loan |
+| **Probability-weighted allowance** | One figure across the scenarios, each weighted by the probability the user gives it, for one loan or from the latest portfolio run without projecting again |
+| **Region analysis** | Whether a loan's stressed figure is high under every variant of the stress, under none, or on the boundary where the answer turns on the details, for one loan or the whole book (rough-set three-way decision) |
 | **Loss distribution** | Value at risk and expected shortfall of the portfolio, and the loans that drive the tail |
-| **Model governance** | Every model with its checksum, validation, backtests and limitations, and population drift against the training data |
+| **Model governance** | Every model with its checksum, validation, backtests and limitations, population drift against the training data, and today's macro conditions against the survival model's training window |
 | **Workflow** | Cases with enforced transitions, a four-eyes rule and an immutable history; notes, documents, automation rules, notifications, webhooks |
+| **Borrower portal** | A borrower's own loan as a status band and a sentence on how it moved (never the probability), the open review and who to contact, their documents, and a safety assistant that checks whether a message they received looks like a scam |
 | **Platform** | Multi-tenant, with single sign-on, API keys, usage metering, an audit trail and rate limits |
 
 How the models were built, validated and where they should not be trusted: [MODELS.md](MODELS.md).
@@ -36,6 +39,16 @@ How the models were built, validated and where they should not be trusted: [MODE
 - [`survival/PortfolioRiskEngine`](backend/risk-engine/src/main/java/com/arthadhruva/riskengine/survival/PortfolioRiskEngine.java):
   thousands of loans per batched model call, merged in the order the work was cut so every figure is
   reproduced bit for bit; a sample with its standard error above 5,000 loans.
+- [`roughset/DecisionService`](backend/risk-engine/src/main/java/com/arthadhruva/riskengine/roughset/DecisionService.java):
+  a rough-set three-way decision laid over the term-structure engine without changing it. A loan's
+  stressed figure is judged over variants of the stress (shock sizes and timing drawn from a
+  counter-based generator, so the same request gives the same variants on any thread count) and the
+  loan falls in the lower approximation (high under every variant), outside the upper approximation
+  (high under none) or on the boundary, which is the set to send to an analyst. It is a robustness
+  classification, not a probability, and the response says so. Held to an independent Python
+  implementation of the generator and the rule by a golden test. Request it with an optional `decision`
+  object on `POST /risk/term-structure` and `/risk/term-structure/compare`, or on `POST /risk/portfolio/runs`
+  (`GET /risk/portfolio/loans?region=BOUNDARY` lists the boundary loans).
 - [`score/ExplanationService`](backend/risk-engine/src/main/java/com/arthadhruva/riskengine/score/ExplanationService.java):
   Shapley values, exact for up to ten differing features and by antithetic sampling beyond, in one model
   call.
@@ -43,14 +56,29 @@ How the models were built, validated and where they should not be trusted: [MODE
 **The platform around them**
 
 - **A long computation as a resource.** Starting a portfolio run answers `202` with a run to poll. The
-  run is a database row with a heartbeat, so any replica answers the poll and a run whose worker died
-  is reported as failed instead of hanging; a partial unique index allows one active run per
-  organization. ([`PortfolioRiskService`](backend/risk-engine/src/main/java/com/arthadhruva/riskengine/survival/PortfolioRiskService.java))
+  run is a database row, so any replica answers the poll, and the table is the queue: a waiting run is
+  taken by whichever replica has a free worker (`FOR UPDATE SKIP LOCKED`), none waits in a JVM's memory.
+  A worker heartbeats on a timer whether or not it is making progress, so a run waiting its turn on a
+  busy compute pool is not mistaken for a dead one. A run whose worker did die is put back in the queue
+  by the leading replica (a lease in Postgres) under a new attempt number, which also fences out a
+  worker that was slow, not dead; the next attempt resumes from the chunks the last one finished and
+  stores the same figures to the bit, and after three attempts the run is failed instead of hanging. A
+  replica that is shut down hands its runs back at once. CI kills one of two replicas in the middle of
+  a run and requires the other to finish it from the checkpoints
+  ([`scripts/failover-test.sh`](scripts/failover-test.sh)). A run can be deferred until a replica is idle.
+  A partial unique index allows one active run per organization.
+  ([`PortfolioRiskService`](backend/risk-engine/src/main/java/com/arthadhruva/riskengine/survival/PortfolioRiskService.java))
 - **Tenant isolation enforced by the database.** Postgres row-level security on every tenant table, and
   the application connects as a role that does not own them. The integration tests run as that role.
 - **An audit trail the application cannot rewrite.** Every API call is recorded with who, what, the
   outcome and the model version; the application's role has no `UPDATE` or `DELETE` on it, and
   credentials are redacted before an entry is written.
+- **A borrower sees a band, not a score.** The borrower API's response types have no field for the
+  probability, the model version, an explanation or a case note (a unit test fails if one is added), and
+  every borrower endpoint resolves the caller's own loans on the server, so a loan id sent by the client
+  can only narrow that set. The borrower's safety assistant is a separate service from the analyst's,
+  sharing nothing but the HTTP client, and its answers always come with the loan officer's contact.
+  ([`borrower/BorrowerPortalService`](backend/risk-engine/src/main/java/com/arthadhruva/riskengine/borrower/BorrowerPortalService.java))
 - **Rate limits that reflect cost.** Token buckets in Redis (one Lua script, atomic across replicas),
   one per organization and one per caller inside it; a simulation costs more tokens than a read.
 - **Model integrity.** A model card that declares a checksum is binding: at start-up the artifact is
@@ -59,8 +87,10 @@ How the models were built, validated and where they should not be trusted: [MODE
   session version that revokes every outstanding token at once. The token itself lives only in an
   httpOnly, SameSite=Strict cookie -- never in a bearer header or anywhere JavaScript can read it. TOTP
   is mandatory for staff, with replay protection.
-- **Outbound calls.** Webhooks through an outbox with leases and HMAC signatures; every URL a tenant
-  supplies is checked against private address ranges at connection time, not just at registration.
+- **Outbound calls.** Webhooks through an outbox with leases and HMAC signatures, delivered on a few
+  threads with one delivery in progress per subscription, so a slow endpoint does not hold up the
+  others; every URL a tenant supplies is checked against private address ranges at connection time, not
+  just at registration.
 - **Operations that were rehearsed.** Prometheus alert rules with unit tests, including two that are
   about integrity rather than uptime: a decision served without its audit record, and replicas serving
   different binaries of one model. Nightly backups, and a restore that was run end to end onto an empty
