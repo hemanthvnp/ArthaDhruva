@@ -2,7 +2,7 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { connect, errorOf } from '@arthadhruva/mcp-kit';
 import { SESSION_EXPIRED } from '../src/http.js';
-import { createServer } from '../src/index.js';
+import { createServer, withoutTrailingSlashes } from '../src/index.js';
 import { FakeApi, LOAN, RUN, SESSION } from './fake-api.js';
 
 let api: FakeApi;
@@ -209,5 +209,13 @@ describe('resources and prompt', () => {
     expect((card.contents[0] as { text: string }).text).toContain('ab'.repeat(32));
     expect((scenarios.contents[0] as { text: string }).text).toContain('BASELINE');
     expect((prompt.messages[0]?.content as { text: string }).text).toContain('Explain the credit decision for loan F1');
+  });
+});
+
+describe('configuration', () => {
+  it('drops trailing slashes from the base URL, in linear time on a long run of them', () => {
+    expect(withoutTrailingSlashes('http://localhost:8080//')).toBe('http://localhost:8080');
+    expect(withoutTrailingSlashes('http://localhost:8080')).toBe('http://localhost:8080');
+    expect(withoutTrailingSlashes('/'.repeat(200_000) + 'x')).toHaveLength(200_001);
   });
 });

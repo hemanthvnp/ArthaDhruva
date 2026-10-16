@@ -16,11 +16,18 @@ export const CONFIG = {
   RISK_ENGINE_MAX_ROWS: { description: 'cap on rows any list tool returns (at most 500)', default: '100', check: (v: string) => (isPositiveInt(v) ?? (Number(v) <= 500 ? undefined : 'at most 500')) },
 } as const;
 
+/** A loop rather than /\/+$/, which takes quadratic time on a long run of slashes followed by something else. */
+export function withoutTrailingSlashes(url: string): string {
+  let end = url.length;
+  while (end > 0 && url[end - 1] === '/') end--;
+  return url.slice(0, end);
+}
+
 export function createServer(env: Record<string, string | undefined> = process.env, fetchImpl?: Fetch) {
   const redactor = new Redactor();
   const config = loadConfig(CONFIG, env, redactor);
   const api = new RiskApi({
-    baseUrl: config.RISK_ENGINE_URL!.replace(/\/+$/, ''),
+    baseUrl: withoutTrailingSlashes(config.RISK_ENGINE_URL!),
     session: config.RISK_ENGINE_SESSION!,
     ...(config.RISK_ENGINE_XSRF ? { csrf: config.RISK_ENGINE_XSRF } : {}),
     timeoutMs: Number(config.RISK_ENGINE_TIMEOUT_MS),
