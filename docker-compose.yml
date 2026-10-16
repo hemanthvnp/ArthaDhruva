@@ -205,7 +205,7 @@ services:
 
   grafana:
     <<: *hardening
-    image: grafana/grafana:11.3.0
+    image: grafana/grafana:11.6.16
     profiles: ["observability"]
     networks: [observability]
     ports:
@@ -226,7 +226,7 @@ services:
 
   loki:
     <<: *hardening
-    image: grafana/loki:3.2.1
+    image: grafana/loki:3.7.8
     profiles: ["observability"]
     networks: [observability]
     ports:
@@ -237,7 +237,7 @@ services:
 
   promtail:
     <<: *hardening
-    image: grafana/promtail:3.2.1
+    image: grafana/promtail:3.6.8
     profiles: ["observability"]
     networks: [observability, dockerapi]
     environment:
@@ -267,7 +267,7 @@ services:
 
   jaeger:
     <<: *hardening
-    image: jaegertracing/all-in-one:1.65.0
+    image: jaegertracing/all-in-one:1.76.0
     profiles: ["observability"]
     networks: [observability]
     ports:
@@ -283,7 +283,7 @@ services:
   # reaches the backend. Opt-in like the observability stack; ports overridable via env.
   nginx:
     <<: *hardening
-    image: nginx:1.27
+    image: nginx:1.29
     profiles: ["edge"]
     networks: [edge]
     cap_add: [CHOWN, SETUID, SETGID, NET_BIND_SERVICE]
