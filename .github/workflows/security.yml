@@ -6,7 +6,7 @@ name: Security
 # library overnight should raise an alert, not turn an unrelated commit red.
 on:
   push:
-    branches: [dev, staging, prod, main]
+    branches: [dev, staging, prod]
   pull_request:
   schedule:
     - cron: '17 3 * * 1'   # weekly, so advisories published since the last push are still picked up

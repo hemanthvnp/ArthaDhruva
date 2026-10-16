@@ -65,7 +65,7 @@ Compute → Instances → **Create instance**:
 If you see **"Out of capacity for shape VM.Standard.A1.Flex"** (very common), drop to 1 OCPU / 6 GB,
 try each fault domain under Advanced options, or let `deploy/oracle-launch-retry.sh` keep trying for you:
 open **Cloud Shell** (the `>_` icon in the console), paste your SSH public key into `~/artha.pub`, download
-the script with `curl -fsSLo launch.sh https://raw.githubusercontent.com/hemanthvnp/ArthaDhruva/main/deploy/oracle-launch-retry.sh`
+the script with `curl -fsSLo launch.sh https://raw.githubusercontent.com/hemanthvnp/ArthaDhruva/prod/deploy/oracle-launch-retry.sh`
 and run `bash launch.sh`. It stops when an instance exists and prints the public IP. Create the VCN first
 (named `artha-vcn`, via the VCN wizard) so the script can find a public subnet.
 
