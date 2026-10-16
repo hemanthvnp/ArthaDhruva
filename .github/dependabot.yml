@@ -47,14 +47,16 @@ updates:
     target-branch: dev
     schedule:
       interval: weekly
+    # The tags float within the Java and Python version (17-jre-jammy, 3.9-eclipse-temurin-17,
+    # 3.12-slim), so a rebuild already takes patches. Changing the version is a planned upgrade, and
+    # Dependabot reads the JDK in a suffix such as -temurin-26 as a minor change, so these are ignored.
     groups:
       base-images:
         patterns: ["*"]
     ignore:
       - dependency-name: eclipse-temurin
-        update-types: [version-update:semver-major]
       - dependency-name: maven
-        update-types: [version-update:semver-major]
+      - dependency-name: python
 
   # Image tags in the compose files.
   - package-ecosystem: docker-compose
