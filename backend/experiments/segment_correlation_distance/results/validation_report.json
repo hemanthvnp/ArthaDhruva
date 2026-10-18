@@ -1,0 +1,82 @@
+{
+  "input": {
+    "series": "data/docs/segment_monthly_series.parquet",
+    "graph": "backend/risk-engine/src/main/resources/segment_correlation_graph.json",
+    "rows": 1035,
+    "states": [
+      "CA",
+      "FL",
+      "GA",
+      "IL",
+      "IN",
+      "MA",
+      "MD",
+      "MI",
+      "MN",
+      "NC",
+      "NY",
+      "OH",
+      "PA",
+      "TN",
+      "TX"
+    ],
+    "months": 69,
+    "month_start": "2020-01-01",
+    "month_end": "2025-09-01"
+  },
+  "properties": {
+    "symmetric": true,
+    "corr_diagonal_one": true,
+    "distance_diagonal_zero": true,
+    "distance_nonnegative": true,
+    "triangle_inequality": true,
+    "pearson_offdiagonal_min": 0.36713326267020313,
+    "pearson_offdiagonal_max": 0.9914915430046535,
+    "distance_offdiagonal_min": 0.13044889417198235,
+    "distance_offdiagonal_max": 1.125048209926843
+  },
+  "threshold": {
+    "pearson_r": 0.95,
+    "distance_cutoff": 0.31622776601683805,
+    "rules_agree": true
+  },
+  "graph_comparison": {
+    "shipped_edges": 41,
+    "cutoff_edges": 41,
+    "same_pairs": true,
+    "same_weights_4dp": true,
+    "same_nodes": true
+  },
+  "closest_pairs": [
+    {
+      "state_i": "MI",
+      "state_j": "OH",
+      "pearson_r": 0.9914915430046535,
+      "distance_d": 0.13044889417198235
+    },
+    {
+      "state_i": "GA",
+      "state_j": "TX",
+      "pearson_r": 0.9888098193462121,
+      "distance_d": 0.14960067281792452
+    },
+    {
+      "state_i": "GA",
+      "state_j": "NC",
+      "pearson_r": 0.9856289069904963,
+      "distance_d": 0.1695352058393989
+    },
+    {
+      "state_i": "IL",
+      "state_j": "PA",
+      "pearson_r": 0.9826753211542438,
+      "distance_d": 0.18614337939210285
+    },
+    {
+      "state_i": "IL",
+      "state_j": "TN",
+      "pearson_r": 0.979177539843675,
+      "distance_d": 0.20407087080877098
+    }
+  ]
+}
