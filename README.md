@@ -184,7 +184,7 @@ The model artifacts the service needs are committed under
 
 ```
 backend/risk-engine/   Spring Boot service: the engines, the API, migrations, tests
-backend/*.py           training and export scripts; experiments/ keeps the rejected ones
+backend/*.py           training and export scripts; experiments/ keeps rejected approaches and evidence checks
 frontend/              React console
 pipeline/              data pipeline from the raw archives
 MODELS.md, PERFORMANCE.md, DEPLOY.md, DEPLOYMENT.md   the models, the measurements, deployment

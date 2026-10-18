@@ -184,3 +184,5 @@ A JSON Schema for `segment_graph.json` lives with the serving side's tests (`bac
 ## Appendix: reproducing the baseline numbers
 
 From the 15 x 69 table of state delinquency rates: the first principal component of the standardised levels; Pearson correlations of the levels over the full sample and over each half; correlations of monthly changes after regressing each state's change on the cross-state average change. Task 1.1 turns this into a script, and the numbers in the table above are what it has to reproduce.
+
+Part of this is already checked: `backend/experiments/segment_correlation_distance/` recomputes the full-sample correlations of the levels (minimum 0.367, maximum 0.991) and the shipped graph from the series (41 pairs at 0.95 or more, same pairs and weights), and converts the correlations to the distance `sqrt(2(1 - r))`. The principal component, the half-sample and the residual figures are still task 1.1.
