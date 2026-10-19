@@ -14,6 +14,7 @@ how much worse than expected a bad year can be.
 | **Portfolio risk** | Every loan projected and added up: the loss allowance, IFRS 9 staging, the response to stress, a ten-year run-off, and the allowance loan by loan |
 | **Probability-weighted allowance** | One figure across the scenarios, each weighted by the probability the user gives it, for one loan or from the latest portfolio run without projecting again |
 | **Region analysis** | Whether a loan's stressed figure is high under every variant of the stress, under none, or on the boundary where the answer turns on the details, for one loan or the whole book (rough-set three-way decision) |
+| **Segment graph** | Which states' unemployment and house prices move together beyond the national cycle, learned and checked out of time against mortgage delinquency, drawn on a map with the figures that validate it (Neo4j) |
 | **Loss distribution** | Value at risk and expected shortfall of the portfolio, and the loans that drive the tail |
 | **Model governance** | Every model with its checksum, validation, backtests and limitations, population drift against the training data, and today's macro conditions against the survival model's training window |
 | **Workflow** | Cases with enforced transitions, a four-eyes rule and an immutable history; notes, documents, automation rules, notifications, webhooks |

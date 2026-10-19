@@ -16,7 +16,7 @@ Governance page.
 | Macro regime (`hmm_regime.json`) | Calm / stressed regime and its transition matrix | 1 | No |
 | Portfolio loss distribution | Value at risk, expected shortfall, tail contributions | 1 | No (analytical; see below) |
 | Early warning, delinquency trajectory | Analyst decision support | 2 | No |
-| Segment graph (`segment_graph.json`) | Which states' macro drivers move together; not loaded by the service yet (the page still reads `segment_correlation_graph.json`) | 2 | Yes |
+| Segment graph (`segment_graph.json`) | Which states' macro drivers move together; the Segment Graph page and its neighbour queries | 2 | Yes |
 
 "Validated" means the model ships a card with out-of-time validation. The others are listed with their
 checksum and a plain statement of what is missing, because an inventory that lists only the
@@ -445,10 +445,12 @@ previous model.
 ## Segment graph
 
 Which states' mortgage risk drivers move together, learned instead of cut from a correlation table
-(`openspec/changes/archive/2026-10-19-segment-graph-models`; card: `segment_graph_card.json`). The page still serves the old
-graph, one Pearson table over 15 states cut at r >= 0.95, which mostly draws the national cycle: one factor
-explains 89.5% of its series, and its edges are not stable between the two halves of the sample
-(`backend/experiments/segment_baseline.py` reproduces all 18 baseline figures).
+(`openspec/changes/archive/2026-10-19-segment-graph-models`; card: `segment_graph_card.json`). It replaced
+one Pearson table over 15 states cut at r >= 0.95, which mostly drew the national cycle: one factor explains
+89.5% of its series, and its edges are not stable between the two halves of the sample
+(`backend/experiments/segment_baseline.py` reproduces all 18 baseline figures). The service checks the file
+against its card at start-up, replaces whatever graph Neo4j holds with it, and the Segment Graph page draws it
+with the validation figures below (`openspec/changes/serve-learned-segment-graph`).
 
 ### Method
 
