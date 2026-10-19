@@ -141,10 +141,23 @@ def learn(end: int | None = None) -> dict:
     }
 
 
+def finite(value):
+    """NaN and infinities become null: json.dumps writes them as bare NaN, which is not JSON, and the Java side's
+    parser rejects the whole file (a comparison that could not be made has a NaN statistic)."""
+    if isinstance(value, dict):
+        return {k: finite(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [finite(v) for v in value]
+    if isinstance(value, (float, np.floating)):
+        return float(value) if np.isfinite(value) else None
+    return value
+
+
 def write_lf(path: Path, payload) -> None:
     """JSON with LF line ends on every platform. The card's checksum is of these bytes, and git stores text with
     LF: written with Path.write_text on Windows (CRLF), the file checked out on Linux would not match its card."""
-    path.write_bytes((json.dumps(payload, indent=2, default=float) + "\n").encode("utf-8"))
+    text = json.dumps(finite(payload), indent=2, default=float, allow_nan=False)
+    path.write_bytes((text + "\n").encode("utf-8"))
     print(f"wrote {path}")
 
 
