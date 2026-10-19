@@ -17,3 +17,4 @@ jupyter
 nbconvert
 onnxruntime
 pytest
+jsonschema

@@ -1,0 +1,509 @@
+{
+  "schemaVersion": 1,
+  "version": "2026.08.31-0000",
+  "asOf": "2025-09",
+  "method": "graphical lasso and sparse VAR (lasso on lags), stability selection over half-size block subsamples",
+  "learnedOn": {
+    "from": "1995-02",
+    "to": "2026-08",
+    "sources": [
+      "unemployment",
+      "hpi"
+    ]
+  },
+  "states": [
+    {
+      "code": "AK",
+      "name": "Alaska",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "AL",
+      "name": "Alabama",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "AR",
+      "name": "Arkansas",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "AZ",
+      "name": "Arizona",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "CA",
+      "name": "California",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "CO",
+      "name": "Colorado",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "CT",
+      "name": "Connecticut",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "DC",
+      "name": "District of Columbia",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "DE",
+      "name": "Delaware",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "FL",
+      "name": "Florida",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "GA",
+      "name": "Georgia",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "HI",
+      "name": "Hawaii",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "IA",
+      "name": "Iowa",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "ID",
+      "name": "Idaho",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "IL",
+      "name": "Illinois",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "IN",
+      "name": "Indiana",
+      "region": "R1",
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "KS",
+      "name": "Kansas",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "KY",
+      "name": "Kentucky",
+      "region": "R1",
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "LA",
+      "name": "Louisiana",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "MA",
+      "name": "Massachusetts",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "MD",
+      "name": "Maryland",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "ME",
+      "name": "Maine",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "MI",
+      "name": "Michigan",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "MN",
+      "name": "Minnesota",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "MO",
+      "name": "Missouri",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "MS",
+      "name": "Mississippi",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "MT",
+      "name": "Montana",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "NC",
+      "name": "North Carolina",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "ND",
+      "name": "North Dakota",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "NE",
+      "name": "Nebraska",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "NH",
+      "name": "New Hampshire",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "NJ",
+      "name": "New Jersey",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "NM",
+      "name": "New Mexico",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "NV",
+      "name": "Nevada",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "NY",
+      "name": "New York",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "OH",
+      "name": "Ohio",
+      "region": "R1",
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "OK",
+      "name": "Oklahoma",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "OR",
+      "name": "Oregon",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "PA",
+      "name": "Pennsylvania",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "RI",
+      "name": "Rhode Island",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "SC",
+      "name": "South Carolina",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "SD",
+      "name": "South Dakota",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "TN",
+      "name": "Tennessee",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "TX",
+      "name": "Texas",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "UT",
+      "name": "Utah",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "VA",
+      "name": "Virginia",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "VT",
+      "name": "Vermont",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "WA",
+      "name": "Washington",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "WI",
+      "name": "Wisconsin",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "WV",
+      "name": "West Virginia",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    },
+    {
+      "code": "WY",
+      "name": "Wyoming",
+      "region": null,
+      "covered": true,
+      "leads": 0,
+      "follows": 0
+    }
+  ],
+  "regions": [
+    {
+      "id": "R1",
+      "label": "East North Central",
+      "states": [
+        "IN",
+        "KY",
+        "OH"
+      ],
+      "stability": 0.848
+    }
+  ],
+  "movesWith": [
+    {
+      "a": "CT",
+      "b": "NJ",
+      "weight": 0.0488,
+      "sign": 1,
+      "confidence": 0.885,
+      "basis": [
+        "hpi"
+      ]
+    },
+    {
+      "a": "IN",
+      "b": "KY",
+      "weight": 0.0654,
+      "sign": 1,
+      "confidence": 0.84,
+      "basis": [
+        "hpi"
+      ]
+    },
+    {
+      "a": "IN",
+      "b": "OH",
+      "weight": 0.1354,
+      "sign": 1,
+      "confidence": 0.955,
+      "basis": [
+        "hpi"
+      ]
+    },
+    {
+      "a": "MA",
+      "b": "NH",
+      "weight": 0.1234,
+      "sign": 1,
+      "confidence": 0.905,
+      "basis": [
+        "unemployment",
+        "hpi"
+      ]
+    },
+    {
+      "a": "MD",
+      "b": "VA",
+      "weight": 0.1307,
+      "sign": 1,
+      "confidence": 0.845,
+      "basis": [
+        "hpi"
+      ]
+    },
+    {
+      "a": "NC",
+      "b": "TN",
+      "weight": 0.109,
+      "sign": 1,
+      "confidence": 0.92,
+      "basis": [
+        "hpi"
+      ]
+    },
+    {
+      "a": "OR",
+      "b": "WA",
+      "weight": 0.101,
+      "sign": 1,
+      "confidence": 0.865,
+      "basis": [
+        "hpi"
+      ]
+    }
+  ]
+}
