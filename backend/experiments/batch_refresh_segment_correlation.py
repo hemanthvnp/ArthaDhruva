@@ -1,4 +1,4 @@
-"""SUPERSEDED, not on the production path (openspec/changes/serve-learned-segment-graph). The service now serves
+"""SUPERSEDED, not on the production path (openspec/changes/archive/2026-10-19-serve-learned-segment-graph). The service now serves
 the learned graph (segment_graph.json, export_segment_graph.py), loaded by GraphLoader with its version recorded in
 Neo4j. Running this against a live Neo4j would write the old Pearson graph's CORRELATES edges next to it, which the
 page no longer reads; the next restart removes them. Kept as the record of the earlier batch layer. Run from
