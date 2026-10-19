@@ -450,7 +450,7 @@ one Pearson table over 15 states cut at r >= 0.95, which mostly drew the nationa
 89.5% of its series, and its edges are not stable between the two halves of the sample
 (`backend/experiments/segment_baseline.py` reproduces all 18 baseline figures). The service checks the file
 against its card at start-up, replaces whatever graph Neo4j holds with it, and the Segment Graph page draws it
-with the validation figures below (`openspec/changes/serve-learned-segment-graph`).
+with the validation figures below (`openspec/changes/archive/2026-10-19-serve-learned-segment-graph`).
 
 ### Method
 
