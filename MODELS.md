@@ -445,7 +445,7 @@ previous model.
 ## Segment graph
 
 Which states' mortgage risk drivers move together, learned instead of cut from a correlation table
-(`openspec/changes/segment-graph-models`; card: `segment_graph_card.json`). The page still serves the old
+(`openspec/changes/archive/2026-10-19-segment-graph-models`; card: `segment_graph_card.json`). The page still serves the old
 graph, one Pearson table over 15 states cut at r >= 0.95, which mostly draws the national cycle: one factor
 explains 89.5% of its series, and its edges are not stable between the two halves of the sample
 (`backend/experiments/segment_baseline.py` reproduces all 18 baseline figures).

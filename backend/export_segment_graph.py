@@ -1,5 +1,5 @@
 """Learns the segment graph and writes segment_graph.json and segment_graph_card.json
-(openspec/changes/segment-graph-models, tasks 2.1-2.6, 3.5).
+(openspec/changes/archive/2026-10-19-segment-graph-models, tasks 2.1-2.6, 3.5).
 
 From the macro panel of build_macro_panel.py (state unemployment changes, monthly; house-price growth,
 quarterly; each with the other states' mean removed), per source (segment_graph.py):

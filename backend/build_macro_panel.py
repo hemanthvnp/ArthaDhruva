@@ -1,4 +1,4 @@
-"""Builds the macro panel the segment graph is learned from (openspec/changes/segment-graph-models, task 1.4).
+"""Builds the macro panel the segment graph is learned from (openspec/changes/archive/2026-10-19-segment-graph-models, task 1.4).
 
 Two sources per state, from data/processed/survival/macro_state.parquet (built by fetch_macro.py):
   unemployment  monthly change in the unemployment rate, 1995-02 onward

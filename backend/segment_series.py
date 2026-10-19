@@ -1,4 +1,4 @@
-"""Pure functions behind the segment risk series (openspec/changes/segment-graph-models, group 1): the cell
+"""Pure functions behind the segment risk series (openspec/changes/archive/2026-10-19-segment-graph-models, group 1): the cell
 definitions, indirect standardisation with leave-one-state-out national rates, and the checks that stop a
 build. No file I/O here, so backend/tests/ can run every function on synthetic data.
 

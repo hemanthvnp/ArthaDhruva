@@ -1,4 +1,4 @@
-"""Estimates the regional loss factors for the segment graph (openspec/changes/segment-graph-models, tasks 3.1-3.5).
+"""Estimates the regional loss factors for the segment graph (openspec/changes/archive/2026-10-19-segment-graph-models, tasks 3.1-3.5).
 
 3.1  Reproduces the validation fit of export_survival_model.py (its own functions: loan-months before 2023-01,
      the 2006-2008 vintages included, early stopping on bucket 2), predicts the default hazard of every

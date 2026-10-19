@@ -1,4 +1,4 @@
-"""Feasibility gate for openspec/changes/segment-graph-models (task 1.6), from the output of build_state_panel.py.
+"""Feasibility gate for openspec/changes/archive/2026-10-19-segment-graph-models (task 1.6), from the output of build_state_panel.py.
 
 1. Coverage: states with a ratio in at least 90% of months, for each candidate first month of the window.
 2. Cell definition: loan age x credit-score band x LTV band against loan age only. Each difference in the log

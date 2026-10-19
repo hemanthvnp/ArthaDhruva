@@ -1,4 +1,4 @@
-"""Learning the segment graph (openspec/changes/segment-graph-models, group 2): pure functions on numpy arrays,
+"""Learning the segment graph (openspec/changes/archive/2026-10-19-segment-graph-models, group 2): pure functions on numpy arrays,
 so backend/tests/ can check them on synthetic data with known structure.
 
 Two kinds of link, from a panel X (rows = periods, columns = states, standardised residuals):

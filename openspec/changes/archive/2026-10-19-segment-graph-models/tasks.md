@@ -41,4 +41,4 @@ Estimated effort for one engineer: about 9 working days (group 1: 2.5, group 2: 
 - [x] 5.1 `MODELS.md`: a "Segment graph" section covering the method, validation results, what was tried and rejected, and the known limitations.
 - [x] 5.2 README: the commands in "Rebuilding the data and the models".
 - [x] 5.3 Reproducibility: run the exports twice and compare checksums.
-- [ ] 5.4 Hand-over note in the final pull request: what changed between the bootstrap graph and the learned one (links added and removed, regions, coverage), which optional fields are present, and the figures the page should quote.
+- [x] 5.4 Hand-over note in the final pull request: what changed between the bootstrap graph and the learned one (links added and removed, regions, coverage), which optional fields are present, and the figures the page should quote. Posted on #29 (2026-10-19), since this change landed on `dev` without a pull request.
