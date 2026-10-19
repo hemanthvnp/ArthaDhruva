@@ -64,6 +64,9 @@ class ApiIntegrationTest extends AbstractIntegrationTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired TotpSecretCipher cipher;
     @Autowired com.arthadhruva.riskengine.score.LoanCatalogService catalog;
+    @Autowired org.neo4j.driver.Driver neo4j;
+    @Autowired com.arthadhruva.riskengine.graph.GraphLoader graphLoader;
+    @Autowired com.arthadhruva.riskengine.graph.SegmentGraphArtifact segmentGraph;
 
     private final ObjectMapper json = new ObjectMapper();
     private final String run = UUID.randomUUID().toString().substring(0, 8);
@@ -936,9 +939,9 @@ class ApiIntegrationTest extends AbstractIntegrationTest {
     @Test
     void theModelInventoryCardsBacktestAndDriftAreServed() throws Exception {
         JsonNode inventory = body(call(get("/v1/models"), ana, null));
-        assertEquals(7, inventory.size());
+        assertEquals(8, inventory.size());
         for (JsonNode model : inventory) {
-            boolean validated = List.of("pd_24m", "survival", "trajectory_lstm").contains(model.get("id").asString());
+            boolean validated = List.of("pd_24m", "survival", "trajectory_lstm", "segment_graph").contains(model.get("id").asString());
             assertEquals(validated, model.get("validated").asBoolean(), model.get("id").asString());
             if (validated) {
                 assertTrue(model.get("checksumVerified").asBoolean());
@@ -987,25 +990,34 @@ class ApiIntegrationTest extends AbstractIntegrationTest {
     }
 
     /**
-     * The graph query is checked against a breadth-first search done here on the edges the API itself
-     * returns: same states, same shortest distances, for every hop limit.
+     * The learned graph is served whole, and the neighbour query is checked against a breadth-first search done
+     * here on the links the API itself returns: same states, same shortest distances, for every hop limit.
      */
     @Test
     void segmentNeighboursAreShortestPathsOnTheGraphTheApiServes() throws Exception {
         JsonNode graph = body(call(get("/v1/segments/graph"), ana, null));
+        assertEquals(51, graph.get("states").size(), "every state and DC");
+        assertFalse(graph.get("version").asString().isEmpty());
         Map<String, List<String>> adjacent = new LinkedHashMap<>();
         for (JsonNode state : graph.get("states")) {
-            adjacent.put(state.asString(), new ArrayList<>());
+            adjacent.put(state.get("code").asString(), new ArrayList<>());
+            assertFalse(state.get("name").asString().isEmpty());
         }
-        assertTrue(adjacent.size() >= 10, "the correlation graph is loaded");
-        assertFalse(graph.get("edges").isEmpty());
-        for (JsonNode edge : graph.get("edges")) {
-            String a = edge.get(0).asString(), b = edge.get(1).asString();
-            assertTrue(a.compareTo(b) < 0, "each edge once, smaller code first");
+        assertFalse(graph.get("links").isEmpty());
+        for (JsonNode link : graph.get("links")) {
+            String a = link.get("a").asString(), b = link.get("b").asString();
+            assertTrue(a.compareTo(b) < 0, "each link once, smaller code first");
+            assertTrue(Math.abs(link.get("weight").asDouble()) <= 1);
+            assertTrue(link.get("confidence").asDouble() >= 0.8 && link.get("confidence").asDouble() <= 1);
             adjacent.get(a).add(b);
             adjacent.get(b).add(a);
         }
-        String source = graph.get("edges").get(0).get(0).asString();
+        JsonNode validation = graph.get("validation");
+        assertTrue(validation.get("pAgainstRandomGraphs").asDouble() < 0.05);
+        assertFalse(validation.get("leadsShipped").asBoolean(), "no leads link passed validation in this release");
+        assertFalse(validation.get("leadsNote").asString().isEmpty());
+
+        String source = graph.get("links").get(0).get("a").asString();
         Map<String, Integer> distance = new LinkedHashMap<>();
         distance.put(source, 0);
         List<String> frontier = List.of(source);
@@ -1034,7 +1046,47 @@ class ApiIntegrationTest extends AbstractIntegrationTest {
             }
             assertEquals(expected, served, "within " + maxHops + " hops of " + source);
         }
+        String unlinked = adjacent.entrySet().stream().filter(e -> e.getValue().isEmpty()).map(Map.Entry::getKey)
+                .findFirst().orElseThrow();
+        assertTrue(body(call(get("/v1/segments/" + unlinked + "/neighbors?maxHops=5"), ana, null)).isEmpty());
         assertEquals(400, status(call(get("/v1/segments/" + source + "/neighbors?maxHops=9"), ana, null)));
+    }
+
+    /**
+     * A Neo4j still holding the old correlation graph ends up holding only the learned one, and a second load of
+     * the same version writes nothing.
+     */
+    @Test
+    void theLearnedGraphReplacesTheOldCorrelationGraph() {
+        try (var session = neo4j.session()) {
+            session.executeWrite(tx -> {
+                tx.run("MATCH (n) WHERE n:State OR n:SegmentGraph DETACH DELETE n");
+                tx.run("UNWIND ['CA','FL','GA','IL','IN','MA','MD','MI','MN','NC','NY','OH','PA','TN','TX'] AS c "
+                        + "CREATE (:State {code: c})");
+                tx.run("MATCH (a:State {code: 'CA'}), (b:State {code: 'MD'}) CREATE (a)-[:CORRELATES {weight: 0.96}]->(b)");
+                tx.run("MATCH (a:State {code: 'GA'}), (b:State {code: 'TX'}) CREATE (a)-[:CORRELATES {weight: 0.99}]->(b)");
+                return null;
+            });
+        }
+        assertTrue(graphLoader.load(), "a different graph is replaced");
+        try (var session = neo4j.session()) {
+            assertEquals(51L, session.run("MATCH (s:State) RETURN count(s) AS n").single().get("n").asLong());
+            assertEquals(0L, session.run("MATCH ()-[r:CORRELATES]-() RETURN count(r) AS n").single().get("n").asLong());
+            assertEquals((long) segmentGraph.graph().movesWith().size(),
+                    session.run("MATCH ()-[r:MOVES_WITH]->() RETURN count(r) AS n").single().get("n").asLong());
+            assertEquals(segmentGraph.version(),
+                    session.run("MATCH (m:SegmentGraph) RETURN m.version AS v").single().get("v").asString());
+        }
+        assertFalse(graphLoader.load(), "the same version is not written again");
+
+        try (var session = neo4j.session()) {
+            session.executeWrite(tx -> tx.run(
+                    "MATCH (a:State {code: 'CA'}), (b:State {code: 'MD'}) CREATE (a)-[:CORRELATES {weight: 0.96}]->(b)").consume());
+        }
+        assertTrue(graphLoader.load(), "an edge written after the load makes the next load replace the graph");
+        try (var session = neo4j.session()) {
+            assertEquals(0L, session.run("MATCH ()-[r:CORRELATES]-() RETURN count(r) AS n").single().get("n").asLong());
+        }
     }
 
     @Test

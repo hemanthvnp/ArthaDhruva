@@ -13,18 +13,17 @@ import java.time.Duration;
 import java.util.List;
 
 /**
- * Serves the segment-correlation graph {@link GraphLoader} loads at startup -- the genuine
- * multi-hop traversal query that justifies a graph representation here (per
- * segment_correlation_graph.ipynb's own framing: grouping by a shared label is just a GROUP BY,
- * not a graph; this answers "which segments are N hops away, via correlated risk" instead).
+ * Serves the learned segment graph {@link GraphLoader} loads at startup, and the multi-hop traversal that justifies
+ * a graph representation here: "which states are N links away" (grouping by a shared label would be a GROUP BY,
+ * not a graph).
  */
 @RestController
 @Validated
 public class SegmentGraphController {
 
-    /** The graph only changes when {@link GraphLoader} re-runs at the next deploy, so a
-     * same-state-and-maxHops lookup is safe to serve stale for a full day rather than re-running
-     * the Cypher traversal against Neo4j on every call. */
+    /** The graph only changes with a deploy, so an answer is safe to keep for a day rather than re-running the
+     * Cypher traversal on every call. Every key carries the graph version and checksum: after a deploy with a new graph no
+     * replica reads an answer computed from the old one, and the old entries expire. */
     private static final Duration NEIGHBORS_CACHE_TTL = Duration.ofHours(24);
 
     private final SegmentGraphService segmentGraphService;
@@ -43,9 +42,10 @@ public class SegmentGraphController {
     /** States and edges together, so the page draws the graph from one request instead of one per state. */
     @GetMapping("/segments/graph")
     public SegmentGraphService.Graph graph() {
-        return cacheService.get("segment-graph", SegmentGraphService.Graph.class).orElseGet(() -> {
+        String key = "segment-graph:" + segmentGraphService.cacheTag();
+        return cacheService.get(key, SegmentGraphService.Graph.class).orElseGet(() -> {
             SegmentGraphService.Graph graph = segmentGraphService.graph();
-            cacheService.put("segment-graph", graph, NEIGHBORS_CACHE_TTL);
+            cacheService.put(key, graph, NEIGHBORS_CACHE_TTL);
             return graph;
         });
     }
@@ -54,7 +54,7 @@ public class SegmentGraphController {
     public List<SegmentNeighbor> neighbors(
             @PathVariable String state,
             @RequestParam(defaultValue = "2") @Min(1) @Max(5) int maxHops) {
-        String key = "segment-neighbors:" + state + ":" + maxHops;
+        String key = "segment-neighbors:" + segmentGraphService.cacheTag() + ":" + state + ":" + maxHops;
         return cacheService.get(key, SegmentNeighborsResponse.class)
                 .orElseGet(() -> {
                     SegmentNeighborsResponse response = new SegmentNeighborsResponse(segmentGraphService.neighbors(state, maxHops));

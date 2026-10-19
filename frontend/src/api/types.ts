@@ -569,7 +569,7 @@ export interface ModelEntry {
   checksumVerified: boolean | null;
   trainedAt: string | null;
   algorithm: string | null;
-  headline: Record<string, number | string>;
+  headline: Record<string, number | string | boolean>;
   gaps: string[];
 }
 
@@ -772,6 +772,53 @@ export interface TrajectoryCatalogEntry {
 export interface SegmentNeighbor {
   state: string;
   hops: number;
+}
+
+/** A state of the learned segment graph; `region` is null for a state in no region. */
+export interface SegmentState {
+  code: string;
+  name: string;
+  region: string | null;
+}
+
+/** A moves-with link (a partial correlation), each pair once with the smaller code first. */
+export interface SegmentLink {
+  a: string;
+  b: string;
+  weight: number;
+  confidence: number | null;
+  basis: string[];
+}
+
+export interface SegmentRegion {
+  id: string;
+  label: string;
+  states: string[];
+  stability: number;
+}
+
+/** The out-of-time validation figures from the graph's model card. Null where a figure is not available. */
+export interface SegmentValidation {
+  learnedThrough: string;
+  testedOn: string;
+  linkedMinusUnlinked: number | null;
+  pAgainstRandomGraphs: number | null;
+  linkedMinusSameDivision: number | null;
+  pAgainstSameDivision: number | null;
+  robustAgainstRandomGraphs: boolean | null;
+  robustAgainstSameDivision: boolean | null;
+  leadsShipped: boolean;
+  leadsNote: string | null;
+}
+
+/** GET /segments/graph (SegmentGraphService.Graph). */
+export interface SegmentGraph {
+  version: string;
+  asOf: string;
+  states: SegmentState[];
+  links: SegmentLink[];
+  regions: SegmentRegion[];
+  validation: SegmentValidation;
 }
 
 /** A currently-current loan's monthly snapshot (early_warning_delinquency.ipynb v3 features).
