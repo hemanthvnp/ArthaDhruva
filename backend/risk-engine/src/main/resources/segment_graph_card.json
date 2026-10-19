@@ -1,0 +1,459 @@
+{
+  "model": "segment_graph",
+  "version": "2026.08.31-0000",
+  "trained_at": "2026-10-19T12:05:02+00:00",
+  "algorithm": "graphical lasso and sparse VAR (lasso on lags), stability selection over half-size block subsamples",
+  "hyperparameters": {
+    "stability_threshold": 0.8,
+    "subsamples": 200,
+    "subsample": "half the blocks, complementary pairs",
+    "block_months": 12,
+    "expected_false_links_bound": 1.0,
+    "seed": 20261019,
+    "lags": {
+      "unemployment": "6 x 1 months",
+      "hpi": "2 x 3 months"
+    },
+    "penalties": {
+      "unemployment": {
+        "graphical_lasso": 0.47531,
+        "lasso": 0.38596,
+        "max_links_per_subsample_moves": 27.66,
+        "max_links_per_subsample_leads": 39.12
+      },
+      "hpi": {
+        "graphical_lasso": 0.70614,
+        "lasso": 0.51869,
+        "max_links_per_subsample_moves": 27.66,
+        "max_links_per_subsample_leads": 39.12
+      }
+    },
+    "min_region_states": 3,
+    "louvain_seed": 7
+  },
+  "training_window": {
+    "from": "1995-02",
+    "to": "2026-08",
+    "sources": [
+      "unemployment",
+      "hpi"
+    ],
+    "validation_graph_learned_through": "2016-12"
+  },
+  "links": {
+    "movesWith": 7,
+    "leads_learned": 3,
+    "leads_shipped": 0,
+    "regions": 1,
+    "states_in_no_region": [
+      "AK",
+      "AL",
+      "AR",
+      "AZ",
+      "CA",
+      "CO",
+      "CT",
+      "DC",
+      "DE",
+      "FL",
+      "GA",
+      "HI",
+      "IA",
+      "ID",
+      "IL",
+      "KS",
+      "LA",
+      "MA",
+      "MD",
+      "ME",
+      "MI",
+      "MN",
+      "MO",
+      "MS",
+      "MT",
+      "NC",
+      "ND",
+      "NE",
+      "NH",
+      "NJ",
+      "NM",
+      "NV",
+      "NY",
+      "OK",
+      "OR",
+      "PA",
+      "RI",
+      "SC",
+      "SD",
+      "TN",
+      "TX",
+      "UT",
+      "VA",
+      "VT",
+      "WA",
+      "WI",
+      "WV",
+      "WY"
+    ]
+  },
+  "validation": {
+    "protocol": {
+      "learned_through": "2016-12",
+      "tested_from": "2019-01",
+      "statistic": "mean correlation of 3-month changes in the log standardised delinquency ratio, linked pairs minus all other pairs",
+      "null": "2000 degree-preserving rewirings, one-sided",
+      "versus": "2000 moving-block bootstrap resamples of the test months (blocks of 12), one-sided",
+      "delinquency_graph": "learned 2019-01 .. 2021-12, tested from 2022-01",
+      "forbearance_excluded": "2020-03 .. 2021-03",
+      "significance": 0.05
+    },
+    "summary": {
+      "linked_pairs_move_together_more_than_random": {
+        "primary": true,
+        "robust": true
+      },
+      "adds_information_beyond_geography": {
+        "primary": true,
+        "robust": true
+      },
+      "beats_the_correlation_095_graph": {
+        "primary": null,
+        "robust": true
+      },
+      "beats_a_graph_learned_from_delinquency": {
+        "primary": null,
+        "robust": true
+      },
+      "leads_direction_supported": {
+        "primary": false,
+        "robust": true
+      }
+    },
+    "conclusions_by_run": {
+      "linked_pairs_move_together_more_than_random": {
+        "primary": true,
+        "primary_ex_forbearance": true,
+        "ex_disaster": true,
+        "ex_disaster_ex_forbearance": true
+      },
+      "adds_information_beyond_geography": {
+        "primary": true,
+        "primary_ex_forbearance": true,
+        "ex_disaster": true,
+        "ex_disaster_ex_forbearance": true
+      },
+      "beats_the_correlation_095_graph": {
+        "primary": null,
+        "primary_ex_forbearance": null,
+        "ex_disaster": null,
+        "ex_disaster_ex_forbearance": null
+      },
+      "beats_a_graph_learned_from_delinquency": {
+        "primary": null,
+        "primary_ex_forbearance": null,
+        "ex_disaster": null,
+        "ex_disaster_ex_forbearance": null
+      },
+      "leads_direction_supported": {
+        "primary": false,
+        "primary_ex_forbearance": false,
+        "ex_disaster": false,
+        "ex_disaster_ex_forbearance": false
+      }
+    },
+    "runs": {
+      "primary": {
+        "test_months": "2019-01 .. 2025-09",
+        "changes": 81,
+        "learned": {
+          "statistic": 0.323,
+          "null_mean": -0.1318,
+          "p": 0.0005,
+          "edges": 7
+        },
+        "learned_positive_links": {
+          "statistic": 0.363,
+          "null_mean": -0.1275,
+          "p": 0.001,
+          "edges": 6
+        },
+        "same_division": {
+          "statistic": 0.1133,
+          "null_mean": -0.0054,
+          "p": 0.0005,
+          "edges": 135
+        },
+        "learned_vs_division": {
+          "difference": 0.2097,
+          "p": 0.0
+        },
+        "correlation_095_graph_15_states": {
+          "statistic": 0.3114,
+          "null_mean": 0.0835,
+          "p": 0.0005,
+          "edges": 41
+        },
+        "learned_on_the_same_15_states": {
+          "statistic": 0.781,
+          "null_mean": 0.781,
+          "p": 1.0,
+          "edges": 1
+        },
+        "learned_vs_correlation_095": {
+          "difference": 0.4695,
+          "p": null,
+          "note": "not comparable: a graph has 1 link(s) among these states, fewer than 3"
+        },
+        "from_2022": {
+          "test_months": "2022-01 .. 2025-09",
+          "learned": {
+            "statistic": 0.2526,
+            "null_mean": -0.0968,
+            "p": 0.001,
+            "edges": 7
+          },
+          "delinquency_graph": {
+            "statistic": NaN,
+            "null_mean": NaN,
+            "p": 0.0005,
+            "edges": 0
+          },
+          "learned_vs_delinquency_graph": {
+            "difference": null,
+            "p": null,
+            "note": "not comparable: a graph has 0 link(s) among these states, fewer than 3"
+          },
+          "delinquency_graph_note": "19 complete months for 51 states"
+        },
+        "direction": {
+          "links_tested": 3,
+          "forward_stronger": 2,
+          "share": 0.6667,
+          "p": 0.5
+        }
+      },
+      "primary_ex_forbearance": {
+        "test_months": "2019-01 .. 2025-09",
+        "changes": 65,
+        "learned": {
+          "statistic": 0.2552,
+          "null_mean": -0.0978,
+          "p": 0.0005,
+          "edges": 7
+        },
+        "learned_positive_links": {
+          "statistic": 0.2796,
+          "null_mean": -0.1056,
+          "p": 0.0005,
+          "edges": 6
+        },
+        "same_division": {
+          "statistic": 0.0382,
+          "null_mean": -0.0156,
+          "p": 0.0045,
+          "edges": 135
+        },
+        "learned_vs_division": {
+          "difference": 0.217,
+          "p": 0.0
+        },
+        "correlation_095_graph_15_states": {
+          "statistic": 0.1149,
+          "null_mean": 0.0017,
+          "p": 0.0095,
+          "edges": 41
+        },
+        "learned_on_the_same_15_states": {
+          "statistic": 0.5255,
+          "null_mean": 0.5255,
+          "p": 1.0,
+          "edges": 1
+        },
+        "learned_vs_correlation_095": {
+          "difference": 0.4106,
+          "p": null,
+          "note": "not comparable: a graph has 1 link(s) among these states, fewer than 3"
+        },
+        "from_2022": {
+          "test_months": "2022-01 .. 2025-09",
+          "learned": {
+            "statistic": 0.2526,
+            "null_mean": -0.0919,
+            "p": 0.0025,
+            "edges": 7
+          },
+          "delinquency_graph": {
+            "statistic": NaN,
+            "null_mean": NaN,
+            "p": 0.0005,
+            "edges": 0
+          },
+          "learned_vs_delinquency_graph": {
+            "difference": null,
+            "p": null,
+            "note": "not comparable: a graph has 0 link(s) among these states, fewer than 3"
+          },
+          "delinquency_graph_note": "19 complete months for 51 states"
+        },
+        "direction": {
+          "links_tested": 3,
+          "forward_stronger": 3,
+          "share": 1.0,
+          "p": 0.125
+        }
+      },
+      "ex_disaster": {
+        "test_months": "2019-01 .. 2025-09",
+        "changes": 81,
+        "learned": {
+          "statistic": 0.231,
+          "null_mean": -0.0296,
+          "p": 0.003,
+          "edges": 7
+        },
+        "learned_positive_links": {
+          "statistic": 0.304,
+          "null_mean": -0.0139,
+          "p": 0.003,
+          "edges": 6
+        },
+        "same_division": {
+          "statistic": 0.0783,
+          "null_mean": -0.0039,
+          "p": 0.0005,
+          "edges": 135
+        },
+        "learned_vs_division": {
+          "difference": 0.1526,
+          "p": 0.0025
+        },
+        "correlation_095_graph_15_states": {
+          "statistic": 0.1609,
+          "null_mean": 0.0192,
+          "p": 0.001,
+          "edges": 41
+        },
+        "learned_on_the_same_15_states": {
+          "statistic": 0.7208,
+          "null_mean": 0.7208,
+          "p": 1.0,
+          "edges": 1
+        },
+        "learned_vs_correlation_095": {
+          "difference": 0.5599,
+          "p": null,
+          "note": "not comparable: a graph has 1 link(s) among these states, fewer than 3"
+        },
+        "from_2022": {
+          "test_months": "2022-01 .. 2025-09",
+          "learned": {
+            "statistic": 0.1912,
+            "null_mean": -0.0397,
+            "p": 0.004,
+            "edges": 7
+          },
+          "delinquency_graph": {
+            "statistic": NaN,
+            "null_mean": NaN,
+            "p": 0.0005,
+            "edges": 0
+          },
+          "learned_vs_delinquency_graph": {
+            "difference": null,
+            "p": null,
+            "note": "not comparable: a graph has 0 link(s) among these states, fewer than 3"
+          },
+          "delinquency_graph_note": "19 complete months for 51 states"
+        },
+        "direction": {
+          "links_tested": 3,
+          "forward_stronger": 2,
+          "share": 0.6667,
+          "p": 0.5
+        }
+      },
+      "ex_disaster_ex_forbearance": {
+        "test_months": "2019-01 .. 2025-09",
+        "changes": 65,
+        "learned": {
+          "statistic": 0.1761,
+          "null_mean": -0.0414,
+          "p": 0.0055,
+          "edges": 7
+        },
+        "learned_positive_links": {
+          "statistic": 0.2165,
+          "null_mean": -0.0376,
+          "p": 0.0025,
+          "edges": 6
+        },
+        "same_division": {
+          "statistic": 0.0591,
+          "null_mean": -0.0065,
+          "p": 0.0005,
+          "edges": 135
+        },
+        "learned_vs_division": {
+          "difference": 0.117,
+          "p": 0.0025
+        },
+        "correlation_095_graph_15_states": {
+          "statistic": 0.0896,
+          "null_mean": 0.0033,
+          "p": 0.013,
+          "edges": 41
+        },
+        "learned_on_the_same_15_states": {
+          "statistic": 0.4638,
+          "null_mean": 0.4638,
+          "p": 1.0,
+          "edges": 1
+        },
+        "learned_vs_correlation_095": {
+          "difference": 0.3742,
+          "p": null,
+          "note": "not comparable: a graph has 1 link(s) among these states, fewer than 3"
+        },
+        "from_2022": {
+          "test_months": "2022-01 .. 2025-09",
+          "learned": {
+            "statistic": 0.1912,
+            "null_mean": -0.0392,
+            "p": 0.006,
+            "edges": 7
+          },
+          "delinquency_graph": {
+            "statistic": NaN,
+            "null_mean": NaN,
+            "p": 0.0005,
+            "edges": 0
+          },
+          "learned_vs_delinquency_graph": {
+            "difference": null,
+            "p": null,
+            "note": "not comparable: a graph has 0 link(s) among these states, fewer than 3"
+          },
+          "delinquency_graph_note": "19 complete months for 51 states"
+        },
+        "direction": {
+          "links_tested": 3,
+          "forward_stronger": 1,
+          "share": 0.3333,
+          "p": 0.875
+        }
+      }
+    }
+  },
+  "regional_factors": null,
+  "limitations": [
+    "A lead is predictive precedence in the macro data (one state's past improves the prediction of another's future after every other state's past is accounted for), not cause.",
+    "Learned from state unemployment and house prices, not from delinquency. The delinquency data used to validate it covers 2019-01 to 2025-09: one benign period and one pandemic with forbearance, and the panel holds only the 2017 and later vintages.",
+    "State can stand in for protected characteristics. The graph is for portfolio-level analysis only and must not be used in an individual credit decision.",
+    "Hurricanes and wildfires are regional shocks the macro data cannot see. Freddie Mac flagged COVID hardship as a disaster too, so the series without disaster-flagged delinquencies also leaves out most of 2020.",
+    "The territories are not covered: too few loans and no state-level macro series.",
+    "Leads links are omitted: on the delinquency data the forward lagged correlation did not exceed the reverse more often than chance (validation.summary.leads_direction_supported).",
+    "The graph is sparse: 7 moves-with links, kept at a bound of one expected false link per kind of link and source. Validation compares the mean correlation over linked pairs with the other pairs, which favours a few strong links; beating the Census-division grouping says these links are real, not that the graph partitions the country better. Pairs without a link are not shown to be unrelated.",
+    "1 region(s) of at least 3 states: a regional loss factor needs two or more, so regionCorrelation and regionalShare are absent."
+  ],
+  "artifact_sha256": "8b4e1955175f47f68367d6c92e2e03538042e06f7dd6f5bf317aa36704debc90"
+}

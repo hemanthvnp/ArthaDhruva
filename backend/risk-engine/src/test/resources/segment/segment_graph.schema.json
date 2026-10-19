@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "segment_graph.schema.json",
+  "title": "segment_graph.json",
+  "description": "The learned segment graph (openspec/changes/segment-graph-models, design.md 'The files'). regions, leads, regionCorrelation and regionalShare may be absent; confidence and basis may be absent only in the bootstrap file made from the old correlation graph.",
+  "type": "object",
+  "required": ["schemaVersion", "version", "asOf", "method", "learnedOn", "states", "movesWith"],
+  "additionalProperties": false,
+  "$defs": {
+    "state": { "type": "string", "pattern": "^[A-Z]{2}$" },
+    "month": { "type": "string", "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$" },
+    "source": { "enum": ["unemployment", "hpi", "delinquency"] },
+    "unit": { "type": "number", "minimum": 0, "maximum": 1 },
+    "basis": { "type": "array", "items": { "$ref": "#/$defs/source" }, "minItems": 1, "uniqueItems": true }
+  },
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "version": { "type": "string", "pattern": "^[0-9]{4}\\.[0-9]{2}\\.[0-9]{2}-[0-9]{4}$" },
+    "asOf": { "$ref": "#/$defs/month" },
+    "method": { "type": "string", "minLength": 1 },
+    "learnedOn": {
+      "type": "object",
+      "required": ["from", "to", "sources"],
+      "additionalProperties": false,
+      "properties": {
+        "from": { "$ref": "#/$defs/month" },
+        "to": { "$ref": "#/$defs/month" },
+        "sources": { "type": "array", "items": { "$ref": "#/$defs/source" }, "minItems": 1, "uniqueItems": true }
+      }
+    },
+    "states": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "name", "region", "covered", "leads", "follows"],
+        "additionalProperties": false,
+        "properties": {
+          "code": { "$ref": "#/$defs/state" },
+          "name": { "type": "string", "minLength": 1 },
+          "region": { "type": ["string", "null"] },
+          "covered": { "type": "boolean" },
+          "leads": { "type": "integer", "minimum": 0 },
+          "follows": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "regions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "states", "stability"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^R[0-9]+$" },
+          "label": { "type": "string", "minLength": 1 },
+          "states": { "type": "array", "items": { "$ref": "#/$defs/state" }, "minItems": 3, "uniqueItems": true },
+          "stability": { "$ref": "#/$defs/unit" }
+        }
+      }
+    },
+    "movesWith": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["a", "b", "weight", "sign"],
+        "additionalProperties": false,
+        "properties": {
+          "a": { "$ref": "#/$defs/state" },
+          "b": { "$ref": "#/$defs/state" },
+          "weight": { "type": "number", "minimum": -1, "maximum": 1 },
+          "sign": { "enum": [-1, 1] },
+          "confidence": { "$ref": "#/$defs/unit" },
+          "basis": { "$ref": "#/$defs/basis" }
+        }
+      }
+    },
+    "leads": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["from", "to", "lagMonths", "weight", "sign", "confidence", "basis"],
+        "additionalProperties": false,
+        "properties": {
+          "from": { "$ref": "#/$defs/state" },
+          "to": { "$ref": "#/$defs/state" },
+          "lagMonths": { "type": "integer", "minimum": 1 },
+          "weight": { "type": "number" },
+          "sign": { "enum": [-1, 1] },
+          "confidence": { "$ref": "#/$defs/unit" },
+          "basis": { "$ref": "#/$defs/basis" }
+        }
+      }
+    },
+    "regionCorrelation": {
+      "type": "object",
+      "required": ["regions", "matrix"],
+      "additionalProperties": false,
+      "properties": {
+        "regions": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "matrix": { "type": "array", "items": { "type": "array", "items": { "type": "number", "minimum": -1, "maximum": 1 } } }
+      }
+    },
+    "regionalShare": {
+      "type": "object",
+      "required": ["estimate", "interval", "default"],
+      "additionalProperties": false,
+      "properties": {
+        "estimate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "interval": { "type": "array", "items": { "type": "number", "minimum": 0, "maximum": 1 }, "minItems": 2, "maxItems": 2 },
+        "default": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}
