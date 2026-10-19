@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "segment_graph.schema.json",
   "title": "segment_graph.json",
-  "description": "The learned segment graph (openspec/changes/segment-graph-models, design.md 'The files'). regions, leads, regionCorrelation and regionalShare may be absent; confidence and basis may be absent only in the bootstrap file made from the old correlation graph.",
+  "description": "The learned segment graph (openspec/changes/archive/2026-10-19-segment-graph-models, design.md 'The files'). regions, leads, regionCorrelation and regionalShare may be absent; confidence and basis may be absent only in the bootstrap file made from the old correlation graph.",
   "type": "object",
   "required": ["schemaVersion", "version", "asOf", "method", "learnedOn", "states", "movesWith"],
   "additionalProperties": false,

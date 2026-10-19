@@ -1,4 +1,4 @@
-"""Builds the state delinquency panel for the segment graph (openspec/changes/segment-graph-models, tasks 1.2-1.3).
+"""Builds the state delinquency panel for the segment graph (openspec/changes/archive/2026-10-19-segment-graph-models, tasks 1.2-1.3).
 
 Stage 1, cell counts. The monthly panel has no property state, so each panel part file is joined to its own
 vintage's loan-level file on loan_sequence_number and reduced to counts per state, month, loan-age bucket,

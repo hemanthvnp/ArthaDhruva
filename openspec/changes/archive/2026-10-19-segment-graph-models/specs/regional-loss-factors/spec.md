@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: A regional correlation estimate with its uncertainty
-The system SHALL estimate, for the regions of the learned graph, the correlation between regions and the share of loan-level default risk that a regional factor explains beyond what the survival model already expects. Both SHALL be reported with a bootstrap interval.
+The system SHALL estimate, for the regions of the learned graph, the correlation between regions and the share of loan-level default risk that a regional factor explains beyond what the survival model already expects. The share SHALL be reported with an interval whose coverage has been checked by simulation (a chi-square interval on (regions - 1) x quarters degrees of freedom, net of exact binomial noise); the correlation SHALL be a shrinkage estimate. With fewer than two regions neither SHALL be estimated, and both SHALL be absent from the graph file.
 
 #### Scenario: Estimated on out-of-time experience
 - **WHEN** the estimate is computed
@@ -12,7 +12,7 @@ The system SHALL estimate, for the regions of the learned graph, the correlation
 - **THEN** it is symmetric, has a unit diagonal and is positive semi-definite
 
 #### Scenario: Indistinguishable from zero
-- **WHEN** the bootstrap interval for the regional share includes zero
+- **WHEN** the interval for the regional share includes zero
 - **THEN** the default recorded in the graph file is zero, and the card states that the estimate is not distinguishable from zero
 
 ### Requirement: The estimator recovers what it is asked to measure

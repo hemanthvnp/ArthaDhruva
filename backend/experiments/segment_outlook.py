@@ -1,4 +1,4 @@
-"""Regional outlook backtest (openspec/changes/segment-graph-models, decision 7, tasks 4.2-4.5).
+"""Regional outlook backtest (openspec/changes/archive/2026-10-19-segment-graph-models, decision 7, tasks 4.2-4.5).
 
 The rule (design.md decision 7, confirmed unchanged before this ran except for the series window, which the
 feasibility-gate amendment moved to 2019-01):

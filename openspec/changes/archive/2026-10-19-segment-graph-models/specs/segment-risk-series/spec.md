@@ -31,7 +31,7 @@ The system SHALL provide, for each state, a monthly series of the change in the 
 
 #### Scenario: National movement removed
 - **WHEN** the macro panel is built
-- **THEN** each state's series is the residual of a regression on the national series, and the share of variance explained by the first principal component of the residual panel is recorded
+- **THEN** each state's series is the residual of a regression on the mean of the other states' series, and the share of variance explained by the first principal component of the residual panel is recorded
 
 #### Scenario: A place without its own series
 - **WHEN** a place's published series is missing and was replaced by the national one

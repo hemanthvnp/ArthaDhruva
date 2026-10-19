@@ -1,4 +1,4 @@
-"""Reproduces the baseline numbers in openspec/changes/segment-graph-models/design.md ("Measured on 2 October
+"""Reproduces the baseline numbers in openspec/changes/archive/2026-10-19-segment-graph-models/design.md ("Measured on 2 October
 2026") from the 15-state series behind today's segment graph, and prints each next to the documented value.
 
 The series is data/docs/segment_monthly_series.parquet (15 states x 69 months, 2020-01 .. 2025-09). The

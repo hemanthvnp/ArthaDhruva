@@ -1,4 +1,4 @@
-"""Regional loss factors (openspec/changes/segment-graph-models, group 3, design decision 6): pure functions on
+"""Regional loss factors (openspec/changes/archive/2026-10-19-segment-graph-models, group 3, design decision 6): pure functions on
 region x quarter arrays, so backend/tests/ can check the estimator recovers a known value.
 
 The loss simulation's one-factor copula, extended by a regional factor:

@@ -1,4 +1,4 @@
-"""Out-of-time validation of the segment graph (openspec/changes/segment-graph-models, decision 5, task 2.5).
+"""Out-of-time validation of the segment graph (openspec/changes/archive/2026-10-19-segment-graph-models, decision 5, task 2.5).
 
 The graph is learned on macro data through 2016-12 (export_segment_graph.learn with end=LEARN_END) and tested on
 the standardised delinquency ratio from VALIDATION_START (2019-01, design.md amendment of 2026-10-19):

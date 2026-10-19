@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Links are learned, and carry a weight, a sign, a lag where directed, and a confidence
-The system SHALL learn, from state macro data with the national movement removed, two kinds of link between states: "moves with", a direct same-period association after accounting for all other states, and "leads", where one state's past predicts another's future by a stated number of months. A link SHALL be kept only if it is selected in at least 80% of block-bootstrap resamples.
+The system SHALL learn, from state macro data with the national movement removed, two kinds of link between states: "moves with", a direct same-period association after accounting for all other states, and "leads", where one state's past predicts another's future by a stated number of months. A link SHALL be kept only if it is selected in at least 80% of half-size subsamples of whole 12-month blocks, drawn in complementary pairs, fitted with a penalty that bounds the expected number of false links.
 
 #### Scenario: Moves-with links are direct
 - **WHEN** two states are associated only through a third state, as in a synthetic chain A, B, C
@@ -20,7 +20,7 @@ The system SHALL learn, from state macro data with the national movement removed
 - **THEN** the two graph files are identical byte for byte
 
 ### Requirement: The graph is validated on later data against simple alternatives
-The system SHALL test the graph learned on data through December 2016 against realised delinquency from January 2017, compared with a same-Census-division grouping, the existing 0.95 correlation graph and random graphs with the same degree sequence. The result SHALL be published in the model card whether or not the learned graph wins.
+The system SHALL test the graph learned on data through December 2016 against realised delinquency from January 2019 (the loan panel holds only the 2017 and later vintages), compared with a same-Census-division grouping, the existing 0.95 correlation graph and random graphs with the same degree sequence. The result SHALL be published in the model card whether or not the learned graph wins.
 
 #### Scenario: Linked versus unlinked pairs
 - **WHEN** validation runs
@@ -47,7 +47,7 @@ The system SHALL group states into regions from the learned graph and SHALL coun
 
 #### Scenario: Regions
 - **WHEN** regions are formed from the confident positive moves-with links
-- **THEN** every region has at least 3 states, and the file records for each region how often its members were grouped together across the bootstrap resamples
+- **THEN** every region has at least 3 states, and the file records for each region how often its members were grouped together across the subsamples
 
 #### Scenario: Bellwethers
 - **WHEN** the leads links are known
