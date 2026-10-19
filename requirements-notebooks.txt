@@ -16,3 +16,4 @@ neo4j
 jupyter
 nbconvert
 onnxruntime
+pytest

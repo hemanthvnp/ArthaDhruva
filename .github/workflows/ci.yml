@@ -114,6 +114,24 @@ jobs:
       - name: The wake function passes its unit tests
         run: node --test deploy/azure/wake.test.js
 
+  python-tests:
+    # The numerical code behind the exported models, on synthetic data with known answers. Only the
+    # libraries the tests import; requirements-notebooks.txt pulls in torch and much more.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Install
+        run: pip install polars numpy pandas scipy scikit-learn networkx pytest
+
+      - name: Test
+        working-directory: backend
+        run: python -m pytest tests -q
+
   loadtest:
     # Performance gate: boots the real containerised stack and fails the build if p95 latency or the
     # error rate on the key endpoints regress past the thresholds in loadtest/smoke.js.
