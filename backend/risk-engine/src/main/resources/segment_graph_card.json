@@ -1,7 +1,7 @@
 {
   "model": "segment_graph",
   "version": "2026.08.31-0000",
-  "trained_at": "2026-10-19T12:05:02+00:00",
+  "trained_at": "2026-10-19T14:17:26+00:00",
   "algorithm": "graphical lasso and sparse VAR (lasso on lags), stability selection over half-size block subsamples",
   "hyperparameters": {
     "stability_threshold": 0.8,
@@ -213,8 +213,8 @@
             "edges": 7
           },
           "delinquency_graph": {
-            "statistic": NaN,
-            "null_mean": NaN,
+            "statistic": null,
+            "null_mean": null,
             "p": 0.0005,
             "edges": 0
           },
@@ -283,8 +283,8 @@
             "edges": 7
           },
           "delinquency_graph": {
-            "statistic": NaN,
-            "null_mean": NaN,
+            "statistic": null,
+            "null_mean": null,
             "p": 0.0005,
             "edges": 0
           },
@@ -353,8 +353,8 @@
             "edges": 7
           },
           "delinquency_graph": {
-            "statistic": NaN,
-            "null_mean": NaN,
+            "statistic": null,
+            "null_mean": null,
             "p": 0.0005,
             "edges": 0
           },
@@ -423,8 +423,8 @@
             "edges": 7
           },
           "delinquency_graph": {
-            "statistic": NaN,
-            "null_mean": NaN,
+            "statistic": null,
+            "null_mean": null,
             "p": 0.0005,
             "edges": 0
           },
