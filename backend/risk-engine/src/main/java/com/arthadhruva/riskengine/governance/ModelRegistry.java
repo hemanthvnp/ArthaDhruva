@@ -1,6 +1,7 @@
 package com.arthadhruva.riskengine.governance;
 
 import com.arthadhruva.riskengine.cvar.CvarRequest;
+import com.arthadhruva.riskengine.graph.SegmentGraphArtifact;
 import com.arthadhruva.riskengine.score.ModelService;
 import com.arthadhruva.riskengine.survival.SurvivalModel;
 import io.micrometer.core.instrument.Gauge;
@@ -27,7 +28,7 @@ import java.util.Optional;
  * classpath are hashed and compared, and a mismatch stops the application. A card describing one model
  * while another one answers requests is the failure this exists to make impossible.
  *
- * <p><b>Honest tiers.</b> Only the two models that carry a card with out-of-time validation are listed
+ * <p><b>Honest tiers.</b> Only the models that carry a card with out-of-time validation are listed
  * as validated. The others are in the inventory with their checksum and a plain statement of what is
  * missing, because an inventory that only lists the well-documented models is not an inventory.
  *
@@ -53,7 +54,8 @@ public class ModelRegistry {
     private final Map<String, JsonNode> cards = new LinkedHashMap<>();
     private final JsonNode survivalBacktest;
 
-    public ModelRegistry(ModelService pd, SurvivalModel survival, MeterRegistry meters) throws IOException {
+    public ModelRegistry(ModelService pd, SurvivalModel survival, SegmentGraphArtifact segmentGraph, MeterRegistry meters)
+            throws IOException {
         ObjectMapper mapper = new ObjectMapper();
 
         JsonNode pdCard = mapper.readTree(read("pd_model_card.json"));
@@ -115,6 +117,38 @@ public class ModelRegistry {
                 + "history", 2, true, "unversioned", "lstm_model.onnx", lstmSha, true, null, "LSTM, Platt-calibrated",
                 lstmHeadline, lstmGaps));
         cards.put("trajectory_lstm", lstmCard);
+
+        if (!segmentGraph.sha256().equals(segmentGraph.declaredSha256())) {
+            throw new IllegalStateException(SegmentGraphArtifact.FILE + " does not match the checksum in "
+                    + SegmentGraphArtifact.CARD);
+        }
+        JsonNode graphCard = segmentGraph.card();
+        Map<String, Object> graphHeadline = new LinkedHashMap<>(segmentGraph.validationHeadline());
+        graphHeadline.remove("leadsNote");  // a sentence, and the same text is in the limitations below
+        graphHeadline.values().removeIf(java.util.Objects::isNull);
+        // A bootstrap p of 0 means no resample at or below zero: an upper bound, not zero.
+        java.util.regex.Matcher leading = java.util.regex.Pattern.compile("^(\\d+) ")
+                .matcher(graphCard.get("validation").get("protocol").get("versus").asString());
+        int draws = leading.find() ? Integer.parseInt(leading.group(1)) : 0;
+        if (draws > 0 && Double.valueOf(0.0).equals(graphHeadline.get("pAgainstSameDivision"))) {
+            graphHeadline.put("pAgainstSameDivision", "< " + java.math.BigDecimal.valueOf(1.0 / draws).stripTrailingZeros().toPlainString());
+        }
+        graphHeadline.put("links", segmentGraph.graph().movesWith().size());
+        graphHeadline.put("regions", segmentGraph.graph().regions().size());
+        // What this release does not have, not the general limitations (the card lists those).
+        List<String> graphGaps = new ArrayList<>();
+        graphCard.get("limitations").forEach(l -> {
+            String text = l.asString();
+            if (text.contains("omitted") || text.contains("absent")) {
+                graphGaps.add(text);
+            }
+        });
+        entries.add(new Entry("segment_graph", "Segment graph", "Which states' unemployment and house prices move "
+                + "together beyond the national cycle; portfolio-level analysis only", 2, true, segmentGraph.version(),
+                SegmentGraphArtifact.FILE, segmentGraph.sha256(), true, graphCard.get("trained_at").asString(),
+                graphCard.get("algorithm").asString(), graphHeadline, graphGaps));
+        cards.put("segment_graph", graphCard);
+
         Map<String, Object> copula = new LinkedHashMap<>();
         copula.put("defaultAssetCorrelation", CvarRequest.DEFAULT_ASSET_CORRELATION);
         entries.add(new Entry("portfolio_copula", "Portfolio loss distribution", "Value-at-Risk, expected shortfall and tail "

@@ -74,6 +74,7 @@ import type {
   RecentNoteView,
   RegimeForecast,
   ScoreResponse,
+  SegmentGraph,
   SegmentNeighbor,
   TotpSetupResponse,
   TotpStatusResponse,
@@ -452,7 +453,7 @@ export function listTrajectoryCatalog(): Promise<TrajectoryCatalogEntry[]> {
 }
 
 /** Every state and every correlation edge (each once), in one request. */
-export function segmentGraph(): Promise<{ states: string[]; edges: [string, string][] }> {
+export function segmentGraph(): Promise<SegmentGraph> {
   return request('/segments/graph');
 }
 
