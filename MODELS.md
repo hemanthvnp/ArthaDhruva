@@ -16,6 +16,7 @@ Governance page.
 | Macro regime (`hmm_regime.json`) | Calm / stressed regime and its transition matrix | 1 | No |
 | Portfolio loss distribution | Value at risk, expected shortfall, tail contributions | 1 | No (analytical; see below) |
 | Early warning, delinquency trajectory | Analyst decision support | 2 | No |
+| Segment graph (`segment_graph.json`) | Which states' macro drivers move together; not loaded by the service yet (the page still reads `segment_correlation_graph.json`) | 2 | Yes |
 
 "Validated" means the model ships a card with out-of-time validation. The others are listed with their
 checksum and a plain statement of what is missing, because an inventory that lists only the
@@ -441,6 +442,87 @@ previous model.
   floor occur for every long-dated loan in every scenario, the baseline included, so they do not set the flag.
 - It adds nothing to the model's validation: it relies on the survival model and inherits its limitations.
 
+## Segment graph
+
+Which states' mortgage risk drivers move together, learned instead of cut from a correlation table
+(`openspec/changes/segment-graph-models`; card: `segment_graph_card.json`). The page still serves the old
+graph, one Pearson table over 15 states cut at r >= 0.95, which mostly draws the national cycle: one factor
+explains 89.5% of its series, and its edges are not stable between the two halves of the sample
+(`backend/experiments/segment_baseline.py` reproduces all 18 baseline figures).
+
+### Method
+
+- **Learned from macro data, validated on delinquency.** State unemployment (monthly) and house prices
+  (quarterly), 1995-02 to 2026-08, each state's change regressed on the mean of the other 50 places
+  (`build_macro_panel.py`). That takes the first principal component from 88% to 32% (unemployment) and from 72%
+  to 26% (house prices).
+- **Two kinds of link.** "Moves with": graphical lasso, partial correlations. "Leads": lasso on six monthly or
+  two quarterly lags of every state.
+- **Stability selection.** 200 half-size subsamples of 12-month blocks in complementary pairs; a link is kept if
+  selected in 80% of them. The penalty bounds the expected number of false links at one per kind of link and
+  source; a cross-validated penalty kept a spurious link on a synthetic chain in 94% of resamples.
+  Residuals are winsorised at four standard deviations (April 2020 reaches 16, Katrina 14).
+- **The delinquency series.** For each state and month, observed loans 90+ days past due against the number
+  expected if each loan-age x credit-score x LTV cell were delinquent at the national rate without that state
+  (`build_state_panel.py`, the full panel: 2,264 slices). Only the 2017 and later vintages exist, so the
+  series is usable from 2019-01 (40 of 51 states with 90% of months) to 2025-09.
+
+### Results
+
+The shipped graph has 7 moves-with links (CT-NJ, IN-KY, IN-OH, MA-NH, MD-VA, NC-TN, OR-WA), one region (Indiana,
+Kentucky, Ohio; stability 0.85) and no leads. Validation learns a graph on data through 2016-12 and tests it on
+3-month changes in the delinquency ratio from 2019-01:
+
+| | All months | Without forbearance | Without disaster-flagged | Both |
+|---|---|---|---|---|
+| Linked minus unlinked correlation | 0.32 | 0.26 | 0.23 | 0.18 |
+| p against 2,000 degree-preserving rewirings | 0.0005 | 0.0005 | 0.003 | 0.0055 |
+| Learned minus same-Census-division grouping | 0.21 | 0.22 | 0.15 | 0.12 |
+| p (moving-block bootstrap) | < 0.001 | < 0.001 | 0.0025 | 0.0025 |
+
+The links are real: pairs the 2016 graph links moved together in delinquency two to nine years later, more
+than random graphs with the same degrees and more than states in the same division. That favours a few
+strong links over a grouping of 135 pairs, so it does not show the graph is a better partition of the country,
+and pairs without a link are not shown to be unrelated.
+
+### What was tried and rejected
+
+- **Leads.** Three survived stability selection; on the delinquency data the forward lagged correlation beat
+  the reverse for two of three (binomial p = 0.50). They are left out of the file.
+- **Comparisons that could not be made.** Against the old 0.95 graph only one learned link falls among its 15
+  states, and a graph learned the same way from the delinquency series (19 complete months for 51 states)
+  has no links at all. Both are reported as not comparable rather than won.
+- **Regional loss factors.** A regional factor for the loss simulation needs at least two regions; the graph
+  has one, so `regionCorrelation` and `regionalShare` are absent. The estimator itself
+  (`segment_regional.py`) passed its recovery test: on portfolios simulated at the real data's size, the
+  known regional share is inside its 95% interval in 89-94% of simulations. A block bootstrap interval,
+  which the design first named, covered it in only 82-88%.
+- **A three-month outlook.** `backend/experiments/segment_outlook.py`, under a rule fixed before the backtest
+  (design decision 7), 55 monthly origins from 2021-01. No candidate beat the no-change forecast or an
+  autoregression; graph features did not help either model; the same holds without forbearance. No forecast
+  ships.
+
+  | Model | RMSE | Rank IC | p vs no change |
+  |---|---|---|---|
+  | No change | 0.0622 | 0.00 | |
+  | Autoregression | 0.0626 | 0.17 | |
+  | Ridge, state effects | 0.0674 | 0.00 | 1.00 |
+  | Ridge with graph | 0.0675 | 0.01 | 1.00 |
+  | LightGBM | 0.0712 | 0.18 | 0.97 |
+  | LightGBM with graph | 0.0712 | 0.20 | 0.97 |
+
+  Split-conformal 80% intervals from earlier origins' errors covered 78-81% of outcomes for every model.
+
+### Known limitations
+
+- A lead would be predictive precedence in macro data, not cause; none ship.
+- The delinquency data covers 2019 to 2025: one benign period and one pandemic with forbearance. Freddie Mac
+  flagged COVID hardship as a disaster, so the series without disaster-flagged delinquencies also leaves out
+  most of 2020.
+- State can stand in for protected characteristics: portfolio-level analysis only, never an individual
+  credit decision.
+- The territories are not covered (too few loans, no state macro series).
+
 ## Time-series and sequence diagnostics
 
 **Seasonality.** `backend/experiments/sarimax_seasonality.py` tests the portfolio 90+ delinquency series
@@ -491,6 +573,9 @@ python export_survival_model.py    # survival model, card, backtest, macro snaps
 python export_model.py             # PD model, calibration, card, drift reference
 python golden_term_structure.py    # reference outputs for the Java golden test
 python golden_rough_set.py         # reference for the region layer (needs no model artifact)
+python build_state_panel.py        # segment graph: state delinquency ratio (resumable, a few minutes)
+python build_macro_panel.py        # segment graph: macro panel
+python export_segment_graph.py     # segment graph, its validation and card (about 30 minutes)
 ```
 
 Exports are reproducible bit for bit: LightGBM runs with `deterministic=True, force_row_wise=True` on

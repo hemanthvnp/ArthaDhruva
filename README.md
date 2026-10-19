@@ -175,6 +175,10 @@ python build_survival_dataset.py      # the sample and its loan-month rows
 python export_survival_model.py       # survival model, model card, backtests
 python export_model.py                # PD model, calibration, model card, drift reference
 python golden_term_structure.py       # reference outputs for the Java golden test
+python build_state_panel.py           # segment graph: state delinquency ratio from the full panel (resumable)
+python build_macro_panel.py           # segment graph: state macro panel, national movement removed
+python export_segment_graph.py        # segment graph and card, validated out of time (about 30 minutes)
+python export_regional_factors.py     # regional loss factors (needs two or more regions in the graph)
 ```
 
 The model artifacts the service needs are committed under
