@@ -13,3 +13,7 @@ Dockerfile text eol=lf
 # Files without an extension that Linux containers read
 Caddyfile text eol=lf
 .env.example text eol=lf
+
+# Checksummed text artifacts: the model card declares the sha256 of the LF bytes, and the service refuses
+# to start on a mismatch, so a Windows checkout must not convert them to CRLF
+backend/risk-engine/src/main/resources/segment_graph.json text eol=lf
