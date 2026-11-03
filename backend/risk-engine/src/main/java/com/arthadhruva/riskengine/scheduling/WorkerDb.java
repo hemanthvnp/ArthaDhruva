@@ -23,7 +23,8 @@ public class WorkerDb implements DisposableBean {
     WorkerDb(@Value("${spring.datasource.url}") String url,
              @Value("${webhook.worker.db-user}") String user,
              @Value("${webhook.worker.db-password}") String password,
-             @Value("${webhook.worker.concurrency:4}") int deliveries) {
+             @Value("${webhook.worker.concurrency:4}") int deliveries,
+             @Value("${db.session-options:}") String sessionOptions) {
         HikariConfig config = new HikariConfig();
         config.setJdbcUrl(url);
         config.setUsername(user);
@@ -32,6 +33,9 @@ public class WorkerDb implements DisposableBean {
         config.setMaximumPoolSize(Math.max(1, deliveries) + 2);
         config.setMinimumIdle(0);
         config.setPoolName("worker");
+        if (!sessionOptions.isBlank()) {
+            config.addDataSourceProperty("options", sessionOptions);   // the same server-side timeouts as the app's pool
+        }
         config.setInitializationFailTimeout(-1); // don't block app startup if the DB isn't reachable yet
         this.pool = new HikariDataSource(config);
         this.jdbc = new JdbcTemplate(pool);

@@ -154,6 +154,14 @@ index on undelivered rows), primary-key lookups.
   and ~20 ms that is ~4, so `maximum-pool-size=10` per replica leaves headroom while N replicas x 10
   stays well under Postgres' 100 connections. Tomcat threads are capped at 60 (`TOMCAT_MAX_THREADS`)
   so overload queues briefly and then fails fast instead of piling up threads on a 10-connection pool.
+- **Server-side limits on every connection:** `statement_timeout` 30 s (`DB_STATEMENT_TIMEOUT`),
+  `lock_timeout` 5 s (`DB_LOCK_TIMEOUT`) and `idle_in_transaction_session_timeout` 60 s
+  (`DB_IDLE_IN_TRANSACTION_TIMEOUT`), on both the app's pool and the worker pool, sent as connection
+  startup options so a `RESET` returns to them. Without them one runaway query, one wait on a row lock
+  or one transaction left open holds a connection out of ten for as long as it lasts. A statement or
+  lock timeout is answered with 503 and `Retry-After: 2`, counted as `db_timeouts_total{kind}`, and
+  more than five in ten minutes raises `DatabaseStatementTimeouts`. Flyway migrates on its own
+  connection and is not bound by them.
 - **Footprint:** a backend replica idles at ~485 MiB of its 1 GiB limit; Postgres ~100 MiB, Redis ~5
   MiB, Neo4j ~385 MiB. The whole stack fits in ~2.5 GiB. Everything runs under CPU and memory limits
   so it cannot starve its neighbours.
