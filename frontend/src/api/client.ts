@@ -41,6 +41,8 @@ import type {
   ScenarioComparison,
   SessionRotated,
   SurvivalBacktest,
+  RealizedOverview,
+  RealizedReport,
   TermStructureResponse,
   UsageView,
   WeightedPortfolio,
@@ -404,6 +406,16 @@ export function modelCard<T extends ModelCard = ModelCard>(id: string): Promise<
 
 export function survivalBacktest(): Promise<SurvivalBacktest> {
   return request('/models/survival/backtest');
+}
+
+/** The counts and the latest comparison of the PD model's stored scores with the outcomes recorded for the loans. */
+export function realizedOutcomes(): Promise<RealizedOverview> {
+  return request('/models/pd_24m/realized');
+}
+
+/** Queues a comparison now (administrators); it runs on a compute thread and the answer is polled with {@link realizedOutcomes}. */
+export function runRealizedComparison(): Promise<RealizedReport> {
+  return request('/admin/models/pd_24m/realized', { method: 'POST' });
 }
 
 export function pdDrift(): Promise<DriftReport> {

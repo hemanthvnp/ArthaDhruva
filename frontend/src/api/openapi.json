@@ -548,6 +548,53 @@
         "tags" : [ "login-attempt-controller" ]
       }
     },
+    "/v1/admin/models/pd_24m/realized" : {
+      "post" : {
+        "operationId" : "run",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReportView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "realized-outcome-controller" ]
+      }
+    },
+    "/v1/admin/outcomes" : {
+      "post" : {
+        "operationId" : "record",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OutcomeBatch"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "realized-outcome-controller" ]
+      }
+    },
     "/v1/admin/portfolio" : {
       "delete" : {
         "operationId" : "clear",
@@ -2065,6 +2112,24 @@
         "tags" : [ "model-governance-controller" ]
       }
     },
+    "/v1/models/pd_24m/realized" : {
+      "get" : {
+        "operationId" : "overview",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Overview"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "realized-outcome-controller" ]
+      }
+    },
     "/v1/models/survival/backtest" : {
       "get" : {
         "operationId" : "survivalBacktest",
@@ -2928,7 +2993,7 @@
     },
     "/v1/risk/portfolio/runs/{id}" : {
       "get" : {
-        "operationId" : "run",
+        "operationId" : "run_1",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -5687,6 +5752,55 @@
           }
         }
       },
+      "OutcomeBatch" : {
+        "type" : "object",
+        "properties" : {
+          "outcomes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OutcomeRequest"
+            },
+            "maxItems" : 5000,
+            "minItems" : 0
+          }
+        },
+        "required" : [ "outcomes" ]
+      },
+      "OutcomeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "loanId" : {
+            "type" : "string",
+            "maxLength" : 255,
+            "minLength" : 0
+          },
+          "observedOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "outcome" : {
+            "type" : "string",
+            "enum" : [ "DEFAULTED", "PREPAID", "ACTIVE" ]
+          }
+        },
+        "required" : [ "loanId", "observedOn", "outcome" ]
+      },
+      "Overview" : {
+        "type" : "object",
+        "properties" : {
+          "latest" : {
+            "$ref" : "#/components/schemas/ReportView"
+          },
+          "recorded" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "scored" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
       "PageResultDeliveryView" : {
         "type" : "object",
         "properties" : {
@@ -5868,6 +5982,43 @@
             "items" : {
               "type" : "string"
             }
+          }
+        }
+      },
+      "ReportView" : {
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "error" : {
+            "type" : "string"
+          },
+          "finishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "horizonMonths" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "report" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          },
+          "requestedBy" : {
+            "type" : "string"
+          },
+          "startedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "status" : {
+            "type" : "string"
           }
         }
       },

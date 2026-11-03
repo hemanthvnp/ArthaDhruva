@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { listModels, modelCard, pdDrift, survivalBacktest, survivalDrift } from '../api/client';
 import ErrorBanner from '../components/ErrorBanner';
+import RealizedOutcomes from '../components/RealizedOutcomes';
 import { AXIS, GRID, LEGEND, TOOLTIP, yearOf, yearTicks } from '../components/chartTheme';
 import { count, dateTime, monthLabel, pct } from '../format';
 import { featureLabel } from '../labels';
@@ -591,6 +592,7 @@ export default function ModelGovernancePage() {
       {selected === 'survival' && <MacroDrift />}
       {selected === 'pd_24m' && card.data && <PdEvidence card={card.data as PdCard} />}
       {selected === 'pd_24m' && <Drift />}
+      {selected === 'pd_24m' && <RealizedOutcomes />}
     </div>
   );
 }

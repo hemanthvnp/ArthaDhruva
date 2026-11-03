@@ -1328,3 +1328,53 @@ export interface BorrowerSegment {
   definingTraits: { feature: string; direction: string; zScore: number }[];
   averages: Record<string, number>;
 }
+
+// ---- stored scores against realized outcomes ------------------------------------------------
+
+export interface RealizedDecile {
+  decile: number;
+  loans: number;
+  predicted: number;
+  realized: number;
+}
+
+/** The body of a finished comparison of the PD model's stored scores with the outcomes an organization recorded. */
+export interface RealizedReportBody {
+  asOf: string;
+  /** the thread that did the arithmetic: a compute thread, never the request or scheduler thread */
+  computedOn: string;
+  horizonMonths: number;
+  loansScored: number;
+  outcomesRecorded: number;
+  matchedToAScore: number;
+  resolved: number;
+  defaults: number;
+  unresolvedDefaultedOrPrepaidBeforeScored: number;
+  unresolvedNotObservedThroughHorizon: number;
+  meanPredicted: number;
+  realizedRate: number;
+  predictedOverRealized: number | null;
+  auc: number | null;
+  deciles: RealizedDecile[];
+  note: string | null;
+  method: string;
+  caveat: string;
+}
+
+export interface RealizedReport {
+  id: string;
+  status: 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+  requestedBy: string;
+  horizonMonths: number;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  error: string | null;
+  report: RealizedReportBody | null;
+}
+
+export interface RealizedOverview {
+  scored: number;
+  recorded: number;
+  latest: RealizedReport | null;
+}
