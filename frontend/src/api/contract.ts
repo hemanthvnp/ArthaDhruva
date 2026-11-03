@@ -64,6 +64,9 @@ export type ApiContract = [
   // Named differently on the two sides.
   Expect<FieldsExistOnServer<Schema['Run'], T.PortfolioRun>>,
   Expect<FieldsExistOnServer<Schema['DeliveryView'], T.WebhookDelivery>>,
+  Expect<FieldsExistOnServer<Schema['Intervals'], T.Intervals>>,
+  Expect<FieldsExistOnServer<Schema['Interval'], T.Interval>>,
+  Expect<FieldsExistOnServer<Schema['DelinquencyHistory'], T.DelinquencyHistory>>,
   Expect<FieldsExistOnServer<Schema['Contact'], T.BorrowerContact>>,
   Expect<FieldsExistOnServer<Schema['ContactSetting'], T.BorrowerContactSetting>>,
   Expect<FieldsExistOnServer<Schema['Answer'], T.BorrowerAssistantAnswer>>,

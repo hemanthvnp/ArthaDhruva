@@ -335,7 +335,9 @@ export function termStructure(input: LifetimeRiskInput, scenario: string): Promi
 
 /** The same loan under every built-in scenario, in one call. */
 export function compareScenarios(input: LifetimeRiskInput): Promise<ScenarioComparison> {
-  return request('/risk/term-structure/compare', { method: 'POST', body: JSON.stringify(input) });
+  // the scenario comparison runs the existing engine: the delinquency fields belong to the single-scenario projection
+  const { delinquency: _history, intervals: _intervals, ...rest } = input;
+  return request('/risk/term-structure/compare', { method: 'POST', body: JSON.stringify(rest) });
 }
 
 // ---- portfolio risk --------------------------------------------------------------------------

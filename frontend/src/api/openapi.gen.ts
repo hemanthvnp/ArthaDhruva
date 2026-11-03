@@ -1993,6 +1993,15 @@ export interface components {
             /** Format: double */
             tolerance?: number;
         };
+        DelinquencyHistory: {
+            /** Format: int32 */
+            episodes30Plus?: number;
+            maxStatus12m?: string;
+            /** Format: int32 */
+            monthsObserved?: number;
+            /** Format: int32 */
+            monthsSinceCure?: number;
+        };
         DeliveryView: {
             /** Format: int32 */
             attempts?: number;
@@ -2211,6 +2220,37 @@ export interface components {
                 [key: string]: unknown;
             };
             version?: string;
+        };
+        Interval: {
+            /** Format: double */
+            lower?: number;
+            /** Format: double */
+            point?: number;
+            /** Format: double */
+            upper?: number;
+        };
+        IntervalRequest: {
+            /** Format: int32 */
+            draws?: number;
+        };
+        Intervals: {
+            /** Format: int32 */
+            bandHorizon?: number;
+            /** Format: double */
+            bandSigma?: number;
+            bandSource?: string;
+            /** Format: int32 */
+            bandVintages?: number;
+            capApplied?: boolean;
+            /** Format: int32 */
+            draws?: number;
+            ecl12m?: components["schemas"]["Interval"];
+            eclLifetime?: components["schemas"]["Interval"];
+            method?: string;
+            pd12m?: components["schemas"]["Interval"];
+            pdLifetime?: components["schemas"]["Interval"];
+            reason?: string;
+            resampled?: string;
         };
         JsonNode: {
             array?: boolean;
@@ -2768,6 +2808,8 @@ export interface components {
             /** Format: int32 */
             daysPastDue?: number;
             decision?: components["schemas"]["DecisionOptions"];
+            delinquency?: components["schemas"]["DelinquencyHistory"];
+            intervals?: components["schemas"]["IntervalRequest"];
             loan: components["schemas"]["LoanFeatures"];
             /** Format: int32 */
             months?: number;
@@ -2779,6 +2821,9 @@ export interface components {
         };
         TermStructureResponse: {
             decision?: components["schemas"]["Decision"];
+            fallbackReason?: string;
+            intervals?: components["schemas"]["Intervals"];
+            modelUsed?: string;
             termStructure?: components["schemas"]["TermStructure"];
             warnings?: string[];
         };
