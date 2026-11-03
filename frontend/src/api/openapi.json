@@ -1,0 +1,6559 @@
+{
+  "openapi" : "3.1.0",
+  "info" : {
+    "title" : "OpenAPI definition",
+    "version" : "v0"
+  },
+  "paths" : {
+    "/v1/access-requests" : {
+      "post" : {
+        "operationId" : "submit",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SubmitAccessRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "access-request-controller" ]
+      }
+    },
+    "/v1/account/2fa/confirm" : {
+      "post" : {
+        "operationId" : "confirm",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TotpCodeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "account-controller" ]
+      }
+    },
+    "/v1/account/2fa/disable" : {
+      "post" : {
+        "operationId" : "disable",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TotpCodeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "account-controller" ]
+      }
+    },
+    "/v1/account/2fa/setup" : {
+      "post" : {
+        "operationId" : "setup",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "account-controller" ]
+      }
+    },
+    "/v1/account/2fa/status" : {
+      "get" : {
+        "operationId" : "status_1",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "account-controller" ]
+      }
+    },
+    "/v1/account/logout" : {
+      "post" : {
+        "operationId" : "logout",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "account-controller" ]
+      }
+    },
+    "/v1/account/password" : {
+      "post" : {
+        "operationId" : "changePassword",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "account-controller" ]
+      }
+    },
+    "/v1/account/session/refresh" : {
+      "post" : {
+        "operationId" : "refresh",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "account-controller" ]
+      }
+    },
+    "/v1/activate" : {
+      "post" : {
+        "operationId" : "activate_1",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ActivateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "activation-controller" ]
+      }
+    },
+    "/v1/admin/api-keys" : {
+      "get" : {
+        "operationId" : "list_4",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/KeyView"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "api-key-controller" ]
+      },
+      "post" : {
+        "operationId" : "create_1",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Created"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "api-key-controller" ]
+      }
+    },
+    "/v1/admin/api-keys/{id}" : {
+      "delete" : {
+        "operationId" : "revoke",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "api-key-controller" ]
+      }
+    },
+    "/v1/admin/audit-log" : {
+      "get" : {
+        "operationId" : "recent_1",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/ModelInvocationEvent"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "audit-log-controller" ]
+      }
+    },
+    "/v1/admin/automation-rules" : {
+      "get" : {
+        "operationId" : "list_3",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/RuleView"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "automation-rule-controller" ]
+      },
+      "post" : {
+        "operationId" : "create",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateRuleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "automation-rule-controller" ]
+      }
+    },
+    "/v1/admin/automation-rules/{id}" : {
+      "delete" : {
+        "operationId" : "delete_2",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "automation-rule-controller" ]
+      }
+    },
+    "/v1/admin/automation-rules/{id}/enabled" : {
+      "post" : {
+        "operationId" : "setEnabled",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "in" : "query",
+          "name" : "value",
+          "required" : true,
+          "schema" : {
+            "type" : "boolean"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "automation-rule-controller" ]
+      }
+    },
+    "/v1/admin/borrower-contact" : {
+      "delete" : {
+        "operationId" : "delete",
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "borrower-contact-controller" ]
+      },
+      "get" : {
+        "operationId" : "get_2",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ContactSetting"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "borrower-contact-controller" ]
+      },
+      "put" : {
+        "operationId" : "put_1",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ContactRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Contact"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "borrower-contact-controller" ]
+      }
+    },
+    "/v1/admin/loans/{loanId}/attachments/{attachmentId}" : {
+      "delete" : {
+        "operationId" : "delete_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "loanId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "attachmentId",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "loan-attachment-controller" ]
+      }
+    },
+    "/v1/admin/login-attempts" : {
+      "get" : {
+        "operationId" : "recent",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/LoginAttempt"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "login-attempt-controller" ]
+      }
+    },
+    "/v1/admin/portfolio" : {
+      "delete" : {
+        "operationId" : "clear",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "portfolio-controller" ]
+      },
+      "get" : {
+        "operationId" : "status",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "portfolio-controller" ]
+      },
+      "post" : {
+        "operationId" : "adminUpload",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BatchRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "portfolio-controller" ]
+      }
+    },
+    "/v1/admin/sso" : {
+      "get" : {
+        "operationId" : "getConfig",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "sso-controller" ]
+      },
+      "put" : {
+        "operationId" : "putConfig",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ConfigRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "sso-controller" ]
+      }
+    },
+    "/v1/admin/usage" : {
+      "get" : {
+        "operationId" : "current",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "usage-controller" ]
+      }
+    },
+    "/v1/admin/users" : {
+      "get" : {
+        "operationId" : "listUsers",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 100
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/UserSummary"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "admin-user-controller" ]
+      },
+      "post" : {
+        "operationId" : "createUser",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateUserRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "admin-user-controller" ]
+      }
+    },
+    "/v1/admin/users/{username}/activate" : {
+      "post" : {
+        "operationId" : "activate",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "username",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "admin-user-controller" ]
+      }
+    },
+    "/v1/admin/users/{username}/deactivate" : {
+      "post" : {
+        "operationId" : "deactivate",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "username",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "admin-user-controller" ]
+      }
+    },
+    "/v1/admin/users/{username}/loans" : {
+      "post" : {
+        "operationId" : "addLoan",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "username",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AddLoanRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "admin-user-controller" ]
+      }
+    },
+    "/v1/admin/users/{username}/reset-2fa" : {
+      "post" : {
+        "operationId" : "resetTotp",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "username",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "admin-user-controller" ]
+      }
+    },
+    "/v1/admin/users/{username}/reset-password" : {
+      "post" : {
+        "operationId" : "resetPassword",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "username",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ResetPasswordRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "admin-user-controller" ]
+      }
+    },
+    "/v1/admin/webhooks" : {
+      "get" : {
+        "operationId" : "list_2",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/SubscriptionView"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "webhook-controller" ]
+      },
+      "post" : {
+        "operationId" : "subscribe",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SubscribeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "webhook-controller" ]
+      }
+    },
+    "/v1/admin/webhooks/deliveries" : {
+      "get" : {
+        "operationId" : "deliveries",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 25
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResultDeliveryView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "webhook-controller" ]
+      }
+    },
+    "/v1/admin/webhooks/{id}" : {
+      "delete" : {
+        "operationId" : "unsubscribe",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "webhook-controller" ]
+      }
+    },
+    "/v1/assistant/chat" : {
+      "post" : {
+        "operationId" : "chat",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ChatRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ChatResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "assistant-controller" ]
+      }
+    },
+    "/v1/attachment-downloads" : {
+      "get" : {
+        "operationId" : "redeem",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "token",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "loan-attachment-controller" ]
+      }
+    },
+    "/v1/cvar" : {
+      "post" : {
+        "operationId" : "simulate",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CvarRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CvarResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "cvar-controller" ]
+      }
+    },
+    "/v1/dashboard/config" : {
+      "get" : {
+        "operationId" : "get_1",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "dashboard-controller" ]
+      },
+      "put" : {
+        "operationId" : "put",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Config"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "dashboard-controller" ]
+      }
+    },
+    "/v1/early-warning-loans" : {
+      "get" : {
+        "operationId" : "loans_3",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/EarlyWarningCatalogEntry"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "early-warning-catalog-controller" ]
+      }
+    },
+    "/v1/early-warning-score" : {
+      "post" : {
+        "operationId" : "score_2",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/EarlyWarningFeatures"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EarlyWarningResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "early-warning-controller" ]
+      }
+    },
+    "/v1/expected-loss" : {
+      "post" : {
+        "operationId" : "expectedLoss",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LoanFeatures"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ExpectedLossResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "expected-loss-controller" ]
+      }
+    },
+    "/v1/ingest/loans" : {
+      "post" : {
+        "operationId" : "ingest",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BatchRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "portfolio-controller" ]
+      }
+    },
+    "/v1/insights/borrower-segments" : {
+      "get" : {
+        "operationId" : "borrowerSegments",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "refresh",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "insight-controller" ]
+      }
+    },
+    "/v1/insights/note-topics" : {
+      "get" : {
+        "operationId" : "noteTopics",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "refresh",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "insight-controller" ]
+      }
+    },
+    "/v1/loan-cases" : {
+      "get" : {
+        "operationId" : "allCases",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/LoanCaseSummary"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "loan-case-controller" ]
+      }
+    },
+    "/v1/loan-cases/bulk" : {
+      "post" : {
+        "operationId" : "bulkUpdate",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BulkUpdateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/BulkItemResult"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "loan-case-controller" ]
+      }
+    },
+    "/v1/loan-cases/export" : {
+      "get" : {
+        "operationId" : "exportCases",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/StreamingResponseBody"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "loan-case-controller" ]
+      }
+    },
+    "/v1/loan-cases/search" : {
+      "get" : {
+        "operationId" : "searchCases",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "NEW", "REVIEWED", "ESCALATED", "CLEARED" ]
+          }
+        }, {
+          "in" : "query",
+          "name" : "flagged",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        }, {
+          "in" : "query",
+          "name" : "assignedTo",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "state",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "updatedFrom",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "in" : "query",
+          "name" : "updatedTo",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 25
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResultLoanCaseSummary"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "loan-case-controller" ]
+      }
+    },
+    "/v1/loan-notes/recent" : {
+      "get" : {
+        "operationId" : "recentNotes",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/RecentNoteView"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "loan-case-controller" ]
+      }
+    },
+    "/v1/loan-notes/search" : {
+      "get" : {
+        "operationId" : "searchNotes",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "q",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "author",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "loanId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "from",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "in" : "query",
+          "name" : "to",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 25
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResultRecentNoteView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "loan-case-controller" ]
+      }
+    },
+    "/v1/loan-scores" : {
+      "get" : {
+        "operationId" : "loanScores",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/LoanScoreSummary"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "score-controller" ]
+      }
+    },
+    "/v1/loan-scores/export" : {
+      "get" : {
+        "operationId" : "exportLoanScores",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/StreamingResponseBody"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "score-controller" ]
+      }
+    },
+    "/v1/loans" : {
+      "get" : {
+        "operationId" : "loans_2",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "q",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          }
+        }, {
+          "in" : "query",
+          "name" : "state",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "maxLength" : 8,
+            "minLength" : 0
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 500,
+            "maximum" : 2000,
+            "minimum" : 1
+          }
+        }, {
+          "in" : "query",
+          "name" : "offset",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/LoanFeatures"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "loan-catalog-controller" ]
+      }
+    },
+    "/v1/loans/{loanId}" : {
+      "get" : {
+        "operationId" : "loan",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "loanId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LoanFeatures"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "loan-catalog-controller" ]
+      }
+    },
+    "/v1/loans/{loanId}/attachments" : {
+      "get" : {
+        "operationId" : "list_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "loanId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/AttachmentView"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "loan-attachment-controller" ]
+      },
+      "post" : {
+        "operationId" : "upload_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "loanId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "properties" : {
+                  "file" : {
+                    "type" : "string",
+                    "format" : "binary"
+                  }
+                },
+                "required" : [ "file" ]
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "loan-attachment-controller" ]
+      }
+    },
+    "/v1/loans/{loanId}/attachments/{attachmentId}/download" : {
+      "get" : {
+        "operationId" : "download_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "loanId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "attachmentId",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "loan-attachment-controller" ]
+      }
+    },
+    "/v1/loans/{loanId}/attachments/{attachmentId}/download-link" : {
+      "post" : {
+        "operationId" : "downloadLink",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "loanId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "attachmentId",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "loan-attachment-controller" ]
+      }
+    },
+    "/v1/loans/{loanId}/case" : {
+      "get" : {
+        "operationId" : "getCase",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "loanId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LoanCaseView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "loan-case-controller" ]
+      },
+      "post" : {
+        "operationId" : "updateCase",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "loanId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "If-Match",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateCaseRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "loan-case-controller" ]
+      }
+    },
+    "/v1/loans/{loanId}/case/history" : {
+      "get" : {
+        "operationId" : "history_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "loanId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 100
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/CaseEventView"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "loan-case-controller" ]
+      }
+    },
+    "/v1/loans/{loanId}/clients" : {
+      "get" : {
+        "operationId" : "clientsFor",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "loanId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "type" : "string"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "loan-ownership-controller" ]
+      }
+    },
+    "/v1/loans/{loanId}/notes" : {
+      "post" : {
+        "operationId" : "addNote",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "loanId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AddNoteRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "loan-case-controller" ]
+      }
+    },
+    "/v1/login" : {
+      "post" : {
+        "operationId" : "login",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "auth-controller" ]
+      }
+    },
+    "/v1/models" : {
+      "get" : {
+        "operationId" : "inventory",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/Entry"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "model-governance-controller" ]
+      }
+    },
+    "/v1/models/pd_24m/drift" : {
+      "get" : {
+        "operationId" : "drift",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DriftReport"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "model-governance-controller" ]
+      }
+    },
+    "/v1/models/survival/backtest" : {
+      "get" : {
+        "operationId" : "survivalBacktest",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JsonNode"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "model-governance-controller" ]
+      }
+    },
+    "/v1/models/survival/drift" : {
+      "get" : {
+        "operationId" : "survivalDrift",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MacroDriftReport"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "model-governance-controller" ]
+      }
+    },
+    "/v1/models/{id}" : {
+      "get" : {
+        "operationId" : "card",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JsonNode"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "model-governance-controller" ]
+      }
+    },
+    "/v1/my/assistant" : {
+      "post" : {
+        "operationId" : "ask",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AskRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Answer"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "borrower-assistant-controller" ]
+      }
+    },
+    "/v1/my/loans" : {
+      "get" : {
+        "operationId" : "myLoans",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/MyLoanView"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "my-loans-controller" ]
+      }
+    },
+    "/v1/my/loans/{loanId}/documents" : {
+      "get" : {
+        "operationId" : "list",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "loanId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "borrower-documents-controller" ]
+      },
+      "post" : {
+        "operationId" : "upload",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "loanId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "properties" : {
+                  "file" : {
+                    "type" : "string",
+                    "format" : "binary"
+                  }
+                },
+                "required" : [ "file" ]
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "borrower-documents-controller" ]
+      }
+    },
+    "/v1/my/loans/{loanId}/documents/{documentId}/download" : {
+      "get" : {
+        "operationId" : "download",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "loanId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "documentId",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "borrower-documents-controller" ]
+      }
+    },
+    "/v1/notification-preferences" : {
+      "get" : {
+        "operationId" : "get",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "string",
+                    "enum" : [ "INSTANT", "DIGEST", "OFF" ]
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "notification-preference-controller" ]
+      },
+      "put" : {
+        "operationId" : "set",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SetPreference"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "notification-preference-controller" ]
+      }
+    },
+    "/v1/notifications" : {
+      "get" : {
+        "operationId" : "list_6",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/NotificationView"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "notification-controller" ]
+      }
+    },
+    "/v1/notifications/unread-count" : {
+      "get" : {
+        "operationId" : "unreadCount",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "integer",
+                    "format" : "int64"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "notification-controller" ]
+      }
+    },
+    "/v1/notifications/{id}/read" : {
+      "post" : {
+        "operationId" : "markRead",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "string"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "notification-controller" ]
+      }
+    },
+    "/v1/password-reset/complete" : {
+      "post" : {
+        "operationId" : "complete",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ResetComplete"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "password-reset-controller" ]
+      }
+    },
+    "/v1/password-reset/request" : {
+      "post" : {
+        "operationId" : "request",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ResetRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "password-reset-controller" ]
+      }
+    },
+    "/v1/platform/access-requests" : {
+      "get" : {
+        "operationId" : "listAccessRequests",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "PENDING", "APPROVED", "DECLINED" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/AccessRequestView"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "platform-controller" ]
+      }
+    },
+    "/v1/platform/access-requests/{id}/approve" : {
+      "post" : {
+        "operationId" : "approve",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ApproveAccessRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "platform-controller" ]
+      }
+    },
+    "/v1/platform/access-requests/{id}/decline" : {
+      "post" : {
+        "operationId" : "decline",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "platform-controller" ]
+      }
+    },
+    "/v1/platform/organizations" : {
+      "get" : {
+        "operationId" : "list_5",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/OrgView"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "platform-controller" ]
+      }
+    },
+    "/v1/platform/organizations/{id}/plan" : {
+      "post" : {
+        "operationId" : "changePlan",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "in" : "query",
+          "name" : "code",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "platform-controller" ]
+      }
+    },
+    "/v1/platform/organizations/{id}/reactivate" : {
+      "post" : {
+        "operationId" : "reactivate",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "platform-controller" ]
+      }
+    },
+    "/v1/platform/organizations/{id}/suspend" : {
+      "post" : {
+        "operationId" : "suspend",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "platform-controller" ]
+      }
+    },
+    "/v1/platform/sandboxes" : {
+      "post" : {
+        "operationId" : "createSandbox",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateSandboxRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "platform-controller" ]
+      }
+    },
+    "/v1/regime-forecast" : {
+      "get" : {
+        "operationId" : "forecast",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "monthsAhead",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 6,
+            "maximum" : 120,
+            "minimum" : 0
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RegimeForecast"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "regime-forecast-controller" ]
+      }
+    },
+    "/v1/risk/portfolio" : {
+      "get" : {
+        "operationId" : "portfolio",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PortfolioView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "portfolio-risk-controller" ]
+      }
+    },
+    "/v1/risk/portfolio/history" : {
+      "get" : {
+        "operationId" : "history",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "scenario",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "BASELINE",
+            "maxLength" : 30,
+            "minLength" : 0
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 36,
+            "maximum" : 240,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/Snapshot"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "portfolio-risk-controller" ]
+      }
+    },
+    "/v1/risk/portfolio/loans" : {
+      "get" : {
+        "operationId" : "loans_1",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "stage",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 3,
+            "minimum" : 1
+          }
+        }, {
+          "in" : "query",
+          "name" : "region",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
+          }
+        }, {
+          "in" : "query",
+          "name" : "sort",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "eclLifetime",
+            "maxLength" : 20,
+            "minLength" : 0
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 25,
+            "maximum" : 500,
+            "minimum" : 1
+          }
+        }, {
+          "in" : "query",
+          "name" : "offset",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "portfolio-risk-controller" ]
+      }
+    },
+    "/v1/risk/portfolio/loans/export" : {
+      "get" : {
+        "operationId" : "exportLoans",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/StreamingResponseBody"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "portfolio-risk-controller" ]
+      }
+    },
+    "/v1/risk/portfolio/loss-distribution" : {
+      "post" : {
+        "operationId" : "lossDistribution",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LossRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "portfolio-risk-controller" ]
+      }
+    },
+    "/v1/risk/portfolio/runs" : {
+      "post" : {
+        "operationId" : "start",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RunRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "portfolio-risk-controller" ]
+      }
+    },
+    "/v1/risk/portfolio/runs/{id}" : {
+      "get" : {
+        "operationId" : "run",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Run"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "portfolio-risk-controller" ]
+      }
+    },
+    "/v1/risk/portfolio/weighted" : {
+      "post" : {
+        "operationId" : "weighted",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/WeightRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "portfolio-risk-controller" ]
+      }
+    },
+    "/v1/risk/scenarios" : {
+      "get" : {
+        "operationId" : "scenarios",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/Scenario"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "survival-controller" ]
+      }
+    },
+    "/v1/risk/term-structure" : {
+      "post" : {
+        "operationId" : "termStructure",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TermStructureRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TermStructureResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "survival-controller" ]
+      }
+    },
+    "/v1/risk/term-structure/compare" : {
+      "post" : {
+        "operationId" : "compare",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CompareRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CompareResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "survival-controller" ]
+      }
+    },
+    "/v1/score" : {
+      "post" : {
+        "operationId" : "score_1",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LoanFeatures"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "score-controller" ]
+      }
+    },
+    "/v1/score/{loanId}" : {
+      "get" : {
+        "operationId" : "getScore",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "loanId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "score-controller" ]
+      }
+    },
+    "/v1/segments" : {
+      "get" : {
+        "operationId" : "listStates",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "type" : "string"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "segment-graph-controller" ]
+      }
+    },
+    "/v1/segments/graph" : {
+      "get" : {
+        "operationId" : "graph",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Graph"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "segment-graph-controller" ]
+      }
+    },
+    "/v1/segments/{state}/neighbors" : {
+      "get" : {
+        "operationId" : "neighbors",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "state",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "maxHops",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 2,
+            "maximum" : 5,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/SegmentNeighbor"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "segment-graph-controller" ]
+      }
+    },
+    "/v1/sso/callback" : {
+      "get" : {
+        "operationId" : "callback",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "code",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "state",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "cookie",
+          "name" : "sso_txn",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "sso-controller" ]
+      }
+    },
+    "/v1/sso/exchange" : {
+      "post" : {
+        "operationId" : "exchange",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ExchangeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "sso-controller" ]
+      }
+    },
+    "/v1/sso/{orgSlug}/login" : {
+      "get" : {
+        "operationId" : "start_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "orgSlug",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "sso-controller" ]
+      }
+    },
+    "/v1/trajectory-loans" : {
+      "get" : {
+        "operationId" : "loans",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/TrajectoryCatalogEntry"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "trajectory-catalog-controller" ]
+      }
+    },
+    "/v1/trajectory-score" : {
+      "post" : {
+        "operationId" : "score",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TrajectoryRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TrajectoryScoreResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "trajectory-controller" ]
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "AccessRequestView" : {
+        "type" : "object",
+        "properties" : {
+          "companyName" : {
+            "type" : "string"
+          },
+          "contactName" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "jobTitle" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "organizationId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "reviewedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "reviewedBy" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "PENDING", "APPROVED", "DECLINED" ]
+          },
+          "workEmail" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ActionSpec" : {
+        "type" : "object",
+        "properties" : {
+          "param" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "FLAG_CASE", "ASSIGN_CASE", "SEND_NOTIFICATION" ]
+          }
+        }
+      },
+      "ActivateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "activationToken" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "password" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "activationToken", "password" ]
+      },
+      "AddLoanRequest" : {
+        "type" : "object",
+        "properties" : {
+          "loanId" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "loanId" ]
+      },
+      "AddNoteRequest" : {
+        "type" : "object",
+        "properties" : {
+          "text" : {
+            "type" : "string",
+            "maxLength" : 2000,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "text" ]
+      },
+      "Answer" : {
+        "type" : "object",
+        "properties" : {
+          "answer" : {
+            "type" : "string"
+          },
+          "contact" : {
+            "$ref" : "#/components/schemas/Contact"
+          }
+        }
+      },
+      "ApproveAccessRequest" : {
+        "type" : "object",
+        "properties" : {
+          "adminUsername" : {
+            "type" : "string"
+          },
+          "organizationName" : {
+            "type" : "string"
+          },
+          "plan" : {
+            "type" : "string"
+          },
+          "slug" : {
+            "type" : "string"
+          }
+        }
+      },
+      "AskRequest" : {
+        "type" : "object",
+        "properties" : {
+          "question" : {
+            "type" : "string",
+            "maxLength" : 2000,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "question" ]
+      },
+      "Assumptions" : {
+        "type" : "object",
+        "properties" : {
+          "defaultOverlay" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "discountRate" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "forecastOrigin" : {
+            "type" : "string"
+          },
+          "liquidationHaircut" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "marketRate" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "originationMonth" : {
+            "type" : "string"
+          },
+          "prepayOverlay" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "rateAsOf" : {
+            "type" : "string"
+          },
+          "rateSpread" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "regimeAsOf" : {
+            "type" : "string"
+          },
+          "startUnemployment" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        }
+      },
+      "AttachmentView" : {
+        "type" : "object",
+        "properties" : {
+          "contentType" : {
+            "type" : "string"
+          },
+          "filename" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sha256" : {
+            "type" : "string"
+          },
+          "sizeBytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "uploadedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "uploadedBy" : {
+            "type" : "string"
+          }
+        }
+      },
+      "BatchRequest" : {
+        "type" : "object",
+        "properties" : {
+          "loans" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/LoanFeatures"
+            }
+          }
+        }
+      },
+      "Bin" : {
+        "type" : "object",
+        "properties" : {
+          "actual" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "expected" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "label" : {
+            "type" : "string"
+          }
+        }
+      },
+      "BulkItemResult" : {
+        "type" : "object",
+        "properties" : {
+          "error" : {
+            "type" : "string"
+          },
+          "loanId" : {
+            "type" : "string"
+          },
+          "ok" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "BulkUpdateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "assignedTo" : {
+            "type" : "string",
+            "maxLength" : 255,
+            "minLength" : 0
+          },
+          "flagged" : {
+            "type" : "boolean"
+          },
+          "loanIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 80,
+              "minLength" : 0
+            },
+            "maxItems" : 100,
+            "minItems" : 0
+          },
+          "reason" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "NEW", "REVIEWED", "ESCALATED", "CLEARED" ]
+          },
+          "unassign" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "loanIds" ]
+      },
+      "CaseEventView" : {
+        "type" : "object",
+        "properties" : {
+          "actor" : {
+            "type" : "string"
+          },
+          "fromAssignee" : {
+            "type" : "string"
+          },
+          "fromFlagged" : {
+            "type" : "boolean"
+          },
+          "fromStatus" : {
+            "type" : "string",
+            "enum" : [ "NEW", "REVIEWED", "ESCALATED", "CLEARED" ]
+          },
+          "occurredAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "toAssignee" : {
+            "type" : "string"
+          },
+          "toFlagged" : {
+            "type" : "boolean"
+          },
+          "toStatus" : {
+            "type" : "string",
+            "enum" : [ "NEW", "REVIEWED", "ESCALATED", "CLEARED" ]
+          }
+        }
+      },
+      "ChangePasswordRequest" : {
+        "type" : "object",
+        "properties" : {
+          "currentPassword" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "newPassword" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "currentPassword", "newPassword" ]
+      },
+      "ChatRequest" : {
+        "type" : "object",
+        "properties" : {
+          "loanId" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "question" : {
+            "type" : "string",
+            "maxLength" : 2000,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "question" ]
+      },
+      "ChatResponse" : {
+        "type" : "object",
+        "properties" : {
+          "answer" : {
+            "type" : "string"
+          }
+        }
+      },
+      "CompareRequest" : {
+        "type" : "object",
+        "properties" : {
+          "currentBalance" : {
+            "type" : "number",
+            "format" : "double",
+            "minimum" : 0
+          },
+          "daysPastDue" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 3650,
+            "minimum" : 0
+          },
+          "decision" : {
+            "$ref" : "#/components/schemas/DecisionOptions"
+          },
+          "loan" : {
+            "$ref" : "#/components/schemas/LoanFeatures"
+          },
+          "months" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 480,
+            "minimum" : 1
+          },
+          "monthsOnBook" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 480,
+            "minimum" : 0
+          },
+          "originationPd12m" : {
+            "type" : "number",
+            "format" : "double",
+            "maximum" : 1,
+            "minimum" : 0
+          },
+          "scenarios" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 30,
+              "minLength" : 0
+            },
+            "maxItems" : 5,
+            "minItems" : 1
+          },
+          "weights" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "number",
+              "format" : "double"
+            }
+          }
+        },
+        "required" : [ "loan" ]
+      },
+      "CompareResponse" : {
+        "type" : "object",
+        "properties" : {
+          "decision" : {
+            "$ref" : "#/components/schemas/Decision"
+          },
+          "modelVersion" : {
+            "type" : "string"
+          },
+          "months" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "monthsOnBook" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "remainingMonths" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "scenarios" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ScenarioCurve"
+            }
+          },
+          "warnings" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "weighted" : {
+            "$ref" : "#/components/schemas/Weighted"
+          }
+        }
+      },
+      "Config" : {
+        "type" : "object",
+        "properties" : {
+          "widgets" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "ConfigRequest" : {
+        "type" : "object",
+        "properties" : {
+          "clientId" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          },
+          "clientSecret" : {
+            "type" : "string",
+            "maxLength" : 300,
+            "minLength" : 0
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "enforced" : {
+            "type" : "boolean"
+          },
+          "issuer" : {
+            "type" : "string",
+            "maxLength" : 300,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "clientId", "issuer" ]
+      },
+      "Contact" : {
+        "type" : "object",
+        "properties" : {
+          "email" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ContactRequest" : {
+        "type" : "object",
+        "properties" : {
+          "email" : {
+            "type" : "string",
+            "format" : "email",
+            "maxLength" : 254,
+            "minLength" : 0
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 120,
+            "minLength" : 0
+          },
+          "title" : {
+            "type" : "string",
+            "maxLength" : 120,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "name" ]
+      },
+      "ContactSetting" : {
+        "type" : "object",
+        "properties" : {
+          "configured" : {
+            "type" : "boolean"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Contribution" : {
+        "type" : "object",
+        "properties" : {
+          "contribution" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "expectedLoss" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "index" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "loanId" : {
+            "type" : "string"
+          },
+          "share" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        }
+      },
+      "CreateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "name" ]
+      },
+      "CreateRuleRequest" : {
+        "type" : "object",
+        "properties" : {
+          "actions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ActionSpec"
+            }
+          },
+          "field" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "name" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "op" : {
+            "type" : "string",
+            "enum" : [ "GT", "GTE", "LT", "LTE", "EQ", "NE" ]
+          },
+          "position" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "trigger" : {
+            "type" : "string",
+            "enum" : [ "LOAN_SCORED", "LOAN_CASE_UPDATED" ]
+          },
+          "value" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "actions", "field", "name", "op", "trigger", "value" ]
+      },
+      "CreateSandboxRequest" : {
+        "type" : "object",
+        "properties" : {
+          "adminPassword" : {
+            "type" : "string"
+          },
+          "adminUsername" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "slug" : {
+            "type" : "string"
+          }
+        }
+      },
+      "CreateUserRequest" : {
+        "type" : "object",
+        "properties" : {
+          "email" : {
+            "type" : "string",
+            "format" : "email"
+          },
+          "loanIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "password" : {
+            "type" : "string"
+          },
+          "role" : {
+            "type" : "string",
+            "enum" : [ "ANALYST", "ADMIN", "CLIENT", "PLATFORM_ADMIN" ]
+          },
+          "username" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "role", "username" ]
+      },
+      "Created" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "prefix" : {
+            "type" : "string"
+          }
+        }
+      },
+      "CvarRequest" : {
+        "type" : "object",
+        "properties" : {
+          "assetCorrelation" : {
+            "type" : "number",
+            "format" : "double",
+            "maximum" : 0.6,
+            "minimum" : 0.0
+          },
+          "confidenceLevel" : {
+            "type" : "number",
+            "format" : "double",
+            "maximum" : 0.9999,
+            "minimum" : 0.5
+          },
+          "contributions" : {
+            "type" : "boolean"
+          },
+          "importanceSampling" : {
+            "type" : "boolean"
+          },
+          "loans" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/LoanRiskProfile"
+            },
+            "maxItems" : 10000,
+            "minItems" : 0
+          },
+          "numScenarios" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 200000,
+            "minimum" : 1000
+          },
+          "seed" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "loans" ]
+      },
+      "CvarResult" : {
+        "type" : "object",
+        "properties" : {
+          "asrfValueAtRisk" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "assetCorrelation" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "conditionalValueAtRisk" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "conditionalValueAtRiskConfidenceInterval" : {
+            "type" : "array",
+            "items" : {
+              "type" : "number",
+              "format" : "double"
+            }
+          },
+          "confidenceLevel" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "effectiveLoans" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "elapsedMillis" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "exceedanceCurve" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ExceedancePoint"
+            }
+          },
+          "expectedLoss" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "factorShift" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "granularityAddOn" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "importanceSampling" : {
+            "type" : "boolean"
+          },
+          "numLoans" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "numScenarios" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "seed" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "systematicVarianceShare" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "topContributions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Contribution"
+            }
+          },
+          "totalExposure" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "unexpectedLoss" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "valueAtRisk" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "valueAtRiskConfidenceInterval" : {
+            "type" : "array",
+            "items" : {
+              "type" : "number",
+              "format" : "double"
+            }
+          }
+        }
+      },
+      "Decision" : {
+        "type" : "object",
+        "properties" : {
+          "baseMetric" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "eclBase" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "eclMax" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "eclMin" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "exposure" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "extrapolated" : {
+            "type" : "boolean"
+          },
+          "extrapolations" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Extrapolation"
+            }
+          },
+          "granuleKind" : {
+            "type" : "string",
+            "enum" : [ "PERTURBATION", "SCENARIO_SET" ]
+          },
+          "high" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "max" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "median" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "members" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "method" : {
+            "type" : "string"
+          },
+          "metric" : {
+            "type" : "string",
+            "enum" : [ "PD_12M", "PD_LIFETIME", "ECL_LIFETIME_RATE" ]
+          },
+          "min" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "region" : {
+            "type" : "string",
+            "enum" : [ "CERTAIN_HIGH", "CERTAIN_LOW", "BOUNDARY" ]
+          },
+          "scenarios" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "seed" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "shockBand" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "threshold" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "timingBandMonths" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "tolerance" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "width" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        }
+      },
+      "DecisionOptions" : {
+        "type" : "object",
+        "properties" : {
+          "granule" : {
+            "$ref" : "#/components/schemas/Granule"
+          },
+          "metric" : {
+            "type" : "string",
+            "maxLength" : 30,
+            "minLength" : 0
+          },
+          "seed" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "threshold" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "tolerance" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        },
+        "required" : [ "metric", "threshold" ]
+      },
+      "DeliveryView" : {
+        "type" : "object",
+        "properties" : {
+          "attempts" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "deliveredAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "eventId" : {
+            "type" : "string"
+          },
+          "eventType" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "lastError" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DriftReport" : {
+        "type" : "object",
+        "properties" : {
+          "computedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "features" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FeatureDrift"
+            }
+          },
+          "loans" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "modelVersion" : {
+            "type" : "string"
+          },
+          "score" : {
+            "$ref" : "#/components/schemas/FeatureDrift"
+          }
+        }
+      },
+      "Driver" : {
+        "type" : "object",
+        "properties" : {
+          "currentMax" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "currentMedian" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "currentMin" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "drift" : {
+            "$ref" : "#/components/schemas/FeatureDrift"
+          },
+          "envelopeMax" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "envelopeMin" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "feature" : {
+            "type" : "string"
+          },
+          "loansOutside" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "statesOutside" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "EarlyWarningCatalogEntry" : {
+        "type" : "object",
+        "properties" : {
+          "actuallyWentDelinquent" : {
+            "type" : "boolean"
+          },
+          "features" : {
+            "$ref" : "#/components/schemas/EarlyWarningFeatures"
+          },
+          "label" : {
+            "type" : "string"
+          }
+        }
+      },
+      "EarlyWarningFeatures" : {
+        "type" : "object",
+        "properties" : {
+          "channel" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "creditScore" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 850,
+            "minimum" : 300
+          },
+          "currentInterestRate" : {
+            "type" : "number",
+            "format" : "double",
+            "minimum" : 0
+          },
+          "eltv" : {
+            "type" : "number",
+            "format" : "double",
+            "minimum" : 0
+          },
+          "eltvChange3m" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "eltvChange6m" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "firstTimeHomebuyerFlag" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "hmmRegime" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "loanAge" : {
+            "type" : "integer",
+            "format" : "int32",
+            "minimum" : 0
+          },
+          "loanPurpose" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "miPercent" : {
+            "type" : "number",
+            "format" : "double",
+            "minimum" : 0
+          },
+          "numberOfBorrowers" : {
+            "type" : "integer",
+            "format" : "int32",
+            "minimum" : 0
+          },
+          "numberOfUnits" : {
+            "type" : "integer",
+            "format" : "int32",
+            "minimum" : 0
+          },
+          "occupancyStatus" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "originalCltv" : {
+            "type" : "number",
+            "format" : "double",
+            "minimum" : 0
+          },
+          "originalDti" : {
+            "type" : "number",
+            "format" : "double",
+            "minimum" : 0
+          },
+          "originalInterestRate" : {
+            "type" : "number",
+            "format" : "double",
+            "minimum" : 0
+          },
+          "originalLoanTerm" : {
+            "type" : "integer",
+            "format" : "int32",
+            "minimum" : 0
+          },
+          "originalLtv" : {
+            "type" : "number",
+            "format" : "double",
+            "minimum" : 0
+          },
+          "originalUpb" : {
+            "type" : "number",
+            "format" : "double",
+            "minimum" : 0
+          },
+          "priorAssistance" : {
+            "type" : "boolean"
+          },
+          "priorDisaster" : {
+            "type" : "boolean"
+          },
+          "priorModification" : {
+            "type" : "boolean"
+          },
+          "propertyState" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "propertyType" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "rateLockSeverity" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "rateLockSeverityChange3m" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "rateLockSeverityChange6m" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "upbPaydownChange3m" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "upbPaydownChange6m" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "upbPaydownRatio" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "upbStalled" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "channel", "creditScore", "currentInterestRate", "eltv", "eltvChange3m", "eltvChange6m", "firstTimeHomebuyerFlag", "hmmRegime", "loanAge", "loanPurpose", "miPercent", "numberOfBorrowers", "numberOfUnits", "occupancyStatus", "originalCltv", "originalDti", "originalInterestRate", "originalLoanTerm", "originalLtv", "originalUpb", "propertyState", "propertyType", "rateLockSeverity", "rateLockSeverityChange3m", "rateLockSeverityChange6m", "upbPaydownChange3m", "upbPaydownChange6m", "upbPaydownRatio" ]
+      },
+      "EarlyWarningResponse" : {
+        "type" : "object",
+        "properties" : {
+          "calibratedRisk" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "rawRisk" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        }
+      },
+      "Ecl" : {
+        "type" : "object",
+        "properties" : {
+          "ecl12m" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "eclCecl" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "eclIfrs9" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "eclLifetime" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "exposure" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "lgd" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "lgdPeak" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "referencePd12m" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "stage" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "stageReason" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Entry" : {
+        "type" : "object",
+        "properties" : {
+          "algorithm" : {
+            "type" : "string"
+          },
+          "artifact" : {
+            "type" : "string"
+          },
+          "checksumVerified" : {
+            "type" : "boolean"
+          },
+          "gaps" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "headline" : {
+            "type" : "object",
+            "additionalProperties" : { }
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "purpose" : {
+            "type" : "string"
+          },
+          "sha256" : {
+            "type" : "string"
+          },
+          "tier" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "trainedAt" : {
+            "type" : "string"
+          },
+          "validated" : {
+            "type" : "boolean"
+          },
+          "version" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ExceedancePoint" : {
+        "type" : "object",
+        "properties" : {
+          "loss" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "probability" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        }
+      },
+      "ExchangeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "code" ]
+      },
+      "ExpectedLossResponse" : {
+        "type" : "object",
+        "properties" : {
+          "ead" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "eclIfrs9" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "expectedLifeMonths" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "expectedLoss" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "expectedLossLifetime" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "lgd" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "modelVersion" : {
+            "type" : "string"
+          },
+          "pd" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "pdLifetime" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "stage" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "warnings" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "Extrapolation" : {
+        "type" : "object",
+        "properties" : {
+          "direction" : {
+            "type" : "string"
+          },
+          "driver" : {
+            "type" : "string"
+          },
+          "extreme" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "firstMonth" : {
+            "type" : "string"
+          },
+          "months" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "trainedLimit" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        }
+      },
+      "FeatureDrift" : {
+        "type" : "object",
+        "properties" : {
+          "bins" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Bin"
+            }
+          },
+          "feature" : {
+            "type" : "string"
+          },
+          "noiseFloor" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "observations" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "psi" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Granule" : {
+        "type" : "object",
+        "properties" : {
+          "kind" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
+          },
+          "members" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "regimeDraws" : {
+            "type" : "boolean"
+          },
+          "scenarios" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 30,
+              "minLength" : 0
+            },
+            "maxItems" : 5,
+            "minItems" : 0
+          },
+          "shockBand" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "timingBandMonths" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "Graph" : {
+        "type" : "object",
+        "properties" : {
+          "asOf" : {
+            "type" : "string"
+          },
+          "links" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/LinkView"
+            }
+          },
+          "regions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Region"
+            }
+          },
+          "states" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/StateView"
+            }
+          },
+          "validation" : {
+            "type" : "object",
+            "additionalProperties" : { }
+          },
+          "version" : {
+            "type" : "string"
+          }
+        }
+      },
+      "JsonNode" : {
+        "type" : "object",
+        "properties" : {
+          "array" : {
+            "type" : "boolean"
+          },
+          "bigDecimal" : {
+            "type" : "boolean"
+          },
+          "bigInteger" : {
+            "type" : "boolean"
+          },
+          "binary" : {
+            "type" : "boolean"
+          },
+          "boolean" : {
+            "type" : "boolean"
+          },
+          "container" : {
+            "type" : "boolean"
+          },
+          "double" : {
+            "type" : "boolean"
+          },
+          "embeddedValue" : {
+            "type" : "boolean"
+          },
+          "empty" : {
+            "type" : "boolean"
+          },
+          "float" : {
+            "type" : "boolean"
+          },
+          "floatingPointNumber" : {
+            "type" : "boolean"
+          },
+          "int" : {
+            "type" : "boolean"
+          },
+          "integralNumber" : {
+            "type" : "boolean"
+          },
+          "long" : {
+            "type" : "boolean"
+          },
+          "missingNode" : {
+            "type" : "boolean"
+          },
+          "nodeType" : {
+            "type" : "string",
+            "enum" : [ "ARRAY", "BINARY", "BOOLEAN", "MISSING", "NULL", "NUMBER", "OBJECT", "POJO", "STRING" ]
+          },
+          "null" : {
+            "type" : "boolean"
+          },
+          "number" : {
+            "type" : "boolean"
+          },
+          "object" : {
+            "type" : "boolean"
+          },
+          "pojo" : {
+            "type" : "boolean"
+          },
+          "short" : {
+            "type" : "boolean"
+          },
+          "string" : {
+            "type" : "boolean"
+          },
+          "textual" : {
+            "type" : "boolean",
+            "deprecated" : true
+          },
+          "valueNode" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "KeyView" : {
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "createdBy" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "lastUsedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "prefix" : {
+            "type" : "string"
+          },
+          "revokedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "LinkView" : {
+        "type" : "object",
+        "properties" : {
+          "a" : {
+            "type" : "string"
+          },
+          "b" : {
+            "type" : "string"
+          },
+          "basis" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "confidence" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "weight" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        }
+      },
+      "LoanCaseSummary" : {
+        "type" : "object",
+        "properties" : {
+          "assignedTo" : {
+            "type" : "string"
+          },
+          "flagged" : {
+            "type" : "boolean"
+          },
+          "loanId" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "NEW", "REVIEWED", "ESCALATED", "CLEARED" ]
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "LoanCaseView" : {
+        "type" : "object",
+        "properties" : {
+          "assignedTo" : {
+            "type" : "string"
+          },
+          "escalatedBy" : {
+            "type" : "string"
+          },
+          "flagged" : {
+            "type" : "boolean"
+          },
+          "history" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/CaseEventView"
+            }
+          },
+          "loanId" : {
+            "type" : "string"
+          },
+          "notes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/NoteView"
+            }
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "NEW", "REVIEWED", "ESCALATED", "CLEARED" ]
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "LoanFeatures" : {
+        "type" : "object",
+        "properties" : {
+          "channel" : {
+            "type" : "string",
+            "maxLength" : 8,
+            "minLength" : 0
+          },
+          "creditScore" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 850,
+            "minimum" : 300
+          },
+          "firstTimeHomebuyerFlag" : {
+            "type" : "string",
+            "maxLength" : 8,
+            "minLength" : 0
+          },
+          "loanId" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "loanPurpose" : {
+            "type" : "string",
+            "maxLength" : 8,
+            "minLength" : 0
+          },
+          "miPercent" : {
+            "type" : "number",
+            "format" : "double",
+            "minimum" : 0
+          },
+          "numberOfBorrowers" : {
+            "type" : "integer",
+            "format" : "int32",
+            "minimum" : 0
+          },
+          "numberOfUnits" : {
+            "type" : "integer",
+            "format" : "int32",
+            "minimum" : 0
+          },
+          "occupancyStatus" : {
+            "type" : "string",
+            "maxLength" : 8,
+            "minLength" : 0
+          },
+          "originalCltv" : {
+            "type" : "number",
+            "format" : "double",
+            "minimum" : 0
+          },
+          "originalDti" : {
+            "type" : "number",
+            "format" : "double",
+            "minimum" : 0
+          },
+          "originalInterestRate" : {
+            "type" : "number",
+            "format" : "double",
+            "minimum" : 0
+          },
+          "originalLoanTerm" : {
+            "type" : "integer",
+            "format" : "int32",
+            "minimum" : 0
+          },
+          "originalLtv" : {
+            "type" : "number",
+            "format" : "double",
+            "minimum" : 0
+          },
+          "originalUpb" : {
+            "type" : "number",
+            "format" : "double",
+            "minimum" : 0
+          },
+          "originationMonth" : {
+            "type" : "string",
+            "pattern" : "\\d{4}-(0[1-9]|1[0-2])"
+          },
+          "propertyState" : {
+            "type" : "string",
+            "maxLength" : 8,
+            "minLength" : 0
+          },
+          "propertyType" : {
+            "type" : "string",
+            "maxLength" : 8,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "channel", "creditScore", "firstTimeHomebuyerFlag", "loanPurpose", "miPercent", "numberOfBorrowers", "numberOfUnits", "occupancyStatus", "originalCltv", "originalDti", "originalInterestRate", "originalLoanTerm", "originalLtv", "originalUpb", "propertyState", "propertyType" ]
+      },
+      "LoanRiskProfile" : {
+        "type" : "object",
+        "properties" : {
+          "ead" : {
+            "type" : "number",
+            "format" : "double",
+            "minimum" : 0
+          },
+          "lgd" : {
+            "type" : "number",
+            "format" : "double",
+            "maximum" : 1,
+            "minimum" : 0
+          },
+          "loanId" : {
+            "type" : "string"
+          },
+          "pd" : {
+            "type" : "number",
+            "format" : "double",
+            "maximum" : 1,
+            "minimum" : 0
+          }
+        },
+        "required" : [ "ead", "lgd", "pd" ]
+      },
+      "LoanScoreSummary" : {
+        "type" : "object",
+        "properties" : {
+          "calibratedProbability" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "computedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "loanId" : {
+            "type" : "string"
+          },
+          "modelVersion" : {
+            "type" : "string"
+          },
+          "rawProbability" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        }
+      },
+      "LoginAttempt" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "occurredAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "success" : {
+            "type" : "boolean"
+          },
+          "tenantId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "username" : {
+            "type" : "string"
+          }
+        }
+      },
+      "LoginRequest" : {
+        "type" : "object",
+        "properties" : {
+          "orgSlug" : {
+            "type" : "string"
+          },
+          "password" : {
+            "type" : "string"
+          },
+          "totpCode" : {
+            "type" : "string"
+          },
+          "username" : {
+            "type" : "string"
+          }
+        }
+      },
+      "LossRequest" : {
+        "type" : "object",
+        "properties" : {
+          "assetCorrelation" : {
+            "type" : "number",
+            "format" : "double",
+            "maximum" : 0.6,
+            "minimum" : 0.0
+          },
+          "confidenceLevel" : {
+            "type" : "number",
+            "format" : "double",
+            "maximum" : 0.9999,
+            "minimum" : 0.5
+          },
+          "importanceSampling" : {
+            "type" : "boolean"
+          },
+          "numScenarios" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 200000,
+            "minimum" : 1000
+          },
+          "seed" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "MacroDriftReport" : {
+        "type" : "object",
+        "properties" : {
+          "computedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "drivers" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Driver"
+            }
+          },
+          "loans" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "loansCovered" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "macroAsOf" : {
+            "type" : "string"
+          },
+          "marketRate" : {
+            "$ref" : "#/components/schemas/MarketRate"
+          },
+          "modelVersion" : {
+            "type" : "string"
+          },
+          "reference" : {
+            "type" : "string"
+          },
+          "states" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "trainingWindow" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "MarketRate" : {
+        "type" : "object",
+        "properties" : {
+          "asOf" : {
+            "type" : "string"
+          },
+          "current" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "outsideTraining" : {
+            "type" : "boolean"
+          },
+          "percentile" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "trainingMax" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "trainingMin" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        }
+      },
+      "ModelInvocationEvent" : {
+        "type" : "object",
+        "properties" : {
+          "actor" : {
+            "type" : "string"
+          },
+          "clientIp" : {
+            "type" : "string"
+          },
+          "endpoint" : {
+            "type" : "string"
+          },
+          "errorMessage" : {
+            "type" : "string"
+          },
+          "httpMethod" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "latencyMs" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "modelVersion" : {
+            "type" : "string"
+          },
+          "occurredAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "path" : {
+            "type" : "string"
+          },
+          "requestJson" : {
+            "type" : "string"
+          },
+          "responseJson" : {
+            "type" : "string"
+          },
+          "statusCode" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "success" : {
+            "type" : "boolean"
+          },
+          "tenantId" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "MonthForecast" : {
+        "type" : "object",
+        "properties" : {
+          "month" : {
+            "type" : "string"
+          },
+          "regimeProbabilities" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "number",
+              "format" : "double"
+            }
+          }
+        }
+      },
+      "MonthPoint" : {
+        "type" : "object",
+        "properties" : {
+          "cumulativeDefault" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "cumulativePrepay" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "defaultHazard" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "discountedExpectedLoss" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "expectedLoss" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "exposure" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "housePriceIndex" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "lgd" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "loanAge" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "marginalDefault" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "marginalPrepay" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "month" : {
+            "type" : "string"
+          },
+          "mtmLtv" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "prepayHazard" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "stressedProbability" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "survival" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "unemployment" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        }
+      },
+      "MonthlyRecord" : {
+        "type" : "object",
+        "properties" : {
+          "currentActualUpb" : {
+            "type" : "number",
+            "format" : "double",
+            "minimum" : 0
+          },
+          "currentLoanDelinquencyStatus" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "modificationFlag" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "currentActualUpb", "currentLoanDelinquencyStatus" ]
+      },
+      "MyLoanView" : {
+        "type" : "object",
+        "properties" : {
+          "contact" : {
+            "$ref" : "#/components/schemas/Contact"
+          },
+          "loanId" : {
+            "type" : "string"
+          },
+          "openCase" : {
+            "$ref" : "#/components/schemas/OpenCase"
+          },
+          "status" : {
+            "$ref" : "#/components/schemas/Status"
+          }
+        }
+      },
+      "NoteView" : {
+        "type" : "object",
+        "properties" : {
+          "author" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "text" : {
+            "type" : "string"
+          }
+        }
+      },
+      "NotificationView" : {
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "link" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "read" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "OpenCase" : {
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "type" : "string"
+          },
+          "openedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        }
+      },
+      "OrgView" : {
+        "type" : "object",
+        "properties" : {
+          "active" : {
+            "type" : "boolean"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "plan" : {
+            "type" : "string"
+          },
+          "sandbox" : {
+            "type" : "boolean"
+          },
+          "slug" : {
+            "type" : "string"
+          },
+          "trialEndsAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "PageResultDeliveryView" : {
+        "type" : "object",
+        "properties" : {
+          "hasMore" : {
+            "type" : "boolean"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DeliveryView"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "PageResultLoanCaseSummary" : {
+        "type" : "object",
+        "properties" : {
+          "hasMore" : {
+            "type" : "boolean"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/LoanCaseSummary"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "PageResultRecentNoteView" : {
+        "type" : "object",
+        "properties" : {
+          "hasMore" : {
+            "type" : "boolean"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RecentNoteView"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "PortfolioView" : {
+        "type" : "object",
+        "properties" : {
+          "portfolioLoans" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "run" : {
+            "$ref" : "#/components/schemas/Run"
+          },
+          "snapshots" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Snapshot"
+            }
+          }
+        }
+      },
+      "RecentNoteView" : {
+        "type" : "object",
+        "properties" : {
+          "author" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "loanId" : {
+            "type" : "string"
+          },
+          "text" : {
+            "type" : "string"
+          }
+        }
+      },
+      "RegimeForecast" : {
+        "type" : "object",
+        "properties" : {
+          "asOfMonth" : {
+            "type" : "string"
+          },
+          "currentRegime" : {
+            "type" : "string"
+          },
+          "dataAgeMonths" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "expectedDurationMonths" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "number",
+              "format" : "double"
+            }
+          },
+          "forecastMonth" : {
+            "type" : "string"
+          },
+          "monthsAhead" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "path" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MonthForecast"
+            }
+          },
+          "regimeProbabilities" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "number",
+              "format" : "double"
+            }
+          },
+          "stationary" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "number",
+              "format" : "double"
+            }
+          }
+        }
+      },
+      "Region" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "stability" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "states" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "ResetComplete" : {
+        "type" : "object",
+        "properties" : {
+          "newPassword" : {
+            "type" : "string",
+            "maxLength" : 256,
+            "minLength" : 0
+          },
+          "token" : {
+            "type" : "string",
+            "maxLength" : 4096,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "newPassword", "token" ]
+      },
+      "ResetPasswordRequest" : {
+        "type" : "object",
+        "properties" : {
+          "newPassword" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "newPassword" ]
+      },
+      "ResetRequest" : {
+        "type" : "object",
+        "properties" : {
+          "orgSlug" : {
+            "type" : "string",
+            "maxLength" : 64,
+            "minLength" : 0
+          },
+          "username" : {
+            "type" : "string",
+            "maxLength" : 255,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "orgSlug", "username" ]
+      },
+      "RuleView" : {
+        "type" : "object",
+        "properties" : {
+          "actions" : {
+            "type" : "string"
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "field" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "op" : {
+            "type" : "string",
+            "enum" : [ "GT", "GTE", "LT", "LTE", "EQ", "NE" ]
+          },
+          "position" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "trigger" : {
+            "type" : "string",
+            "enum" : [ "LOAN_SCORED", "LOAN_CASE_UPDATED" ]
+          },
+          "value" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Run" : {
+        "type" : "object",
+        "properties" : {
+          "attempt" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "deferred" : {
+            "type" : "boolean"
+          },
+          "error" : {
+            "type" : "string"
+          },
+          "finishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "loansDone" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "loansTotal" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "requestedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "requestedBy" : {
+            "type" : "string"
+          },
+          "scenarios" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "startedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "QUEUED", "RUNNING", "COMPLETED", "FAILED" ]
+          }
+        }
+      },
+      "RunRequest" : {
+        "type" : "object",
+        "properties" : {
+          "decision" : {
+            "$ref" : "#/components/schemas/DecisionOptions"
+          },
+          "decisionScenario" : {
+            "type" : "string",
+            "maxLength" : 30,
+            "minLength" : 0
+          },
+          "defer" : {
+            "type" : "boolean"
+          },
+          "scenarios" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 30,
+              "minLength" : 0
+            },
+            "maxItems" : 5,
+            "minItems" : 1
+          }
+        }
+      },
+      "Scenario" : {
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "type" : "string",
+            "maxLength" : 300,
+            "minLength" : 0
+          },
+          "hpiAnnualGrowthPct" : {
+            "type" : "number",
+            "format" : "double",
+            "maximum" : 15,
+            "minimum" : -10
+          },
+          "hpiShockMonths" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 60,
+            "minimum" : 1
+          },
+          "hpiShockPct" : {
+            "type" : "number",
+            "format" : "double",
+            "maximum" : 60,
+            "minimum" : -30
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 30,
+            "minLength" : 0
+          },
+          "rateShockBp" : {
+            "type" : "number",
+            "format" : "double",
+            "maximum" : 600,
+            "minimum" : -400
+          },
+          "stressedMonths" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 120,
+            "minimum" : 0
+          },
+          "unemploymentRecoveryMonths" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 120,
+            "minimum" : 0
+          },
+          "unemploymentShockMonths" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 60,
+            "minimum" : 1
+          },
+          "unemploymentShockPp" : {
+            "type" : "number",
+            "format" : "double",
+            "maximum" : 15,
+            "minimum" : -5
+          }
+        },
+        "required" : [ "hpiAnnualGrowthPct", "hpiShockMonths", "hpiShockPct", "name", "rateShockBp", "stressedMonths", "unemploymentRecoveryMonths", "unemploymentShockMonths", "unemploymentShockPp" ]
+      },
+      "ScenarioCurve" : {
+        "type" : "object",
+        "properties" : {
+          "cumulativeDefault" : {
+            "type" : "array",
+            "items" : {
+              "type" : "number",
+              "format" : "double"
+            }
+          },
+          "cumulativePrepay" : {
+            "type" : "array",
+            "items" : {
+              "type" : "number",
+              "format" : "double"
+            }
+          },
+          "decision" : {
+            "$ref" : "#/components/schemas/Decision"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "discountedExpectedLoss" : {
+            "type" : "array",
+            "items" : {
+              "type" : "number",
+              "format" : "double"
+            }
+          },
+          "ecl" : {
+            "$ref" : "#/components/schemas/Ecl"
+          },
+          "extrapolations" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Extrapolation"
+            }
+          },
+          "scenario" : {
+            "type" : "string"
+          },
+          "summary" : {
+            "$ref" : "#/components/schemas/Summary"
+          },
+          "survival" : {
+            "type" : "array",
+            "items" : {
+              "type" : "number",
+              "format" : "double"
+            }
+          }
+        }
+      },
+      "SegmentNeighbor" : {
+        "type" : "object",
+        "properties" : {
+          "hops" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "state" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SetPreference" : {
+        "type" : "object",
+        "properties" : {
+          "mode" : {
+            "type" : "string",
+            "enum" : [ "INSTANT", "DIGEST", "OFF" ]
+          },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "CASE_ASSIGNED", "NOTE_ADDED", "AUTOMATION", "DIGEST_SUMMARY", "DOCUMENT_ADDED" ]
+          }
+        }
+      },
+      "Snapshot" : {
+        "type" : "object",
+        "properties" : {
+          "asOf" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "computedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "decision" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          },
+          "detail" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          },
+          "ecl12m" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "eclIfrs9" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "eclLifetime" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "exposure" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "loans" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "loansExcluded" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "modelVersion" : {
+            "type" : "string"
+          },
+          "pd12m" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "pdLifetime" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "projectedLoans" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "scenario" : {
+            "type" : "string"
+          },
+          "stage1" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "stage2" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "stage3" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "StateView" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "region" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Status" : {
+        "type" : "object",
+        "properties" : {
+          "band" : {
+            "type" : "string",
+            "enum" : [ "LOW", "MEDIUM", "HIGH" ]
+          },
+          "checkedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "trend" : {
+            "type" : "string"
+          }
+        }
+      },
+      "StreamingResponseBody" : { },
+      "SubmitAccessRequest" : {
+        "type" : "object",
+        "properties" : {
+          "companyName" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "contactName" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "jobTitle" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "message" : {
+            "type" : "string",
+            "maxLength" : 2000,
+            "minLength" : 0
+          },
+          "workEmail" : {
+            "type" : "string",
+            "format" : "email",
+            "maxLength" : 255,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "companyName", "contactName", "workEmail" ]
+      },
+      "SubscribeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "events" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "LOAN_SCORED", "CASE_FLAGGED", "CASE_ASSIGNED" ]
+            }
+          },
+          "url" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "events", "url" ]
+      },
+      "SubscriptionView" : {
+        "type" : "object",
+        "properties" : {
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "events" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "LOAN_SCORED", "CASE_FLAGGED", "CASE_ASSIGNED" ]
+            }
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "secret" : {
+            "type" : "string"
+          },
+          "url" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Summary" : {
+        "type" : "object",
+        "properties" : {
+          "expectedLifeMonths" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "maturityProbability" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "pd12m" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "pd24m" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "pdLifetime" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "prepayLifetime" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        }
+      },
+      "TermStructure" : {
+        "type" : "object",
+        "properties" : {
+          "assumptions" : {
+            "$ref" : "#/components/schemas/Assumptions"
+          },
+          "ecl" : {
+            "$ref" : "#/components/schemas/Ecl"
+          },
+          "extrapolations" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Extrapolation"
+            }
+          },
+          "modelVersion" : {
+            "type" : "string"
+          },
+          "months" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MonthPoint"
+            }
+          },
+          "monthsOnBook" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "remainingMonths" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "scenario" : {
+            "type" : "string"
+          },
+          "summary" : {
+            "$ref" : "#/components/schemas/Summary"
+          }
+        }
+      },
+      "TermStructureRequest" : {
+        "type" : "object",
+        "properties" : {
+          "currentBalance" : {
+            "type" : "number",
+            "format" : "double",
+            "minimum" : 0
+          },
+          "customScenario" : {
+            "$ref" : "#/components/schemas/Scenario"
+          },
+          "daysPastDue" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 3650,
+            "minimum" : 0
+          },
+          "decision" : {
+            "$ref" : "#/components/schemas/DecisionOptions"
+          },
+          "loan" : {
+            "$ref" : "#/components/schemas/LoanFeatures"
+          },
+          "months" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 480,
+            "minimum" : 1
+          },
+          "monthsOnBook" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 480,
+            "minimum" : 0
+          },
+          "originationPd12m" : {
+            "type" : "number",
+            "format" : "double",
+            "maximum" : 1,
+            "minimum" : 0
+          },
+          "scenario" : {
+            "type" : "string",
+            "maxLength" : 30,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "loan" ]
+      },
+      "TermStructureResponse" : {
+        "type" : "object",
+        "properties" : {
+          "decision" : {
+            "$ref" : "#/components/schemas/Decision"
+          },
+          "termStructure" : {
+            "$ref" : "#/components/schemas/TermStructure"
+          },
+          "warnings" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "TotpCodeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "code" ]
+      },
+      "TrajectoryCatalogEntry" : {
+        "type" : "object",
+        "properties" : {
+          "label" : {
+            "type" : "string"
+          },
+          "request" : {
+            "$ref" : "#/components/schemas/TrajectoryRequest"
+          }
+        }
+      },
+      "TrajectoryRequest" : {
+        "type" : "object",
+        "properties" : {
+          "months" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MonthlyRecord"
+            },
+            "maxItems" : 12,
+            "minItems" : 0
+          },
+          "originalUpb" : {
+            "type" : "number",
+            "format" : "double",
+            "minimum" : 0
+          }
+        },
+        "required" : [ "months", "originalUpb" ]
+      },
+      "TrajectoryScoreResponse" : {
+        "type" : "object",
+        "properties" : {
+          "probability" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        }
+      },
+      "UpdateCaseRequest" : {
+        "type" : "object",
+        "properties" : {
+          "assignedTo" : {
+            "type" : "string",
+            "maxLength" : 255,
+            "minLength" : 0
+          },
+          "expectedVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "flagged" : {
+            "type" : "boolean"
+          },
+          "reason" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "NEW", "REVIEWED", "ESCALATED", "CLEARED" ]
+          }
+        },
+        "required" : [ "status" ]
+      },
+      "UserSummary" : {
+        "type" : "object",
+        "properties" : {
+          "activated" : {
+            "type" : "boolean"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "loanIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            },
+            "uniqueItems" : true
+          },
+          "locked" : {
+            "type" : "boolean"
+          },
+          "role" : {
+            "type" : "string",
+            "enum" : [ "ANALYST", "ADMIN", "CLIENT", "PLATFORM_ADMIN" ]
+          },
+          "totpEnabled" : {
+            "type" : "boolean"
+          },
+          "username" : {
+            "type" : "string"
+          }
+        }
+      },
+      "WeightRequest" : {
+        "type" : "object",
+        "properties" : {
+          "weights" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "number",
+              "format" : "double"
+            }
+          }
+        },
+        "required" : [ "weights" ]
+      },
+      "Weighted" : {
+        "type" : "object",
+        "properties" : {
+          "ecl12m" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "eclCecl" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "eclIfrs9" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "eclLifetime" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "method" : {
+            "type" : "string"
+          },
+          "pd12m" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "pdLifetime" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "stageProbability" : {
+            "type" : "array",
+            "items" : {
+              "type" : "number",
+              "format" : "double"
+            }
+          },
+          "weights" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "number",
+              "format" : "double"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -83,6 +83,11 @@ How the models were built, validated and where they should not be trusted: [MODE
 - **Conditional requests.** Polled reads (a run's status, the model inventory) carry an `ETag` and
   answer an unchanged `If-None-Match` with 304; a case's version is its `ETag`, and an update may name
   it in `If-Match` (412 if someone changed the case meanwhile).
+- **An API contract both sides are held to.** The backend publishes its OpenAPI description
+  (`GET /v1/api-docs`, signed-in staff only); a test fails when it differs from the committed copy
+  ([`frontend/src/api/openapi.json`](frontend/src/api/openapi.json)), and the frontend's build fails
+  when a field its hand-written types expect is not in it
+  ([`contract.ts`](frontend/src/api/contract.ts)).
 - **A borrower sees a band, not a score.** The borrower API's response types have no field for the
   probability, the model version, an explanation or a case note (a unit test fails if one is added), and
   every borrower endpoint resolves the caller's own loans on the server, so a loan id sent by the client
