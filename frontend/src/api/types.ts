@@ -296,6 +296,42 @@ export interface Decision {
   method: string;
 }
 
+/** A loan's recent payment history. With `daysPastDue` it selects the delinquency model; incomplete, the existing engine runs. */
+export interface DelinquencyHistory {
+  /** months of the last 12 the status is known for */
+  monthsObserved?: number;
+  /** separate spells of 30+ days past due that began in that window */
+  episodes30Plus?: number;
+  /** months since the loan last returned to current; omitted when it has not within the window */
+  monthsSinceCure?: number;
+  /** the worst status in the window; a loan that reached 90 days has defaulted */
+  maxStatus12m?: 'CURRENT' | 'D30' | 'D60';
+}
+
+export interface Interval {
+  lower: number;
+  point: number;
+  upper: number;
+}
+
+/** Ranges around the lifetime figures: regime uncertainty plus historical calibration error, not a statistical confidence interval. */
+export interface Intervals {
+  method: string;
+  draws: number | null;
+  resampled: string;
+  bandSource: string | null;
+  bandSigma: number | null;
+  bandVintages: number | null;
+  bandHorizon: number | null;
+  capApplied: boolean;
+  /** why there is no interval, when there is none: the point estimate stands */
+  reason: string | null;
+  pd12m: Interval | null;
+  pdLifetime: Interval | null;
+  ecl12m: Interval | null;
+  eclLifetime: Interval | null;
+}
+
 export interface LifetimeRiskInput {
   loan: LoanFeatures;
   monthsOnBook?: number;
@@ -304,6 +340,9 @@ export interface LifetimeRiskInput {
   originationPd12m?: number;
   months?: number;
   decision?: DecisionRequest;
+  delinquency?: DelinquencyHistory;
+  /** asks for ranges around the lifetime figures; `draws` defaults to the server's setting */
+  intervals?: { draws?: number };
   /** probability of each compared scenario, as fractions summing to 1; adds `weighted` to a comparison */
   weights?: Record<string, number>;
 }
@@ -344,6 +383,11 @@ export interface TermStructureResponse {
   termStructure: TermStructure;
   warnings: string[];
   decision?: Decision;
+  /** the id and version of the model that produced the figures */
+  modelUsed: string;
+  /** why the existing engine ran when delinquency data was supplied or implied */
+  fallbackReason?: string;
+  intervals?: Intervals;
 }
 
 export interface ScenarioCurve {

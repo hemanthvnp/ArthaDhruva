@@ -4275,6 +4275,33 @@
         },
         "required" : [ "metric", "threshold" ]
       },
+      "DelinquencyHistory" : {
+        "type" : "object",
+        "properties" : {
+          "episodes30Plus" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 12,
+            "minimum" : 0
+          },
+          "maxStatus12m" : {
+            "type" : "string",
+            "pattern" : "CURRENT|D30|D60"
+          },
+          "monthsObserved" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 12,
+            "minimum" : 1
+          },
+          "monthsSinceCure" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 12,
+            "minimum" : 0
+          }
+        }
+      },
       "DeliveryView" : {
         "type" : "object",
         "properties" : {
@@ -4831,6 +4858,82 @@
             "additionalProperties" : { }
           },
           "version" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Interval" : {
+        "type" : "object",
+        "properties" : {
+          "lower" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "point" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "upper" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        }
+      },
+      "IntervalRequest" : {
+        "type" : "object",
+        "properties" : {
+          "draws" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 5000,
+            "minimum" : 1
+          }
+        }
+      },
+      "Intervals" : {
+        "type" : "object",
+        "properties" : {
+          "bandHorizon" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "bandSigma" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "bandSource" : {
+            "type" : "string"
+          },
+          "bandVintages" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "capApplied" : {
+            "type" : "boolean"
+          },
+          "draws" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "ecl12m" : {
+            "$ref" : "#/components/schemas/Interval"
+          },
+          "eclLifetime" : {
+            "$ref" : "#/components/schemas/Interval"
+          },
+          "method" : {
+            "type" : "string"
+          },
+          "pd12m" : {
+            "$ref" : "#/components/schemas/Interval"
+          },
+          "pdLifetime" : {
+            "$ref" : "#/components/schemas/Interval"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "resampled" : {
             "type" : "string"
           }
         }
@@ -6338,6 +6441,12 @@
           "decision" : {
             "$ref" : "#/components/schemas/DecisionOptions"
           },
+          "delinquency" : {
+            "$ref" : "#/components/schemas/DelinquencyHistory"
+          },
+          "intervals" : {
+            "$ref" : "#/components/schemas/IntervalRequest"
+          },
           "loan" : {
             "$ref" : "#/components/schemas/LoanFeatures"
           },
@@ -6372,6 +6481,15 @@
         "properties" : {
           "decision" : {
             "$ref" : "#/components/schemas/Decision"
+          },
+          "fallbackReason" : {
+            "type" : "string"
+          },
+          "intervals" : {
+            "$ref" : "#/components/schemas/Intervals"
+          },
+          "modelUsed" : {
+            "type" : "string"
           },
           "termStructure" : {
             "$ref" : "#/components/schemas/TermStructure"
