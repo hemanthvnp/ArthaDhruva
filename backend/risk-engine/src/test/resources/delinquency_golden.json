@@ -1,0 +1,3583 @@
+{
+ "model_version": "2026.11.03-2148",
+ "survival_model_version": "2026.10.13-0616",
+ "liquidation_haircut": 0.15,
+ "sicr_relative": 2.0,
+ "sicr_absolute": 0.005,
+ "cases": [
+  {
+   "request": {
+    "loan": {
+     "loanId": "prime",
+     "creditScore": 760,
+     "originalDti": 32.0,
+     "originalUpb": 350000.0,
+     "originalCltv": 75.0,
+     "originalLtv": 75.0,
+     "originalInterestRate": 6.5,
+     "originalLoanTerm": 360,
+     "numberOfBorrowers": 2,
+     "numberOfUnits": 1,
+     "miPercent": 0.0,
+     "occupancyStatus": "P",
+     "propertyType": "SF",
+     "loanPurpose": "P",
+     "channel": "R",
+     "firstTimeHomebuyerFlag": "N",
+     "propertyState": "CA",
+     "originationMonth": null
+    },
+    "scenario": {
+     "name": "BASELINE",
+     "description": "",
+     "stressedMonths": 0,
+     "unemploymentShockPp": 0.0,
+     "unemploymentShockMonths": 12,
+     "unemploymentRecoveryMonths": 0,
+     "hpiShockPct": 0.0,
+     "hpiShockMonths": 12,
+     "hpiAnnualGrowthPct": 3.0,
+     "rateShockBp": 0.0
+    },
+    "daysPastDue": 0,
+    "history": {
+     "episodes": 2,
+     "monthsSinceCure": 3,
+     "maxState": 1
+    }
+   },
+   "expected": {
+    "monthsOnBook": 0,
+    "remainingMonths": 360,
+    "startState": 0,
+    "pd12m": 0.005915562168802545,
+    "pd24m": 0.007352169579573309,
+    "pdLifetime": 0.014615018491205917,
+    "prepayLifetime": 0.5759959675917193,
+    "expectedLifeMonths": 180.85399877500035,
+    "maturityProbability": 0.40938901391706883,
+    "stage": 1,
+    "referencePd12m": null,
+    "exposure": 350000.0,
+    "lgd": 0.00863655662349846,
+    "lgdPeak": 0.00863655662349846,
+    "ecl12m": 17.080879189743623,
+    "eclLifetime": 30.69427075078858,
+    "eclIfrs9": 17.080879189743623,
+    "eclCecl": 30.69427075078858,
+    "points": [
+     {
+      "k": 1,
+      "month": "2026-09",
+      "loanAge": 1,
+      "survival": 0.9978455668738841,
+      "marginalDefault": 8.009828702229857e-05,
+      "marginalPrepay": 0.002074334839093445,
+      "cumulativeDefault": 8.009828702229857e-05,
+      "stressedProbability": 0.12368517598952852,
+      "exposure": 350000.0,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.2408162655214187,
+      "byState": [
+       0.9520680780743989,
+       0.045586259450671386,
+       0.00019122934881397893
+      ]
+     },
+     {
+      "k": 2,
+      "month": "2026-10",
+      "loanAge": 2,
+      "survival": 0.9956091652628825,
+      "marginalDefault": 0.00013977545574894593,
+      "marginalPrepay": 0.0020966261552529102,
+      "cumulativeDefault": 0.0002198737427712445,
+      "stressedProbability": 0.13076857404855888,
+      "exposure": 349683.595251108,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.4175943749026013,
+      "byState": [
+       0.9724990665476075,
+       0.020426444922826897,
+       0.0026836537924480102
+      ]
+     },
+     {
+      "k": 3,
+      "month": "2026-11",
+      "loanAge": 3,
+      "survival": 0.9926281453478449,
+      "marginalDefault": 0.00021047610337766122,
+      "marginalPrepay": 0.002770543811660011,
+      "cumulativeDefault": 0.0004303498461489057,
+      "stressedProbability": 0.13747239424347943,
+      "exposure": 349365.4766431594,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.6248635128107011,
+      "byState": [
+       0.9758944752556242,
+       0.015397672555131494,
+       0.0013359975370891347
+      ]
+     },
+     {
+      "k": 6,
+      "month": "2027-02",
+      "loanAge": 6,
+      "survival": 0.9804157349695823,
+      "marginalDefault": 0.0007893676699576048,
+      "marginalPrepay": 0.0041316139415346455,
+      "cumulativeDefault": 0.002410678267961673,
+      "stressedProbability": 0.15550299939261775,
+      "exposure": 348400.7445792447,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 2.2994424948939685,
+      "byState": [
+       0.9662998116928531,
+       0.01316250897690596,
+       0.0009534142998233696
+      ]
+     },
+     {
+      "k": 12,
+      "month": "2027-08",
+      "loanAge": 12,
+      "survival": 0.9410218911880013,
+      "marginalDefault": 0.0003312550308495124,
+      "marginalPrepay": 0.007392340018401195,
+      "cumulativeDefault": 0.005915562168802545,
+      "stressedProbability": 0.18120322053913038,
+      "exposure": 346423.7370319424,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.9288760973907152,
+      "byState": [
+       0.9394127287088236,
+       0.0012534426371185671,
+       0.0003557198420589591
+      ]
+     },
+     {
+      "k": 13,
+      "month": "2027-09",
+      "loanAge": 13,
+      "survival": 0.9333733727094464,
+      "marginalDefault": 0.00016534136737427358,
+      "marginalPrepay": 0.00748317711118052,
+      "cumulativeDefault": 0.006080903536176819,
+      "stressedProbability": 0.1842614659926475,
+      "exposure": 346087.96085864,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.460690863257696,
+      "byState": [
+       0.9317714715385417,
+       0.0013700442007410912,
+       0.00023185697016365025
+      ]
+     },
+     {
+      "k": 24,
+      "month": "2028-08",
+      "loanAge": 24,
+      "survival": 0.8488986276499157,
+      "marginalDefault": 0.00013403976663127327,
+      "marginalPrepay": 0.008082372403539732,
+      "cumulativeDefault": 0.007352169579573309,
+      "stressedProbability": 0.20690655764330237,
+      "exposure": 342272.1889363634,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.3480486674353269,
+      "byState": [
+       0.8474754615186275,
+       0.0012890817352936663,
+       0.00013408439599468753
+      ]
+     },
+     {
+      "k": 25,
+      "month": "2028-09",
+      "loanAge": 25,
+      "survival": 0.840727703659409,
+      "marginalDefault": 0.00013984504889462125,
+      "marginalPrepay": 0.008031078941612296,
+      "cumulativeDefault": 0.0074920146284679304,
+      "stressedProbability": 0.208069574680945,
+      "exposure": 341913.9252108767,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.3607883484417382,
+      "byState": [
+       0.8392833506844752,
+       0.0013103057112959884,
+       0.00013404726363762346
+      ]
+     },
+     {
+      "k": 36,
+      "month": "2029-08",
+      "loanAge": 36,
+      "survival": 0.7536009093012905,
+      "marginalDefault": 6.78724880338779e-05,
+      "marginalPrepay": 0.007426047082711559,
+      "cumulativeDefault": 0.008859210219954297,
+      "stressedProbability": 0.21563128029568493,
+      "exposure": 337842.60397614597,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.16303840690273327,
+      "byState": [
+       0.7522680676324646,
+       0.0012097194600888647,
+       0.00012312220873705862
+      ]
+     },
+     {
+      "k": 60,
+      "month": "2031-08",
+      "loanAge": 60,
+      "survival": 0.5755934713879951,
+      "marginalDefault": 4.249065839918881e-05,
+      "marginalPrepay": 0.00659877279794026,
+      "cumulativeDefault": 0.009901302152739218,
+      "stressedProbability": 0.21888711314866924,
+      "exposure": 328073.5938277987,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.08706438758861793,
+      "byState": [
+       0.5744417328818747,
+       0.0010142995824903274,
+       0.00013743892363001948
+      ]
+     },
+     {
+      "k": 120,
+      "month": "2036-08",
+      "loanAge": 120,
+      "survival": 0.4555688767873554,
+      "marginalDefault": 5.951704400567197e-06,
+      "marginalPrepay": 0.00019364017261426896,
+      "cumulativeDefault": 0.010914653125355887,
+      "stressedProbability": 0.24884007495083377,
+      "exposure": 297318.2067329701,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.007992338310431373,
+      "byState": [
+       0.45479548406806813,
+       0.0006893083931053777,
+       8.40843261819268e-05
+      ]
+     },
+     {
+      "k": 240,
+      "month": "2046-08",
+      "loanAge": 240,
+      "survival": 0.4315700956879437,
+      "marginalDefault": 1.28357808119365e-05,
+      "marginalPrepay": 0.00017727834405645678,
+      "cumulativeDefault": 0.012653439478339565,
+      "stressedProbability": 0.2535832965062803,
+      "exposure": 195979.173152523,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.005941739272361161,
+      "byState": [
+       0.4309090171684457,
+       0.0005908513953584358,
+       7.022712413955594e-05
+      ]
+     },
+     {
+      "k": 360,
+      "month": "2056-08",
+      "loanAge": 360,
+      "survival": 0.40938901391706883,
+      "marginalDefault": 1.627564460903217e-05,
+      "marginalPrepay": 0.0001626026421363268,
+      "cumulativeDefault": 0.014615018491205917,
+      "stressedProbability": 0.2536681129921096,
+      "exposure": 2200.319683937381,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 4.423598843195424e-05,
+      "byState": [
+       0.4088211464068772,
+       0.000504628480732232,
+       6.323902945938668e-05
+      ]
+     }
+    ],
+    "conservation": 5.995204332975845e-15
+   }
+  },
+  {
+   "request": {
+    "loan": {
+     "loanId": "prime",
+     "creditScore": 760,
+     "originalDti": 32.0,
+     "originalUpb": 350000.0,
+     "originalCltv": 75.0,
+     "originalLtv": 75.0,
+     "originalInterestRate": 6.5,
+     "originalLoanTerm": 360,
+     "numberOfBorrowers": 2,
+     "numberOfUnits": 1,
+     "miPercent": 0.0,
+     "occupancyStatus": "P",
+     "propertyType": "SF",
+     "loanPurpose": "P",
+     "channel": "R",
+     "firstTimeHomebuyerFlag": "N",
+     "propertyState": "CA",
+     "originationMonth": null
+    },
+    "scenario": {
+     "name": "BASELINE",
+     "description": "",
+     "stressedMonths": 0,
+     "unemploymentShockPp": 0.0,
+     "unemploymentShockMonths": 12,
+     "unemploymentRecoveryMonths": 0,
+     "hpiShockPct": 0.0,
+     "hpiShockMonths": 12,
+     "hpiAnnualGrowthPct": 3.0,
+     "rateShockBp": 0.0
+    },
+    "daysPastDue": 35,
+    "history": {
+     "episodes": 2,
+     "monthsSinceCure": 3,
+     "maxState": 1
+    }
+   },
+   "expected": {
+    "monthsOnBook": 0,
+    "remainingMonths": 360,
+    "startState": 1,
+    "pd12m": 0.00692441092398911,
+    "pd24m": 0.008359645849584508,
+    "pdLifetime": 0.015615552599319179,
+    "prepayLifetime": 0.5753868008854042,
+    "expectedLifeMonths": 180.68217695077135,
+    "maturityProbability": 0.4089976465152728,
+    "stage": 2,
+    "referencePd12m": null,
+    "exposure": 350000.0,
+    "lgd": 0.00863655662349846,
+    "lgdPeak": 0.00863655662349846,
+    "ecl12m": 20.11130536383726,
+    "eclLifetime": 33.711687455543945,
+    "eclIfrs9": 33.711687455543945,
+    "eclCecl": 33.711687455543945,
+    "points": [
+     {
+      "k": 1,
+      "month": "2026-09",
+      "loanAge": 1,
+      "survival": 0.9969265974797152,
+      "marginalDefault": 0.000999067681191325,
+      "marginalPrepay": 0.002074334839093445,
+      "cumulativeDefault": 0.000999067681191325,
+      "stressedProbability": 0.12368517598952852,
+      "exposure": 350000.0,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 3.0037065327084944,
+      "byState": [
+       0.8918253416702935,
+       0.05535275006438699,
+       0.049748505745034685
+      ]
+     },
+     {
+      "k": 2,
+      "month": "2026-10",
+      "loanAge": 2,
+      "survival": 0.9946934564672185,
+      "marginalDefault": 0.00019311603586417048,
+      "marginalPrepay": 0.0020400249766324356,
+      "cumulativeDefault": 0.0011921837170554956,
+      "stressedProbability": 0.1307643903774689,
+      "exposure": 349683.595251108,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.5769551588886503,
+      "byState": [
+       0.9671766854870296,
+       0.021569599630491605,
+       0.0059471713496973624
+      ]
+     },
+     {
+      "k": 3,
+      "month": "2026-11",
+      "loanAge": 3,
+      "survival": 0.9917169225301506,
+      "marginalDefault": 0.0002143891881059169,
+      "marginalPrepay": 0.002762144748961924,
+      "cumulativeDefault": 0.0014065729051614124,
+      "stressedProbability": 0.13746788194507104,
+      "exposure": 349365.4766431594,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.6364807169967573,
+      "byState": [
+       0.974678558795116,
+       0.015474228018954577,
+       0.0015641357160800747
+      ]
+     },
+     {
+      "k": 6,
+      "month": "2027-02",
+      "loanAge": 6,
+      "survival": 0.979478637691134,
+      "marginalDefault": 0.00078889386594601,
+      "marginalPrepay": 0.004127665438402644,
+      "cumulativeDefault": 0.0034228618194981804,
+      "stressedProbability": 0.15550417916160528,
+      "exposure": 348400.7445792447,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 2.2980622951214453,
+      "byState": [
+       0.9653761293758165,
+       0.013149966757829146,
+       0.0009525415574884096
+      ]
+     },
+     {
+      "k": 12,
+      "month": "2027-08",
+      "loanAge": 12,
+      "survival": 0.940122410654861,
+      "marginalDefault": 0.0003309383805042165,
+      "marginalPrepay": 0.007385279354296551,
+      "cumulativeDefault": 0.00692441092398911,
+      "stressedProbability": 0.18120409067666263,
+      "exposure": 346423.7370319424,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.927988174462506,
+      "byState": [
+       0.9385147864600429,
+       0.001252244567712974,
+       0.0003553796271049852
+      ]
+     },
+     {
+      "k": 13,
+      "month": "2027-09",
+      "loanAge": 13,
+      "survival": 0.932481197677031,
+      "marginalDefault": 0.00016518335274027542,
+      "marginalPrepay": 0.007476029625089831,
+      "cumulativeDefault": 0.007089594276729385,
+      "stressedProbability": 0.18426228594347188,
+      "exposure": 346087.96085864,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.4602505868810093,
+      "byState": [
+       0.9308808276895228,
+       0.0013687347101214286,
+       0.00023163527738671283
+      ]
+     },
+     {
+      "k": 24,
+      "month": "2028-08",
+      "loanAge": 24,
+      "survival": 0.8480871572720861,
+      "marginalDefault": 0.00013391167491815968,
+      "marginalPrepay": 0.008074649691137917,
+      "cumulativeDefault": 0.008359645849584508,
+      "stressedProbability": 0.20690698203349453,
+      "exposure": 342272.1889363634,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.34771606352844797,
+      "byState": [
+       0.8466653514819891,
+       0.0012878495345822532,
+       0.00013395625551463708
+      ]
+     },
+     {
+      "k": 25,
+      "month": "2028-09",
+      "loanAge": 25,
+      "survival": 0.8399240407852085,
+      "marginalDefault": 0.0001397114064414483,
+      "marginalPrepay": 0.00802340508043591,
+      "cumulativeDefault": 0.008499357256025956,
+      "stressedProbability": 0.2080699740737849,
+      "exposure": 341913.9252108767,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.3604435622634424,
+      "byState": [
+       0.8384810684051562,
+       0.0013090532230438934,
+       0.0001339191570084821
+      ]
+     },
+     {
+      "k": 36,
+      "month": "2029-08",
+      "loanAge": 36,
+      "survival": 0.7528805079140006,
+      "marginalDefault": 6.780763871083669e-05,
+      "marginalPrepay": 0.007418949800981869,
+      "cumulativeDefault": 0.009865246220072307,
+      "stressedProbability": 0.21563148391803733,
+      "exposure": 337842.60397614597,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.1628826305252402,
+      "byState": [
+       0.7515489403374698,
+       0.0012085630512219789,
+       0.00012300452530877873
+      ]
+     },
+     {
+      "k": 60,
+      "month": "2031-08",
+      "loanAge": 60,
+      "survival": 0.5750432192407301,
+      "marginalDefault": 4.245004700382931e-05,
+      "marginalPrepay": 0.006592464852714961,
+      "cumulativeDefault": 0.010906342396692912,
+      "stressedProbability": 0.21888715933850364,
+      "exposure": 328073.5938277987,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.08698117385648708,
+      "byState": [
+       0.5738925817607887,
+       0.0010133299415329153,
+       0.00013730753840839575
+      ]
+     },
+     {
+      "k": 120,
+      "month": "2036-08",
+      "loanAge": 120,
+      "survival": 0.4551333624003403,
+      "marginalDefault": 5.946014687940873e-06,
+      "marginalPrepay": 0.0001934550569526232,
+      "cumulativeDefault": 0.011918724706181452,
+      "stressedProbability": 0.24884007639997385,
+      "exposure": 297318.2067329701,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.007984697791827262,
+      "byState": [
+       0.454360709028256,
+       0.0006886494286926574,
+       8.400394339171603e-05
+      ]
+     },
+     {
+      "k": 240,
+      "month": "2046-08",
+      "loanAge": 240,
+      "survival": 0.4311575236322754,
+      "marginalDefault": 1.2823510071825184e-05,
+      "marginalPrepay": 0.0001771088696387352,
+      "cumulativeDefault": 0.013655848815283454,
+      "stressedProbability": 0.25358329650813477,
+      "exposure": 195979.173152523,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.005936059092909004,
+      "byState": [
+       0.4304970770901233,
+       0.0005902865536857819,
+       7.015998846629374e-05
+      ]
+     },
+     {
+      "k": 360,
+      "month": "2056-08",
+      "loanAge": 360,
+      "survival": 0.4089976465152728,
+      "marginalDefault": 1.6260085430532833e-05,
+      "marginalPrepay": 0.00016244719738472244,
+      "cumulativeDefault": 0.015615552599319179,
+      "stressedProbability": 0.2536681129921117,
+      "exposure": 2200.319683937381,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 4.419369974498418e-05,
+      "byState": [
+       0.4084303218746368,
+       0.0005041460663765396,
+       6.317857425953951e-05
+      ]
+     }
+    ],
+    "conservation": 3.774758283725532e-15
+   }
+  },
+  {
+   "request": {
+    "loan": {
+     "loanId": "prime",
+     "creditScore": 760,
+     "originalDti": 32.0,
+     "originalUpb": 350000.0,
+     "originalCltv": 75.0,
+     "originalLtv": 75.0,
+     "originalInterestRate": 6.5,
+     "originalLoanTerm": 360,
+     "numberOfBorrowers": 2,
+     "numberOfUnits": 1,
+     "miPercent": 0.0,
+     "occupancyStatus": "P",
+     "propertyType": "SF",
+     "loanPurpose": "P",
+     "channel": "R",
+     "firstTimeHomebuyerFlag": "N",
+     "propertyState": "CA",
+     "originationMonth": null
+    },
+    "scenario": {
+     "name": "BASELINE",
+     "description": "",
+     "stressedMonths": 0,
+     "unemploymentShockPp": 0.0,
+     "unemploymentShockMonths": 12,
+     "unemploymentRecoveryMonths": 0,
+     "hpiShockPct": 0.0,
+     "hpiShockMonths": 12,
+     "hpiAnnualGrowthPct": 3.0,
+     "rateShockBp": 0.0
+    },
+    "daysPastDue": 65,
+    "history": {
+     "episodes": 1,
+     "monthsSinceCure": 13,
+     "maxState": 2
+    }
+   },
+   "expected": {
+    "monthsOnBook": 0,
+    "remainingMonths": 360,
+    "startState": 2,
+    "pd12m": 0.2629620468373495,
+    "pd24m": 0.2646266517576324,
+    "pdLifetime": 0.2699604736177903,
+    "prepayLifetime": 0.42605363290643455,
+    "expectedLifeMonths": 134.85033234206347,
+    "maturityProbability": 0.3039858934757719,
+    "stage": 2,
+    "referencePd12m": null,
+    "exposure": 350000.0,
+    "lgd": 0.00863655662349846,
+    "lgdPeak": 0.00863655662349846,
+    "ecl12m": 781.6407075693653,
+    "eclLifetime": 793.2729936193756,
+    "eclIfrs9": 793.2729936193756,
+    "eclCecl": 793.2729936193756,
+    "points": [
+     {
+      "k": 1,
+      "month": "2026-09",
+      "loanAge": 1,
+      "survival": 0.8661863432827688,
+      "marginalDefault": 0.1328159701355032,
+      "marginalPrepay": 0.0009976865817279883,
+      "cumulativeDefault": 0.1328159701355032,
+      "stressedProbability": 0.12368517598952852,
+      "exposure": 350000.0,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 399.31248368310366,
+      "byState": [
+       0.6925639018258832,
+       0.04072014885032057,
+       0.13290229260656494
+      ]
+     },
+     {
+      "k": 2,
+      "month": "2026-10",
+      "loanAge": 2,
+      "survival": 0.8592757580386486,
+      "marginalDefault": 0.005044782291786518,
+      "marginalPrepay": 0.001865802952333604,
+      "cumulativeDefault": 0.1378607524272897,
+      "stressedProbability": 0.014122589673728633,
+      "exposure": 349683.595251108,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 15.07183572659673,
+      "byState": [
+       0.7128272667704094,
+       0.013182131181080022,
+       0.1332663600871592
+      ]
+     },
+     {
+      "k": 3,
+      "month": "2026-11",
+      "loanAge": 3,
+      "survival": 0.8258773674916045,
+      "marginalDefault": 0.03105163688877324,
+      "marginalPrepay": 0.0023467536582708905,
+      "cumulativeDefault": 0.16891238931606295,
+      "stressedProbability": 0.02502581794394214,
+      "exposure": 349365.4766431594,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 92.18640308076193,
+      "byState": [
+       0.7282240089429683,
+       0.008476398974539123,
+       0.08917695957409695
+      ]
+     },
+     {
+      "k": 6,
+      "month": "2027-02",
+      "loanAge": 6,
+      "survival": 0.7308876966499516,
+      "marginalDefault": 0.012875438186544387,
+      "marginalPrepay": 0.004016959389883785,
+      "cumulativeDefault": 0.25347941280207725,
+      "stressedProbability": 0.053450596452952887,
+      "exposure": 348400.7445792447,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 37.50638749634982,
+      "byState": [
+       0.7220191258979796,
+       0.0072069333757467016,
+       0.0016616373762254114
+      ]
+     },
+     {
+      "k": 12,
+      "month": "2027-08",
+      "loanAge": 12,
+      "survival": 0.6922851146345286,
+      "marginalDefault": 0.0003299986883925498,
+      "marginalPrepay": 0.007302155294550169,
+      "cumulativeDefault": 0.2629620468373495,
+      "stressedProbability": 0.10938246468229564,
+      "exposure": 346423.7370319424,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.9253531728469975,
+      "byState": [
+       0.6833084833530721,
+       0.008088416595288084,
+       0.0008882146861682592
+      ]
+     },
+     {
+      "k": 13,
+      "month": "2027-09",
+      "loanAge": 13,
+      "survival": 0.6867461126815162,
+      "marginalDefault": 0.0003597976876956085,
+      "marginalPrepay": 0.0051792042653167345,
+      "cumulativeDefault": 0.2633218445250451,
+      "stressedProbability": 0.11657212704028225,
+      "exposure": 346087.96085864,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 1.0025047571271244,
+      "byState": [
+       0.6839076566582661,
+       0.0018688928668240494,
+       0.0009695631564258651
+      ]
+     },
+     {
+      "k": 24,
+      "month": "2028-08",
+      "loanAge": 24,
+      "survival": 0.6267403333668042,
+      "marginalDefault": 9.66366184383377e-05,
+      "marginalPrepay": 0.00576600948981075,
+      "cumulativeDefault": 0.2646266517576324,
+      "stressedProbability": 0.1719392384609984,
+      "exposure": 342272.1889363634,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.2509273711692084,
+      "byState": [
+       0.6256943009758674,
+       0.0009489912034926611,
+       9.704118744404693e-05
+      ]
+     },
+     {
+      "k": 25,
+      "month": "2028-09",
+      "loanAge": 25,
+      "survival": 0.6209001864189154,
+      "marginalDefault": 0.00010100875584659914,
+      "marginalPrepay": 0.005739138192041911,
+      "cumulativeDefault": 0.264727660513479,
+      "stressedProbability": 0.17517247756886473,
+      "exposure": 341913.9252108767,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.26059401092927026,
+      "byState": [
+       0.6198384520635353,
+       0.0009646204979378125,
+       9.711385744239144e-05
+      ]
+     },
+     {
+      "k": 36,
+      "month": "2029-08",
+      "loanAge": 36,
+      "survival": 0.5580267087363183,
+      "marginalDefault": 4.824493656389321e-05,
+      "marginalPrepay": 0.005400570183028855,
+      "cumulativeDefault": 0.26571952798013254,
+      "stressedProbability": 0.19890581278348557,
+      "exposure": 337842.60397614597,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.11589051508726848,
+      "byState": [
+       0.5570416940422143,
+       0.0008947393759544893,
+       9.027531814959067e-05
+      ]
+     },
+     {
+      "k": 60,
+      "month": "2031-08",
+      "loanAge": 60,
+      "survival": 0.4271997566277345,
+      "marginalDefault": 3.1015634274713034e-05,
+      "marginalPrepay": 0.004878845415106162,
+      "cumulativeDefault": 0.2664651902815452,
+      "stressedProbability": 0.2151023416023642,
+      "exposure": 328073.5938277987,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.06355178539318636,
+      "byState": [
+       0.4263452761730795,
+       0.0007526424836677865,
+       0.0001018379709872434
+      ]
+     },
+     {
+      "k": 120,
+      "month": "2036-08",
+      "loanAge": 120,
+      "survival": 0.33827575580171965,
+      "marginalDefault": 4.419761542556556e-06,
+      "marginalPrepay": 0.00014376492686337116,
+      "cumulativeDefault": 0.26721280795014946,
+      "stressedProbability": 0.24872139354035064,
+      "exposure": 297318.2067329701,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.005935145148703896,
+      "byState": [
+       0.3377014956333281,
+       0.0005118294815964437,
+       6.243068679508143e-05
+      ]
+     },
+     {
+      "k": 240,
+      "month": "2046-08",
+      "loanAge": 240,
+      "survival": 0.32045613468954687,
+      "marginalDefault": 9.531024628092477e-06,
+      "marginalPrepay": 0.0001316354486183192,
+      "cumulativeDefault": 0.26850393145826984,
+      "stressedProbability": 0.2535831446287812,
+      "exposure": 195979.173152523,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.004411953130729314,
+      "byState": [
+       0.31996526040691187,
+       0.0004387281520752515,
+       5.2146130559800023e-05
+      ]
+     },
+     {
+      "k": 360,
+      "month": "2056-08",
+      "loanAge": 360,
+      "survival": 0.3039858934757719,
+      "marginalDefault": 1.208524459845794e-05,
+      "marginalPrepay": 0.00012073824103752179,
+      "cumulativeDefault": 0.2699604736177903,
+      "stressedProbability": 0.2536681127974257,
+      "exposure": 2200.319683937381,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 3.2846793666042884e-05,
+      "byState": [
+       0.30356423166613145,
+       0.0003747045826095301,
+       4.695722703088924e-05
+      ]
+     }
+    ],
+    "conservation": 3.3306690738754696e-15
+   }
+  },
+  {
+   "request": {
+    "loan": {
+     "loanId": "prime",
+     "creditScore": 760,
+     "originalDti": 32.0,
+     "originalUpb": 350000.0,
+     "originalCltv": 75.0,
+     "originalLtv": 75.0,
+     "originalInterestRate": 6.5,
+     "originalLoanTerm": 360,
+     "numberOfBorrowers": 2,
+     "numberOfUnits": 1,
+     "miPercent": 0.0,
+     "occupancyStatus": "P",
+     "propertyType": "SF",
+     "loanPurpose": "P",
+     "channel": "R",
+     "firstTimeHomebuyerFlag": "N",
+     "propertyState": "CA",
+     "originationMonth": null
+    },
+    "scenario": {
+     "name": "SEVERELY_ADVERSE",
+     "description": "",
+     "stressedMonths": 24,
+     "unemploymentShockPp": 5.0,
+     "unemploymentShockMonths": 12,
+     "unemploymentRecoveryMonths": 48,
+     "hpiShockPct": 25.0,
+     "hpiShockMonths": 24,
+     "hpiAnnualGrowthPct": 2.0,
+     "rateShockBp": 0.0
+    },
+    "daysPastDue": 35,
+    "history": {
+     "episodes": 2,
+     "monthsSinceCure": 3,
+     "maxState": 1
+    }
+   },
+   "expected": {
+    "monthsOnBook": 0,
+    "remainingMonths": 360,
+    "startState": 1,
+    "pd12m": 0.15178336464110295,
+    "pd24m": 0.1593263910785919,
+    "pdLifetime": 0.17015392551417954,
+    "prepayLifetime": 0.39788397165487105,
+    "expectedLifeMonths": 181.43977957864,
+    "maturityProbability": 0.4319621028309456,
+    "stage": 2,
+    "referencePd12m": null,
+    "exposure": 350000.0,
+    "lgd": 0.00863655662349846,
+    "lgdPeak": 0.1308087258725179,
+    "ecl12m": 431.7141272540484,
+    "eclLifetime": 668.6866895491398,
+    "eclIfrs9": 668.6866895491398,
+    "eclCecl": 668.6866895491398,
+    "points": [
+     {
+      "k": 1,
+      "month": "2026-09",
+      "loanAge": 1,
+      "survival": 0.9966340986221587,
+      "marginalDefault": 0.000999014558864689,
+      "marginalPrepay": 0.0023668868189766767,
+      "cumulativeDefault": 0.000999014558864689,
+      "stressedProbability": 1.0,
+      "exposure": 350000.0,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 3.003546819925713,
+      "byState": [
+       0.8872280172015575,
+       0.04620129590117972,
+       0.0632047855194214
+      ]
+     },
+     {
+      "k": 2,
+      "month": "2026-10",
+      "loanAge": 2,
+      "survival": 0.9941521086707236,
+      "marginalDefault": 0.00018048944328674996,
+      "marginalPrepay": 0.0023015005081484224,
+      "cumulativeDefault": 0.001179504002151439,
+      "stressedProbability": 1.0,
+      "exposure": 349683.595251108,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.5392318403971096,
+      "byState": [
+       0.9686626400708716,
+       0.018733604478194624,
+       0.0067558641216574275
+      ]
+     },
+     {
+      "k": 3,
+      "month": "2026-11",
+      "loanAge": 3,
+      "survival": 0.9905662403405203,
+      "marginalDefault": 0.00020096233233406427,
+      "marginalPrepay": 0.003384905997869219,
+      "cumulativeDefault": 0.0013804663344855032,
+      "stressedProbability": 1.0,
+      "exposure": 349365.4766431594,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.5966189363529556,
+      "byState": [
+       0.9757936440120898,
+       0.01318615466901017,
+       0.0015864416594203261
+      ]
+     },
+     {
+      "k": 6,
+      "month": "2027-02",
+      "loanAge": 6,
+      "survival": 0.9750518454957742,
+      "marginalDefault": 0.0002616498228540379,
+      "marginalPrepay": 0.00680888832307237,
+      "cumulativeDefault": 0.0020867597769910766,
+      "stressedProbability": 1.0,
+      "exposure": 348400.7445792447,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.7621907310751237,
+      "byState": [
+       0.9633918655358267,
+       0.010633187857179375,
+       0.0010267921027681316
+      ]
+     },
+     {
+      "k": 12,
+      "month": "2027-08",
+      "loanAge": 12,
+      "survival": 0.7771261061218738,
+      "marginalDefault": 0.004006117102686357,
+      "marginalPrepay": 0.009299241339105046,
+      "cumulativeDefault": 0.15178336464110295,
+      "stressedProbability": 1.0,
+      "exposure": 346423.7370319424,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 11.233599714668241,
+      "byState": [
+       0.7733425684292434,
+       0.0017570648921793476,
+       0.0020264728004511356
+      ]
+     },
+     {
+      "k": 13,
+      "month": "2027-09",
+      "loanAge": 13,
+      "survival": 0.7671266775479714,
+      "marginalDefault": 0.0009992697419912528,
+      "marginalPrepay": 0.009000158831911374,
+      "cumulativeDefault": 0.1527826343830942,
+      "stressedProbability": 1.0,
+      "exposure": 346087.96085864,
+      "lgd": 0.019237017528531464,
+      "discountedExpectedLoss": 6.201659636145276,
+      "byState": [
+       0.7633054640322743,
+       0.0019514729635846124,
+       0.0018697405521124035
+      ]
+     },
+     {
+      "k": 24,
+      "month": "2028-08",
+      "loanAge": 24,
+      "survival": 0.6882765559382533,
+      "marginalDefault": 0.00020935401289561725,
+      "marginalPrepay": 0.0027201268952521894,
+      "cumulativeDefault": 0.1593263910785919,
+      "stressedProbability": 1.0,
+      "exposure": 342272.1889363634,
+      "lgd": 0.1308087258725179,
+      "discountedExpectedLoss": 8.23348489178863,
+      "byState": [
+       0.6866303447784436,
+       0.0013933034329576884,
+       0.0002529077268519847
+      ]
+     },
+     {
+      "k": 25,
+      "month": "2028-09",
+      "loanAge": 25,
+      "survival": 0.685355003430671,
+      "marginalDefault": 0.00024211747686025582,
+      "marginalPrepay": 0.0026794350307221015,
+      "cumulativeDefault": 0.15956850855545215,
+      "stressedProbability": 0.9599311375659026,
+      "exposure": 341913.9252108767,
+      "lgd": 0.12846092696126965,
+      "discountedExpectedLoss": 9.290989617898576,
+      "byState": [
+       0.6836609636726678,
+       0.0014244079369396983,
+       0.00026963182106342444
+      ]
+     },
+     {
+      "k": 36,
+      "month": "2029-08",
+      "loanAge": 36,
+      "survival": 0.6499378554465018,
+      "marginalDefault": 0.000184088504414185,
+      "marginalPrepay": 0.0034074859378789134,
+      "cumulativeDefault": 0.1621248609981237,
+      "stressedProbability": 0.6350413498444326,
+      "exposure": 337842.60397614597,
+      "lgd": 0.10180067158899331,
+      "discountedExpectedLoss": 5.212341251948678,
+      "byState": [
+       0.648542199392822,
+       0.0011489025683479957,
+       0.000246753485331878
+      ]
+     },
+     {
+      "k": 60,
+      "month": "2031-08",
+      "loanAge": 60,
+      "survival": 0.5597723610963399,
+      "marginalDefault": 6.792852641658878e-05,
+      "marginalPrepay": 0.003633348847982324,
+      "cumulativeDefault": 0.1630111278852623,
+      "stressedProbability": 0.34124784643682987,
+      "exposure": 328073.5938277987,
+      "lgd": 0.03768731790797053,
+      "discountedExpectedLoss": 0.6073707719159869,
+      "byState": [
+       0.5587390556022237,
+       0.000866391787843386,
+       0.00016691370627285317
+      ]
+     },
+     {
+      "k": 120,
+      "month": "2036-08",
+      "loanAge": 120,
+      "survival": 0.47584708356058225,
+      "marginalDefault": 2.8896550775244656e-05,
+      "marginalPrepay": 0.00017056803216095186,
+      "cumulativeDefault": 0.16618435994784286,
+      "stressedProbability": 0.25347718532784363,
+      "exposure": 297318.2067329701,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.038804180156914996,
+      "byState": [
+       0.4751046675621034,
+       0.0006402553003386382,
+       0.00010216069814016735
+      ]
+     },
+     {
+      "k": 240,
+      "month": "2046-08",
+      "loanAge": 240,
+      "survival": 0.45290515266618103,
+      "marginalDefault": 1.4887183760390866e-05,
+      "marginalPrepay": 0.000161695038016272,
+      "cumulativeDefault": 0.16827301154643362,
+      "stressedProbability": 0.25370078528326756,
+      "exposure": 195979.173152523,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 0.006891342700532344,
+      "byState": [
+       0.45221535726223594,
+       0.0006144758524805047,
+       7.531955146461485e-05
+      ]
+     },
+     {
+      "k": 360,
+      "month": "2056-08",
+      "loanAge": 360,
+      "survival": 0.4319621028309456,
+      "marginalDefault": 1.6005488927706186e-05,
+      "marginalPrepay": 0.00015624838001542773,
+      "cumulativeDefault": 0.17015392551417954,
+      "stressedProbability": 0.2538019185521073,
+      "exposure": 2200.319683937381,
+      "lgd": 0.00863655662349846,
+      "discountedExpectedLoss": 4.350172543463302e-05,
+      "byState": [
+       0.4314417078185057,
+       0.0004609821461960174,
+       5.941286624384154e-05
+      ]
+     }
+    ],
+    "conservation": 3.9968028886505635e-15
+   }
+  },
+  {
+   "request": {
+    "loan": {
+     "loanId": "seasoned",
+     "creditScore": 720,
+     "originalDti": 38.0,
+     "originalUpb": 300000.0,
+     "originalCltv": 80.0,
+     "originalLtv": 80.0,
+     "originalInterestRate": 3.0,
+     "originalLoanTerm": 360,
+     "numberOfBorrowers": 2,
+     "numberOfUnits": 1,
+     "miPercent": 0.0,
+     "occupancyStatus": "P",
+     "propertyType": "SF",
+     "loanPurpose": "N",
+     "channel": "R",
+     "firstTimeHomebuyerFlag": "N",
+     "propertyState": "TX",
+     "originationMonth": "2021-06"
+    },
+    "scenario": {
+     "name": "BASELINE",
+     "description": "",
+     "stressedMonths": 0,
+     "unemploymentShockPp": 0.0,
+     "unemploymentShockMonths": 12,
+     "unemploymentRecoveryMonths": 0,
+     "hpiShockPct": 0.0,
+     "hpiShockMonths": 12,
+     "hpiAnnualGrowthPct": 3.0,
+     "rateShockBp": 0.0
+    },
+    "daysPastDue": 0,
+    "history": {
+     "episodes": 2,
+     "monthsSinceCure": 3,
+     "maxState": 1
+    }
+   },
+   "expected": {
+    "monthsOnBook": 62,
+    "remainingMonths": 298,
+    "startState": 0,
+    "pd12m": 0.028638482103281064,
+    "pd24m": 0.033196155144559605,
+    "pdLifetime": 0.10203555488414125,
+    "prepayLifetime": 0.29444143560528985,
+    "expectedLifeMonths": 222.15614357869202,
+    "maturityProbability": 0.6035230095105648,
+    "stage": 2,
+    "referencePd12m": 0.001977023119531507,
+    "exposure": 265521.5662519754,
+    "lgd": 0.008619175808495772,
+    "lgdPeak": 0.008619175808495772,
+    "ecl12m": 62.66362015541778,
+    "eclLifetime": 135.6904518635099,
+    "eclIfrs9": 135.6904518635099,
+    "eclCecl": 135.6904518635099,
+    "points": [
+     {
+      "k": 1,
+      "month": "2026-09",
+      "loanAge": 63,
+      "survival": 0.99602287673324,
+      "marginalDefault": 5.2215939977172635e-06,
+      "marginalPrepay": 0.0039719016727623215,
+      "cumulativeDefault": 5.2215939977172635e-06,
+      "stressedProbability": 0.12368517598952852,
+      "exposure": 265521.5662519754,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 0.011920219693046274,
+      "byState": [
+       0.9025911812235987,
+       0.09309145656295277,
+       0.0003402389466884037
+      ]
+     },
+     {
+      "k": 2,
+      "month": "2026-10",
+      "loanAge": 64,
+      "survival": 0.9926616912469919,
+      "marginalDefault": 0.00011844002765520583,
+      "marginalPrepay": 0.003242745458592827,
+      "cumulativeDefault": 0.0001236616216529231,
+      "stressedProbability": 0.13050568717686373,
+      "exposure": 264920.558066417,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 0.26909841393435824,
+      "byState": [
+       0.8866452721631337,
+       0.09850354943349444,
+       0.007512869650363767
+      ]
+     },
+     {
+      "k": 3,
+      "month": "2026-11",
+      "loanAge": 65,
+      "survival": 0.9885762862493197,
+      "marginalDefault": 0.0006810878264705482,
+      "marginalPrepay": 0.0034043171712014727,
+      "cumulativeDefault": 0.0008047494481234713,
+      "stressedProbability": 0.13700213822613305,
+      "exposure": 264318.04736039473,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 1.5400773390538531,
+      "byState": [
+       0.8874579010239023,
+       0.09084049542376779,
+       0.010277889801649624
+      ]
+     },
+     {
+      "k": 6,
+      "month": "2027-02",
+      "loanAge": 68,
+      "survival": 0.9770099553222231,
+      "marginalDefault": 9.269665770804388e-05,
+      "marginalPrepay": 0.003973907870888972,
+      "cumulativeDefault": 0.0011113058424689517,
+      "stressedProbability": 0.15442616601530987,
+      "exposure": 262501.46250955557,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 0.20661186328264314,
+      "byState": [
+       0.8906945883451043,
+       0.07488606877798559,
+       0.011429298199133294
+      ]
+     },
+     {
+      "k": 12,
+      "month": "2027-08",
+      "loanAge": 74,
+      "survival": 0.9265729648975803,
+      "marginalDefault": 0.0028472356264594278,
+      "marginalPrepay": 0.0031310472234293294,
+      "cumulativeDefault": 0.028638482103281064,
+      "stressedProbability": 0.18108097185840247,
+      "exposure": 258827.2146858053,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 6.164338965621799,
+      "byState": [
+       0.9189011378326624,
+       0.006519219218479127,
+       0.0011526078464388463
+      ]
+     },
+     {
+      "k": 13,
+      "month": "2027-09",
+      "loanAge": 75,
+      "survival": 0.9223143871573822,
+      "marginalDefault": 0.0011553823527213002,
+      "marginalPrepay": 0.003103195387476616,
+      "cumulativeDefault": 0.029793864456002364,
+      "stressedProbability": 0.1847369641802038,
+      "exposure": 258209.47062133145,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 2.4892394755741494,
+      "byState": [
+       0.917402499077618,
+       0.004326554151823495,
+       0.0005853339279407991
+      ]
+     },
+     {
+      "k": 24,
+      "month": "2028-08",
+      "loanAge": 86,
+      "survival": 0.8867610775370768,
+      "marginalDefault": 0.0002508396210941569,
+      "marginalPrepay": 0.002862290278542686,
+      "cumulativeDefault": 0.033196155144559605,
+      "stressedProbability": 0.2141218876596018,
+      "exposure": 251311.50394636078,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 0.5117396803172056,
+      "byState": [
+       0.8833400382012874,
+       0.003174786877864975,
+       0.0002462524579244292
+      ]
+     },
+     {
+      "k": 25,
+      "month": "2028-09",
+      "loanAge": 87,
+      "survival": 0.8836559164745899,
+      "marginalDefault": 0.0002492449237204046,
+      "marginalPrepay": 0.0028559161387664185,
+      "cumulativeDefault": 0.03344540006828001,
+      "stressedProbability": 0.2160018394962197,
+      "exposure": 250674.97060503834,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 0.5059335754510531,
+      "byState": [
+       0.8803451405819622,
+       0.003052337792800895,
+       0.00025843809982675683
+      ]
+     },
+     {
+      "k": 36,
+      "month": "2029-08",
+      "loanAge": 98,
+      "survival": 0.8501077094064589,
+      "marginalDefault": 0.0002480015571777349,
+      "marginalPrepay": 0.002586283638566671,
+      "cumulativeDefault": 0.03621436443714303,
+      "stressedProbability": 0.2309773504717623,
+      "exposure": 243567.19567289096,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 0.4758841238183869,
+      "byState": [
+       0.8469221192916898,
+       0.00294511517683572,
+       0.0002404749379333026
+      ]
+     },
+     {
+      "k": 60,
+      "month": "2031-08",
+      "loanAge": 122,
+      "survival": 0.8209937173811845,
+      "marginalDefault": 0.00027163538145948476,
+      "marginalPrepay": 0.0007115110271835276,
+      "cumulativeDefault": 0.04271550269837432,
+      "stressedProbability": 0.24701115428323384,
+      "exposure": 227364.76299035747,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 0.4582604296758128,
+      "byState": [
+       0.817957090878728,
+       0.0027672424802817116,
+       0.00026938402217492087
+      ]
+     },
+     {
+      "k": 120,
+      "month": "2036-08",
+      "loanAge": 182,
+      "survival": 0.7634550558521387,
+      "marginalDefault": 0.0002473010415493268,
+      "marginalPrepay": 0.0006780048833067365,
+      "cumulativeDefault": 0.058598722448323134,
+      "stressedProbability": 0.2528585797505932,
+      "exposure": 182344.77979744668,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 0.2880442859851084,
+      "byState": [
+       0.7606658873419438,
+       0.0025463147446276907,
+       0.00024285376556704136
+      ]
+     },
+     {
+      "k": 240,
+      "month": "2046-08",
+      "loanAge": 302,
+      "survival": 0.6539744614849423,
+      "marginalDefault": 0.00025476152799360527,
+      "marginalPrepay": 0.0006511099844586634,
+      "cumulativeDefault": 0.087846865822693,
+      "stressedProbability": 0.252882606284154,
+      "exposure": 69300.93779939986,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 0.0835770784622633,
+      "byState": [
+       0.6510274661168657,
+       0.0026947292557458094,
+       0.00025226611233070183
+      ]
+     },
+     {
+      "k": 298,
+      "month": "2051-06",
+      "loanAge": 360,
+      "survival": 0.6035230095105648,
+      "marginalDefault": 0.00023510618552172272,
+      "marginalPrepay": 0.000600872032332737,
+      "cumulativeDefault": 0.10203555488414125,
+      "stressedProbability": 0.2528607369993811,
+      "exposure": 1261.6579562975996,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 0.0012148587899696289,
+      "byState": [
+       0.6008033717700466,
+       0.0024868343740209946,
+       0.00023280336649720272
+      ]
+     }
+    ],
+    "conservation": 4.218847493575595e-15
+   }
+  },
+  {
+   "request": {
+    "loan": {
+     "loanId": "seasoned",
+     "creditScore": 720,
+     "originalDti": 38.0,
+     "originalUpb": 300000.0,
+     "originalCltv": 80.0,
+     "originalLtv": 80.0,
+     "originalInterestRate": 3.0,
+     "originalLoanTerm": 360,
+     "numberOfBorrowers": 2,
+     "numberOfUnits": 1,
+     "miPercent": 0.0,
+     "occupancyStatus": "P",
+     "propertyType": "SF",
+     "loanPurpose": "N",
+     "channel": "R",
+     "firstTimeHomebuyerFlag": "N",
+     "propertyState": "TX",
+     "originationMonth": "2021-06"
+    },
+    "scenario": {
+     "name": "ADVERSE",
+     "description": "",
+     "stressedMonths": 12,
+     "unemploymentShockPp": 3.0,
+     "unemploymentShockMonths": 12,
+     "unemploymentRecoveryMonths": 36,
+     "hpiShockPct": 10.0,
+     "hpiShockMonths": 12,
+     "hpiAnnualGrowthPct": 2.0,
+     "rateShockBp": 0.0
+    },
+    "daysPastDue": 40,
+    "history": {
+     "episodes": 2,
+     "monthsSinceCure": 3,
+     "maxState": 1
+    },
+    "currentBalance": 281000.0
+   },
+   "expected": {
+    "monthsOnBook": 62,
+    "remainingMonths": 298,
+    "startState": 1,
+    "pd12m": 0.0694132697700392,
+    "pd24m": 0.0746393826726763,
+    "pdLifetime": 0.13510914952844055,
+    "prepayLifetime": 0.2781904789604224,
+    "expectedLifeMonths": 211.38174886174724,
+    "maturityProbability": 0.5867003715111304,
+    "stage": 2,
+    "referencePd12m": null,
+    "exposure": 281000.0,
+    "lgd": 0.008619175808495772,
+    "lgdPeak": 0.008619175808495772,
+    "ecl12m": 161.04856049810624,
+    "eclLifetime": 228.2494257709676,
+    "eclIfrs9": 228.2494257709676,
+    "eclCecl": 228.2494257709676,
+    "points": [
+     {
+      "k": 1,
+      "month": "2026-09",
+      "loanAge": 63,
+      "survival": 0.9920398153153313,
+      "marginalDefault": 0.0009990165341594735,
+      "marginalPrepay": 0.006961168150509289,
+      "cumulativeDefault": 0.0009990165341594735,
+      "stressedProbability": 1.0,
+      "exposure": 281000.0,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 2.413572528007591,
+      "byState": [
+       0.5144600396079901,
+       0.38736043907886974,
+       0.09021933662847137
+      ]
+     },
+     {
+      "k": 2,
+      "month": "2026-10",
+      "loanAge": 64,
+      "survival": 0.9855320678653846,
+      "marginalDefault": 0.000479373888974632,
+      "marginalPrepay": 0.006028373560972197,
+      "cumulativeDefault": 0.0014783904231341054,
+      "stressedProbability": 1.0,
+      "exposure": 280363.9563726374,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 1.1526395874354902,
+      "byState": [
+       0.714398452729998,
+       0.1998971574297623,
+       0.07123645770562423
+      ]
+     },
+     {
+      "k": 3,
+      "month": "2026-11",
+      "loanAge": 65,
+      "survival": 0.9794974816143597,
+      "marginalDefault": 0.00027485433746759266,
+      "marginalPrepay": 0.005759731913557393,
+      "cumulativeDefault": 0.001753244760601698,
+      "stressedProbability": 1.0,
+      "exposure": 279726.32263620634,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 0.6577313255383737,
+      "byState": [
+       0.8067066340769986,
+       0.1240323769792947,
+       0.04875847055806633
+      ]
+     },
+     {
+      "k": 6,
+      "month": "2027-02",
+      "loanAge": 68,
+      "survival": 0.9593956694168237,
+      "marginalDefault": 0.00012874535019104813,
+      "marginalPrepay": 0.006900290281135933,
+      "cumulativeDefault": 0.0022131595548564955,
+      "stressedProbability": 1.0,
+      "exposure": 277803.8409700603,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 0.30368913213713694,
+      "byState": [
+       0.8521464108845539,
+       0.0660356054905127,
+       0.04121365304175717
+      ]
+     },
+     {
+      "k": 12,
+      "month": "2027-08",
+      "loanAge": 74,
+      "survival": 0.8623150480815829,
+      "marginalDefault": 0.003136714706312549,
+      "marginalPrepay": 0.003266860226589366,
+      "cumulativeDefault": 0.0694132697700392,
+      "stressedProbability": 1.0,
+      "exposure": 273915.40488915064,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 7.186950295937037,
+      "byState": [
+       0.8587307121189115,
+       0.0026989178645582227,
+       0.0008854180981132053
+      ]
+     },
+     {
+      "k": 13,
+      "month": "2027-09",
+      "loanAge": 75,
+      "survival": 0.8582977649518312,
+      "marginalDefault": 0.0008266009777155202,
+      "marginalPrepay": 0.0031906821520362003,
+      "cumulativeDefault": 0.07023987074775472,
+      "stressedProbability": 0.9599311375659026,
+      "exposure": 273261.6497740109,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 1.8847050016565527,
+      "byState": [
+       0.8550714501599207,
+       0.0025828153863885926,
+       0.0006434994055219258
+      ]
+     },
+     {
+      "k": 24,
+      "month": "2028-08",
+      "loanAge": 86,
+      "survival": 0.8218621643778836,
+      "marginalDefault": 0.000254852762670138,
+      "marginalPrepay": 0.0024316368240569854,
+      "cumulativeDefault": 0.0746393826726763,
+      "stressedProbability": 0.6366781452992155,
+      "exposure": 265961.56992352026,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 0.5502357726794944,
+      "byState": [
+       0.8192806898948981,
+       0.00217373186893342,
+       0.0004077426140519396
+      ]
+     },
+     {
+      "k": 25,
+      "month": "2028-09",
+      "loanAge": 87,
+      "survival": 0.8192363890732977,
+      "marginalDefault": 0.00022581516268327357,
+      "marginalPrepay": 0.002399960141902794,
+      "cumulativeDefault": 0.07486519783535957,
+      "stressedProbability": 0.615740959385811,
+      "exposure": 265287.93022096646,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 0.48509499996650174,
+      "byState": [
+       0.8169017062016339,
+       0.002085634867374573,
+       0.00024904800428904387
+      ]
+     },
+     {
+      "k": 36,
+      "month": "2029-08",
+      "loanAge": 98,
+      "survival": 0.7922362276290711,
+      "marginalDefault": 9.406683956092067e-05,
+      "marginalPrepay": 0.0019122513543563078,
+      "cumulativeDefault": 0.07637138223148697,
+      "stressedProbability": 0.44780045354677717,
+      "exposure": 257765.81145627817,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 0.19102485567944585,
+      "byState": [
+       0.7891889045923125,
+       0.0027109691966235427,
+       0.0003363538401351144
+      ]
+     },
+     {
+      "k": 60,
+      "month": "2031-08",
+      "loanAge": 122,
+      "survival": 0.7718874371856639,
+      "marginalDefault": 0.00023488336052407839,
+      "marginalPrepay": 0.0006078790222929614,
+      "cumulativeDefault": 0.08012610173711034,
+      "stressedProbability": 0.3046059406765059,
+      "exposure": 240618.8668669588,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 0.4193578633127851,
+      "byState": [
+       0.7691263717642252,
+       0.0025208174342457876,
+       0.00024024798719297756
+      ]
+     },
+     {
+      "k": 120,
+      "month": "2036-08",
+      "loanAge": 182,
+      "survival": 0.7228298923663871,
+      "marginalDefault": 0.000239642857963302,
+      "marginalPrepay": 0.0005509623960039541,
+      "cumulativeDefault": 0.0948661909083245,
+      "stressedProbability": 0.2551665402047701,
+      "exposure": 192974.46850120527,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 0.2953958080498654,
+      "byState": [
+       0.7201908255995805,
+       0.002401112870050012,
+       0.00023795389675645496
+      ]
+     },
+     {
+      "k": 240,
+      "month": "2046-08",
+      "loanAge": 302,
+      "survival": 0.6309339693166828,
+      "marginalDefault": 0.0002441689052697861,
+      "marginalPrepay": 0.0005468014333026592,
+      "cumulativeDefault": 0.12144484837636851,
+      "stressedProbability": 0.2532037059454297,
+      "exposure": 73340.79787383931,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 0.08477156785189438,
+      "byState": [
+       0.6282104804995323,
+       0.0024814260603817783,
+       0.00024206275676870136
+      ]
+     },
+     {
+      "k": 298,
+      "month": "2051-06",
+      "loanAge": 360,
+      "survival": 0.5867003715111304,
+      "marginalDefault": 0.00022727683683187923,
+      "marginalPrepay": 0.0005084472718129058,
+      "cumulativeDefault": 0.13510914952844055,
+      "stressedProbability": 0.25313767446869373,
+      "exposure": 1335.2056133293013,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 0.0012428635173597042,
+      "byState": [
+       0.5841674006840909,
+       0.002307793074447543,
+       0.00022517775259195568
+      ]
+     }
+    ],
+    "conservation": 6.661338147750939e-15
+   }
+  },
+  {
+   "request": {
+    "loan": {
+     "loanId": "seasoned",
+     "creditScore": 720,
+     "originalDti": 38.0,
+     "originalUpb": 300000.0,
+     "originalCltv": 80.0,
+     "originalLtv": 80.0,
+     "originalInterestRate": 3.0,
+     "originalLoanTerm": 360,
+     "numberOfBorrowers": 2,
+     "numberOfUnits": 1,
+     "miPercent": 0.0,
+     "occupancyStatus": "P",
+     "propertyType": "SF",
+     "loanPurpose": "N",
+     "channel": "R",
+     "firstTimeHomebuyerFlag": "N",
+     "propertyState": "TX",
+     "originationMonth": "2021-06"
+    },
+    "scenario": {
+     "name": "RATES_UP_200",
+     "description": "",
+     "stressedMonths": 0,
+     "unemploymentShockPp": 0.0,
+     "unemploymentShockMonths": 12,
+     "unemploymentRecoveryMonths": 0,
+     "hpiShockPct": 0.0,
+     "hpiShockMonths": 12,
+     "hpiAnnualGrowthPct": 3.0,
+     "rateShockBp": 200.0
+    },
+    "daysPastDue": 62,
+    "history": {
+     "episodes": 1,
+     "monthsSinceCure": 13,
+     "maxState": 2
+    },
+    "originationPd12m": 0.0004
+   },
+   "expected": {
+    "monthsOnBook": 62,
+    "remainingMonths": 298,
+    "startState": 2,
+    "pd12m": 0.37448455977850753,
+    "pd24m": 0.3846194716232464,
+    "pdLifetime": 0.4253812755781481,
+    "prepayLifetime": 0.16909969187710708,
+    "expectedLifeMonths": 145.582206633316,
+    "maturityProbability": 0.40551903254474386,
+    "stage": 2,
+    "referencePd12m": 0.0004,
+    "exposure": 265521.5662519754,
+    "lgd": 0.008619175808495772,
+    "lgdPeak": 0.008619175808495772,
+    "ecl12m": 852.726436272115,
+    "eclLifetime": 911.2518761905939,
+    "eclIfrs9": 911.2518761905939,
+    "eclCecl": 911.2518761905939,
+    "points": [
+     {
+      "k": 1,
+      "month": "2026-09",
+      "loanAge": 63,
+      "survival": 0.675209938450652,
+      "marginalDefault": 0.3212634582153019,
+      "marginalPrepay": 0.003526603334046154,
+      "cumulativeDefault": 0.3212634582153019,
+      "stressedProbability": 0.12368517598952852,
+      "exposure": 265521.5662519754,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 733.402674154359,
+      "byState": [
+       0.42381523193587356,
+       0.07974873382561282,
+       0.17164597268916557
+      ]
+     },
+     {
+      "k": 2,
+      "month": "2026-10",
+      "loanAge": 64,
+      "survival": 0.6398351375227216,
+      "marginalDefault": 0.032670360432240315,
+      "marginalPrepay": 0.002704440495689975,
+      "cumulativeDefault": 0.3539338186475422,
+      "stressedProbability": 0.014236778239700902,
+      "exposure": 264920.558066417,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 74.2277956956663,
+      "byState": [
+       0.5106966141768703,
+       0.08632743676099401,
+       0.042811086584857404
+      ]
+     },
+     {
+      "k": 3,
+      "month": "2026-11",
+      "loanAge": 65,
+      "survival": 0.6353768336063367,
+      "marginalDefault": 0.002052680142117357,
+      "marginalPrepay": 0.0024056237742676482,
+      "cumulativeDefault": 0.35598649878965954,
+      "stressedProbability": 0.024216279558286768,
+      "exposure": 264318.04736039473,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 4.641524996244351,
+      "byState": [
+       0.5491978274003827,
+       0.06730748071438755,
+       0.018871525491566406
+      ]
+     },
+     {
+      "k": 6,
+      "month": "2027-02",
+      "loanAge": 68,
+      "survival": 0.626208050748833,
+      "marginalDefault": 9.447927832306546e-05,
+      "marginalPrepay": 0.002734742833960885,
+      "cumulativeDefault": 0.35728054850774144,
+      "stressedProbability": 0.05771191084848585,
+      "exposure": 262501.46250955557,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 0.21058515181215715,
+      "byState": [
+       0.5807120993602227,
+       0.038600957854316206,
+       0.00689499353429412
+      ]
+     },
+     {
+      "k": 12,
+      "month": "2027-08",
+      "loanAge": 74,
+      "survival": 0.5913210206722006,
+      "marginalDefault": 0.0038503928142915615,
+      "marginalPrepay": 0.0034444144232727873,
+      "cumulativeDefault": 0.37448455977850753,
+      "stressedProbability": 0.11238351459924686,
+      "exposure": 258827.2146858053,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 8.336200291088156,
+      "byState": [
+       0.5473860483817095,
+       0.04044261044358024,
+       0.0034923618469108243
+      ]
+     },
+     {
+      "k": 13,
+      "month": "2027-09",
+      "loanAge": 75,
+      "survival": 0.5863012694809661,
+      "marginalDefault": 0.0035195047506524323,
+      "marginalPrepay": 0.0015002464405820385,
+      "cumulativeDefault": 0.37800406452915997,
+      "stressedProbability": 0.11973223061396826,
+      "exposure": 258209.47062133145,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 7.582676106450863,
+      "byState": [
+       0.5689376610317731,
+       0.013735261783888742,
+       0.003628346665304135
+      ]
+     },
+     {
+      "k": 24,
+      "month": "2028-08",
+      "loanAge": 86,
+      "survival": 0.5640188620063189,
+      "marginalDefault": 0.00013104525601723952,
+      "marginalPrepay": 0.0014120930420172908,
+      "cumulativeDefault": 0.3846194716232464,
+      "stressedProbability": 0.17962934269081227,
+      "exposure": 251311.50394636078,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 0.2673463511419355,
+      "byState": [
+       0.5622945488528232,
+       0.0015954962614507552,
+       0.00012881689204502663
+      ]
+     },
+     {
+      "k": 25,
+      "month": "2028-09",
+      "loanAge": 87,
+      "survival": 0.562476580530983,
+      "marginalDefault": 0.00013054497998974546,
+      "marginalPrepay": 0.0014117364953461415,
+      "cumulativeDefault": 0.38475001660323616,
+      "stressedProbability": 0.18346264063939696,
+      "exposure": 250674.97060503834,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 0.2649887006625166,
+      "byState": [
+       0.560808043552039,
+       0.0015328841285704104,
+       0.00013565285037364755
+      ]
+     },
+     {
+      "k": 36,
+      "month": "2029-08",
+      "loanAge": 98,
+      "survival": 0.5456139355095484,
+      "marginalDefault": 0.0001342058000292035,
+      "marginalPrepay": 0.0012807465093837302,
+      "cumulativeDefault": 0.38623960388007805,
+      "stressedProbability": 0.21401916751086014,
+      "exposure": 243567.19567289096,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 0.25752422801310115,
+      "byState": [
+       0.5439973063963921,
+       0.001488856014791017,
+       0.00012777309836529136
+      ]
+     },
+     {
+      "k": 60,
+      "month": "2031-08",
+      "loanAge": 122,
+      "survival": 0.5303638403302329,
+      "marginalDefault": 0.00015183889554423366,
+      "marginalPrepay": 0.0003844203620472639,
+      "cumulativeDefault": 0.3898224972530139,
+      "stressedProbability": 0.2428325020928967,
+      "exposure": 227364.76299035747,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 0.25615866806357,
+      "byState": [
+       0.5287388018573047,
+       0.0014745581073518053,
+       0.00015048036557639452
+      ]
+     },
+     {
+      "k": 120,
+      "month": "2036-08",
+      "loanAge": 182,
+      "survival": 0.49758026460095817,
+      "marginalDefault": 0.0001469044768466756,
+      "marginalPrepay": 0.0003778105264773414,
+      "cumulativeDefault": 0.3992070572273642,
+      "stressedProbability": 0.2529436351955747,
+      "exposure": 182344.77979744668,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 0.17110722573676015,
+      "byState": [
+       0.49606244618929657,
+       0.0013734934827898363,
+       0.00014432492887181414
+      ]
+     },
+     {
+      "k": 240,
+      "month": "2046-08",
+      "loanAge": 302,
+      "survival": 0.4348959115447715,
+      "marginalDefault": 0.00015446553426601728,
+      "marginalPrepay": 0.000370270954556425,
+      "cumulativeDefault": 0.4167336464311822,
+      "stressedProbability": 0.25315282201355077,
+      "exposure": 69300.93779939986,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 0.050673970197691674,
+      "byState": [
+       0.4332965509782349,
+       0.0014462201215479846,
+       0.00015314044498862138
+      ]
+     },
+     {
+      "k": 298,
+      "month": "2051-06",
+      "loanAge": 360,
+      "survival": 0.40551903254474386,
+      "marginalDefault": 0.00014403055883908115,
+      "marginalPrepay": 0.0003452555153920953,
+      "cumulativeDefault": 0.4253812755781481,
+      "stressedProbability": 0.2531327789221219,
+      "exposure": 1261.6579562975996,
+      "lgd": 0.008619175808495772,
+      "discountedExpectedLoss": 0.00074424579702829,
+      "byState": [
+       0.40402771230786205,
+       0.0013485252069693945,
+       0.0001427950299123692
+      ]
+     }
+    ],
+    "conservation": 1.5543122344752192e-15
+   }
+  },
+  {
+   "request": {
+    "loan": {
+     "loanId": "risky",
+     "creditScore": 640,
+     "originalDti": 46.0,
+     "originalUpb": 250000.0,
+     "originalCltv": 97.0,
+     "originalLtv": 95.0,
+     "originalInterestRate": 7.25,
+     "originalLoanTerm": 360,
+     "numberOfBorrowers": 1,
+     "numberOfUnits": 1,
+     "miPercent": 30.0,
+     "occupancyStatus": "P",
+     "propertyType": "SF",
+     "loanPurpose": "P",
+     "channel": "R",
+     "firstTimeHomebuyerFlag": "Y",
+     "propertyState": "FL",
+     "originationMonth": "2023-09"
+    },
+    "scenario": {
+     "name": "BASELINE",
+     "description": "",
+     "stressedMonths": 0,
+     "unemploymentShockPp": 0.0,
+     "unemploymentShockMonths": 12,
+     "unemploymentRecoveryMonths": 0,
+     "hpiShockPct": 0.0,
+     "hpiShockMonths": 12,
+     "hpiAnnualGrowthPct": 3.0,
+     "rateShockBp": 0.0
+    },
+    "daysPastDue": 0,
+    "history": {
+     "episodes": 0,
+     "monthsSinceCure": 13,
+     "maxState": 0
+    }
+   },
+   "expected": {
+    "monthsOnBook": 35,
+    "remainingMonths": 325,
+    "startState": 0,
+    "pd12m": 0.038762869824537666,
+    "pd24m": 0.08329860513481771,
+    "pdLifetime": 0.3898602276737546,
+    "prepayLifetime": 0.41883939291551947,
+    "expectedLifeMonths": 125.72884004797697,
+    "maturityProbability": 0.19130037941072192,
+    "stage": 2,
+    "referencePd12m": 0.015391044401082316,
+    "exposure": 242424.1571492053,
+    "lgd": 0.00894470030180722,
+    "lgdPeak": 0.00894470030180722,
+    "ecl12m": 79.85130290618882,
+    "eclLifetime": 462.678889159186,
+    "eclIfrs9": 462.678889159186,
+    "eclCecl": 462.678889159186,
+    "points": [
+     {
+      "k": 1,
+      "month": "2026-09",
+      "loanAge": 36,
+      "survival": 0.9945228363413781,
+      "marginalDefault": 2.0096372021276637e-05,
+      "marginalPrepay": 0.00545706728660063,
+      "cumulativeDefault": 2.0096372021276637e-05,
+      "stressedProbability": 0.12368517598952852,
+      "exposure": 242424.1571492053,
+      "lgd": 0.00894470030180722,
+      "discountedExpectedLoss": 0.043315504982379655,
+      "byState": [
+       0.9803398529123286,
+       0.014049930032387388,
+       0.0001330533966619953
+      ]
+     },
+     {
+      "k": 2,
+      "month": "2026-10",
+      "loanAge": 37,
+      "survival": 0.9890022143865599,
+      "marginalDefault": 0.00014385222964351357,
+      "marginalPrepay": 0.0053767697251745905,
+      "cumulativeDefault": 0.00016394860166479022,
+      "stressedProbability": 0.13048033417441254,
+      "exposure": 242183.36239850798,
+      "lgd": 0.00894470030180722,
+      "discountedExpectedLoss": 0.30788941604327347,
+      "byState": [
+       0.9675099432209611,
+       0.017932782200118173,
+       0.0035594889654806303
+      ]
+     },
+     {
+      "k": 3,
+      "month": "2026-11",
+      "loanAge": 38,
+      "survival": 0.9801042290212406,
+      "marginalDefault": 0.0035632226016011665,
+      "marginalPrepay": 0.005334762763718115,
+      "cumulativeDefault": 0.0037271712032659566,
+      "stressedProbability": 0.13691540090302215,
+      "exposure": 241941.1128461918,
+      "lgd": 0.00894470030180722,
+      "discountedExpectedLoss": 7.5730446624049605,
+      "byState": [
+       0.9567903970415552,
+       0.019188396133944553,
+       0.004125435845740738
+      ]
+     },
+     {
+      "k": 6,
+      "month": "2027-02",
+      "loanAge": 41,
+      "survival": 0.9510635504405498,
+      "marginalDefault": 0.004052743673199997,
+      "marginalPrepay": 0.005463117127033893,
+      "cumulativeDefault": 0.01637478785366997,
+      "stressedProbability": 0.1544903946041716,
+      "exposure": 241205.54721943132,
+      "lgd": 0.00894470030180722,
+      "discountedExpectedLoss": 8.43347212077578,
+      "byState": [
+       0.9290305341608528,
+       0.01841172747536744,
+       0.0036212888043296427
+      ]
+     },
+     {
+      "k": 12,
+      "month": "2027-08",
+      "loanAge": 47,
+      "survival": 0.8857169416022567,
+      "marginalDefault": 0.004293811391798554,
+      "marginalPrepay": 0.00793115799556524,
+      "cumulativeDefault": 0.038762869824537666,
+      "stressedProbability": 0.18082224478636086,
+      "exposure": 239693.93287409528,
+      "lgd": 0.00894470030180722,
+      "discountedExpectedLoss": 8.56395117703303,
+      "byState": [
+       0.8632938853130437,
+       0.018445692884743386,
+       0.003977363404469535
+      ]
+     },
+     {
+      "k": 13,
+      "month": "2027-09",
+      "loanAge": 48,
+      "survival": 0.8738074984571456,
+      "marginalDefault": 0.003979963520777851,
+      "marginalPrepay": 0.007929479624333309,
+      "cumulativeDefault": 0.04274283334531552,
+      "stressedProbability": 0.18431709751470388,
+      "exposure": 239436.64301840245,
+      "lgd": 0.00894470030180722,
+      "discountedExpectedLoss": 7.881845469519607,
+      "byState": [
+       0.8513997175221303,
+       0.01837614884799596,
+       0.004031632087019309
+      ]
+     },
+     {
+      "k": 24,
+      "month": "2028-08",
+      "loanAge": 59,
+      "survival": 0.7459825353548598,
+      "marginalDefault": 0.0031955721255013513,
+      "marginalPrepay": 0.007927910467716771,
+      "cumulativeDefault": 0.08329860513481771,
+      "stressedProbability": 0.21150450102511695,
+      "exposure": 236501.7657800518,
+      "lgd": 0.00894470030180722,
+      "discountedExpectedLoss": 5.850130755866884,
+      "byState": [
+       0.7272661501415477,
+       0.015527942231782286,
+       0.0031884429815297894
+      ]
+     },
+     {
+      "k": 25,
+      "month": "2028-09",
+      "loanAge": 60,
+      "survival": 0.7349585307851353,
+      "marginalDefault": 0.0031912623829693405,
+      "marginalPrepay": 0.007832742186755217,
+      "cumulativeDefault": 0.08648986751778705,
+      "stressedProbability": 0.21309953804677761,
+      "exposure": 236225.18991483244,
+      "lgd": 0.00894470030180722,
+      "discountedExpectedLoss": 5.800364862543646,
+      "byState": [
+       0.7165928306594492,
+       0.015246621742619992,
+       0.0031190783830660836
+      ]
+     },
+     {
+      "k": 36,
+      "month": "2029-08",
+      "loanAge": 71,
+      "survival": 0.6318015688689267,
+      "marginalDefault": 0.002367381083686189,
+      "marginalPrepay": 0.0051415708756127375,
+      "cumulativeDefault": 0.11703519345820067,
+      "stressedProbability": 0.2261298886362955,
+      "exposure": 233070.3192755544,
+      "lgd": 0.00894470030180722,
+      "discountedExpectedLoss": 3.9732518028759305,
+      "byState": [
+       0.6167372235915372,
+       0.012752959154056678,
+       0.002311386123332815
+      ]
+     },
+     {
+      "k": 60,
+      "month": "2031-08",
+      "loanAge": 95,
+      "survival": 0.5096497359691995,
+      "marginalDefault": 0.0019090631878064205,
+      "marginalPrepay": 0.001469235961493577,
+      "cumulativeDefault": 0.1690483423874669,
+      "stressedProbability": 0.24330797146959512,
+      "exposure": 225416.49967602087,
+      "lgd": 0.00894470030180722,
+      "discountedExpectedLoss": 2.68172176815791,
+      "byState": [
+       0.4982029180926421,
+       0.009491115495646466,
+       0.001955702380910918
+      ]
+     },
+     {
+      "k": 120,
+      "month": "2036-08",
+      "loanAge": 155,
+      "survival": 0.3784278202219862,
+      "marginalDefault": 0.0005905880181185138,
+      "marginalPrepay": 0.00042503377185773957,
+      "cumulativeDefault": 0.2643994963419162,
+      "stressedProbability": 0.25531644523812075,
+      "exposure": 200660.99411807215,
+      "lgd": 0.00894470030180722,
+      "discountedExpectedLoss": 0.514514030336266,
+      "byState": [
+       0.3709343918038779,
+       0.006125226340196512,
+       0.0013682020779118493
+      ]
+     },
+     {
+      "k": 240,
+      "month": "2046-08",
+      "loanAge": 275,
+      "survival": 0.2534065357181685,
+      "marginalDefault": 0.000595700369930649,
+      "marginalPrepay": 0.00027668699579042196,
+      "cumulativeDefault": 0.3493090890781193,
+      "stressedProbability": 0.25707757833872824,
+      "exposure": 114126.06852016726,
+      "lgd": 0.00894470030180722,
+      "discountedExpectedLoss": 0.14326700906560588,
+      "byState": [
+       0.24915415640695837,
+       0.0035769862189971202,
+       0.0006753930922130265
+      ]
+     },
+     {
+      "k": 325,
+      "month": "2053-09",
+      "loanAge": 360,
+      "survival": 0.19130037941072192,
+      "marginalDefault": 0.000406013058451913,
+      "marginalPrepay": 0.00022772586490092445,
+      "cumulativeDefault": 0.3898602276737546,
+      "stressedProbability": 0.2563637043299081,
+      "exposure": 1695.1988736124608,
+      "lgd": 0.00894470030180722,
+      "discountedExpectedLoss": 0.000869234275000484,
+      "byState": [
+       0.18843235819995516,
+       0.002405231791105091,
+       0.00046278941966166053
+      ]
+     }
+    ],
+    "conservation": 3.9968028886505635e-15
+   }
+  },
+  {
+   "request": {
+    "loan": {
+     "loanId": "risky",
+     "creditScore": 640,
+     "originalDti": 46.0,
+     "originalUpb": 250000.0,
+     "originalCltv": 97.0,
+     "originalLtv": 95.0,
+     "originalInterestRate": 7.25,
+     "originalLoanTerm": 360,
+     "numberOfBorrowers": 1,
+     "numberOfUnits": 1,
+     "miPercent": 30.0,
+     "occupancyStatus": "P",
+     "propertyType": "SF",
+     "loanPurpose": "P",
+     "channel": "R",
+     "firstTimeHomebuyerFlag": "Y",
+     "propertyState": "FL",
+     "originationMonth": "2023-09"
+    },
+    "scenario": {
+     "name": "SEVERELY_ADVERSE",
+     "description": "",
+     "stressedMonths": 24,
+     "unemploymentShockPp": 5.0,
+     "unemploymentShockMonths": 12,
+     "unemploymentRecoveryMonths": 48,
+     "hpiShockPct": 25.0,
+     "hpiShockMonths": 24,
+     "hpiAnnualGrowthPct": 2.0,
+     "rateShockBp": 0.0
+    },
+    "daysPastDue": 45,
+    "history": {
+     "episodes": 2,
+     "monthsSinceCure": 3,
+     "maxState": 1
+    }
+   },
+   "expected": {
+    "monthsOnBook": 35,
+    "remainingMonths": 325,
+    "startState": 1,
+    "pd12m": 0.2548775791182538,
+    "pd24m": 0.2798901526059628,
+    "pdLifetime": 0.6039602851708229,
+    "prepayLifetime": 0.20214808560714867,
+    "expectedLifeMonths": 127.54747720147135,
+    "maturityProbability": 0.19389162922202857,
+    "stage": 2,
+    "referencePd12m": null,
+    "exposure": 242424.1571492053,
+    "lgd": 0.00894470030180722,
+    "lgdPeak": 0.00894470030180722,
+    "ecl12m": 535.9956962511973,
+    "eclLifetime": 845.5392050694122,
+    "eclIfrs9": 845.5392050694122,
+    "eclCecl": 845.5392050694122,
+    "points": [
+     {
+      "k": 1,
+      "month": "2026-09",
+      "loanAge": 36,
+      "survival": 0.9939411171250708,
+      "marginalDefault": 0.0009990682686798823,
+      "marginalPrepay": 0.005059814606249269,
+      "cumulativeDefault": 0.0009990682686798823,
+      "stressedProbability": 1.0,
+      "exposure": 242424.1571492053,
+      "lgd": 0.00894470030180722,
+      "discountedExpectedLoss": 2.153381044296162,
+      "byState": [
+       0.3631374830863927,
+       0.4225751144536532,
+       0.20822851958502495
+      ]
+     },
+     {
+      "k": 2,
+      "month": "2026-10",
+      "loanAge": 37,
+      "survival": 0.970112877952821,
+      "marginalDefault": 0.018593749703204158,
+      "marginalPrepay": 0.005234489469045858,
+      "cumulativeDefault": 0.01959281797188404,
+      "stressedProbability": 1.0,
+      "exposure": 242183.36239850798,
+      "lgd": 0.00894470030180722,
+      "discountedExpectedLoss": 39.7965241995987,
+      "byState": [
+       0.5648167144315974,
+       0.29005548892495236,
+       0.11524067459627116
+      ]
+     },
+     {
+      "k": 3,
+      "month": "2026-11",
+      "loanAge": 38,
+      "survival": 0.8509554540877675,
+      "marginalDefault": 0.1150712467662311,
+      "marginalPrepay": 0.004086177098822556,
+      "cumulativeDefault": 0.13466406473811512,
+      "stressedProbability": 1.0,
+      "exposure": 241941.1128461918,
+      "lgd": 0.00894470030180722,
+      "discountedExpectedLoss": 244.56504365674522,
+      "byState": [
+       0.6277829773909036,
+       0.1717927442854125,
+       0.051379732411451384
+      ]
+     },
+     {
+      "k": 6,
+      "month": "2027-02",
+      "loanAge": 41,
+      "survival": 0.7666844273577599,
+      "marginalDefault": 0.0007768090249401658,
+      "marginalPrepay": 0.0029030868061732072,
+      "cumulativeDefault": 0.20898650967018315,
+      "stressedProbability": 1.0,
+      "exposure": 241205.54721943132,
+      "lgd": 0.00894470030180722,
+      "discountedExpectedLoss": 1.6164844814444335,
+      "byState": [
+       0.6322942805287125,
+       0.11704417125220415,
+       0.01734597557684328
+      ]
+     },
+     {
+      "k": 12,
+      "month": "2027-08",
+      "loanAge": 47,
+      "survival": 0.7055728764250141,
+      "marginalDefault": 0.001520632512150089,
+      "marginalPrepay": 0.0026711862717525192,
+      "cumulativeDefault": 0.2548775791182538,
+      "stressedProbability": 1.0,
+      "exposure": 239693.93287409528,
+      "lgd": 0.00894470030180722,
+      "discountedExpectedLoss": 3.0328818394623633,
+      "byState": [
+       0.6876049848835586,
+       0.016891672137554586,
+       0.0010762194039009333
+      ]
+     },
+     {
+      "k": 13,
+      "month": "2027-09",
+      "loanAge": 48,
+      "survival": 0.7018980723056195,
+      "marginalDefault": 0.0010117490267688581,
+      "marginalPrepay": 0.002663055092625743,
+      "cumulativeDefault": 0.2558893281450227,
+      "stressedProbability": 1.0,
+      "exposure": 239436.64301840245,
+      "lgd": 0.00894470030180722,
+      "discountedExpectedLoss": 2.003648888060777,
+      "byState": [
+       0.6846723235406599,
+       0.016315602636304098,
+       0.0009101461286556031
+      ]
+     },
+     {
+      "k": 24,
+      "month": "2028-08",
+      "loanAge": 59,
+      "survival": 0.6491780658596429,
+      "marginalDefault": 1.1621007604728326e-05,
+      "marginalPrepay": 0.002259796085788504,
+      "cumulativeDefault": 0.2798901526059628,
+      "stressedProbability": 1.0,
+      "exposure": 236501.7657800518,
+      "lgd": 0.00894470030180722,
+      "discountedExpectedLoss": 0.021274567223832603,
+      "byState": [
+       0.6361852877808604,
+       0.009600044686053421,
+       0.0033927333927290344
+      ]
+     },
+     {
+      "k": 25,
+      "month": "2028-09",
+      "loanAge": 60,
+      "survival": 0.6467848624840082,
+      "marginalDefault": 0.0001637954033818797,
+      "marginalPrepay": 0.00222940797225268,
+      "cumulativeDefault": 0.2800539480093447,
+      "stressedProbability": 0.9599311375659026,
+      "exposure": 236225.18991483244,
+      "lgd": 0.00894470030180722,
+      "discountedExpectedLoss": 0.29771074528143726,
+      "byState": [
+       0.6329823434966094,
+       0.010042178146452425,
+       0.0037603408409464076
+      ]
+     },
+     {
+      "k": 36,
+      "month": "2029-08",
+      "loanAge": 71,
+      "survival": 0.6244706416922048,
+      "marginalDefault": 1.924250597853216e-05,
+      "marginalPrepay": 0.0017308522197620152,
+      "cumulativeDefault": 0.2813069626612842,
+      "stressedProbability": 0.6385904591664502,
+      "exposure": 233070.3192755544,
+      "lgd": 0.00894470030180722,
+      "discountedExpectedLoss": 0.03229531658333906,
+      "byState": [
+       0.6083651182923393,
+       0.010315443742446266,
+       0.005790079657419287
+      ]
+     },
+     {
+      "k": 60,
+      "month": "2031-08",
+      "loanAge": 95,
+      "survival": 0.5995661650007529,
+      "marginalDefault": 2.551264304334682e-05,
+      "marginalPrepay": 0.0006082106477329161,
+      "cumulativeDefault": 0.2818398323953957,
+      "stressedProbability": 0.35511404440637995,
+      "exposure": 225416.49967602087,
+      "lgd": 0.00894470030180722,
+      "discountedExpectedLoss": 0.03583842098553064,
+      "byState": [
+       0.5761673580381326,
+       0.015787185489544536,
+       0.007611621473075837
+      ]
+     },
+     {
+      "k": 120,
+      "month": "2036-08",
+      "loanAge": 155,
+      "survival": 0.41782792698788984,
+      "marginalDefault": 0.0018507092622702384,
+      "marginalPrepay": 0.0004942718026717538,
+      "cumulativeDefault": 0.43861583380937696,
+      "stressedProbability": 0.2611106673424767,
+      "exposure": 200660.99411807215,
+      "lgd": 0.00894470030180722,
+      "discountedExpectedLoss": 1.612318320552578,
+      "byState": [
+       0.4089205055199115,
+       0.007059320513570699,
+       0.0018481009544076606
+      ]
+     },
+     {
+      "k": 240,
+      "month": "2046-08",
+      "loanAge": 275,
+      "survival": 0.2525367424094037,
+      "marginalDefault": 0.0005620203994720212,
+      "marginalPrepay": 0.0002384276482353191,
+      "cumulativeDefault": 0.56404582656067,
+      "stressedProbability": 0.25730937392452674,
+      "exposure": 114126.06852016726,
+      "lgd": 0.00894470030180722,
+      "discountedExpectedLoss": 0.13516691566867325,
+      "byState": [
+       0.24868130725175855,
+       0.003224882908727171,
+       0.0006305522489179802
+      ]
+     },
+     {
+      "k": 325,
+      "month": "2053-09",
+      "loanAge": 360,
+      "survival": 0.19389162922202857,
+      "marginalDefault": 0.0003883266752035895,
+      "marginalPrepay": 0.0002071133088747412,
+      "cumulativeDefault": 0.6039602851708229,
+      "stressedProbability": 0.2563301010482183,
+      "exposure": 1695.1988736124608,
+      "lgd": 0.00894470030180722,
+      "discountedExpectedLoss": 0.0008313694571080368,
+      "byState": [
+       0.19119765487094412,
+       0.0022651925830135685,
+       0.0004287817680709211
+      ]
+     }
+    ],
+    "conservation": 1.1102230246251565e-15
+   }
+  },
+  {
+   "request": {
+    "loan": {
+     "loanId": "fifteen",
+     "creditScore": 780,
+     "originalDti": 25.0,
+     "originalUpb": 200000.0,
+     "originalCltv": 60.0,
+     "originalLtv": 60.0,
+     "originalInterestRate": 5.75,
+     "originalLoanTerm": 180,
+     "numberOfBorrowers": 2,
+     "numberOfUnits": 1,
+     "miPercent": 0.0,
+     "occupancyStatus": "P",
+     "propertyType": "SF",
+     "loanPurpose": "N",
+     "channel": "R",
+     "firstTimeHomebuyerFlag": "N",
+     "propertyState": "OH",
+     "originationMonth": null
+    },
+    "scenario": {
+     "name": "RATES_UP_200",
+     "description": "",
+     "stressedMonths": 0,
+     "unemploymentShockPp": 0.0,
+     "unemploymentShockMonths": 12,
+     "unemploymentRecoveryMonths": 0,
+     "hpiShockPct": 0.0,
+     "hpiShockMonths": 12,
+     "hpiAnnualGrowthPct": 3.0,
+     "rateShockBp": 200.0
+    },
+    "daysPastDue": 33,
+    "history": {
+     "episodes": 2,
+     "monthsSinceCure": 3,
+     "maxState": 1
+    },
+    "monthsOnBook": 30
+   },
+   "expected": {
+    "monthsOnBook": 30,
+    "remainingMonths": 150,
+    "startState": 1,
+    "pd12m": 0.008655112810604434,
+    "pd24m": 0.008789885812438608,
+    "pdLifetime": 0.012114186024662497,
+    "prepayLifetime": 0.3712767374998761,
+    "expectedLifeMonths": 109.65935960560238,
+    "maturityProbability": 0.6166090764754579,
+    "stage": 2,
+    "referencePd12m": null,
+    "exposure": 177393.49258094985,
+    "lgd": 0.008328524584864733,
+    "lgdPeak": 0.008328524584864733,
+    "ecl12m": 12.167580522301018,
+    "eclLifetime": 13.79950685992871,
+    "eclIfrs9": 13.79950685992871,
+    "eclCecl": 13.79950685992871,
+    "points": [
+     {
+      "k": 1,
+      "month": "2026-09",
+      "loanAge": 31,
+      "survival": 0.9933403435603436,
+      "marginalDefault": 0.0009991063275048714,
+      "marginalPrepay": 0.00566055011215145,
+      "cumulativeDefault": 0.0009991063275048714,
+      "stressedProbability": 0.12368517598952852,
+      "exposure": 177393.49258094985,
+      "lgd": 0.008328524584864733,
+      "discountedExpectedLoss": 1.4690664523674113,
+      "byState": [
+       0.7034380721594238,
+       0.25833174220227845,
+       0.03157052919864131
+      ]
+     },
+     {
+      "k": 2,
+      "month": "2026-10",
+      "loanAge": 32,
+      "survival": 0.9865409567371854,
+      "marginalDefault": 0.002019390892873761,
+      "marginalPrepay": 0.004779995930284505,
+      "cumulativeDefault": 0.003018497220378632,
+      "stressedProbability": 0.13052604242670146,
+      "exposure": 176582.68289219425,
+      "lgd": 0.008328524584864733,
+      "discountedExpectedLoss": 2.9416061663273747,
+      "byState": [
+       0.8861982098066559,
+       0.08825754852325371,
+       0.012085198407275875
+      ]
+     },
+     {
+      "k": 3,
+      "month": "2026-11",
+      "loanAge": 33,
+      "survival": 0.9807009596437625,
+      "marginalDefault": 0.001110673793409063,
+      "marginalPrepay": 0.004729323300013949,
+      "cumulativeDefault": 0.004129171013787695,
+      "stressedProbability": 0.13722991205820317,
+      "exposure": 175767.98807368003,
+      "lgd": 0.008328524584864733,
+      "discountedExpectedLoss": 1.602751916076516,
+      "byState": [
+       0.9291258709955644,
+       0.0469233938551827,
+       0.004651694793015398
+      ]
+     },
+     {
+      "k": 6,
+      "month": "2027-02",
+      "loanAge": 36,
+      "survival": 0.9675560852974163,
+      "marginalDefault": 6.777453513592272e-05,
+      "marginalPrepay": 0.004174481440601833,
+      "cumulativeDefault": 0.00443520908068675,
+      "stressedProbability": 0.1548451270220497,
+      "exposure": 173300.40623067634,
+      "lgd": 0.008328524584864733,
+      "discountedExpectedLoss": 0.09505567561539222,
+      "byState": [
+       0.9296934587052553,
+       0.036327941380043666,
+       0.0015346852121173383
+      ]
+     },
+     {
+      "k": 12,
+      "month": "2027-08",
+      "loanAge": 42,
+      "survival": 0.9354063245087889,
+      "marginalDefault": 4.0530797957868875e-05,
+      "marginalPrepay": 0.004651564170763856,
+      "cumulativeDefault": 0.008655112810604434,
+      "stressedProbability": 0.1817035521457311,
+      "exposure": 168257.80255183615,
+      "lgd": 0.008328524584864733,
+      "discountedExpectedLoss": 0.05363103080533254,
+      "byState": [
+       0.9342989736119234,
+       0.001037431280014937,
+       6.9919616850597e-05
+      ]
+     },
+     {
+      "k": 13,
+      "month": "2027-09",
+      "loanAge": 43,
+      "survival": 0.9307439547350628,
+      "marginalDefault": 3.053959078664412e-05,
+      "marginalPrepay": 0.004631830182939252,
+      "cumulativeDefault": 0.008685652401391079,
+      "stressedProbability": 0.1853076172996895,
+      "exposure": 167403.21768169105,
+      "lgd": 0.008328524584864733,
+      "discountedExpectedLoss": 0.04001352089706409,
+      "byState": [
+       0.9297707993417078,
+       0.0009133870167748893,
+       5.976837658011335e-05
+      ]
+     },
+     {
+      "k": 24,
+      "month": "2028-08",
+      "loanAge": 54,
+      "survival": 0.8783499616147767,
+      "marginalDefault": 8.902490968244815e-06,
+      "marginalPrepay": 0.004756460394575482,
+      "cumulativeDefault": 0.008789885812438608,
+      "stressedProbability": 0.21396284073213329,
+      "exposure": 157728.15805461747,
+      "lgd": 0.008328524584864733,
+      "discountedExpectedLoss": 0.010427117232762247,
+      "byState": [
+       0.8774884675098322,
+       0.000813869035991457,
+       4.762506895310945e-05
+      ]
+     },
+     {
+      "k": 25,
+      "month": "2028-09",
+      "loanAge": 55,
+      "survival": 0.8736061245501769,
+      "marginalDefault": 9.114122998472208e-06,
+      "marginalPrepay": 0.004734722941601534,
+      "cumulativeDefault": 0.00879899993543708,
+      "stressedProbability": 0.2157792069119011,
+      "exposure": 156823.11863792318,
+      "lgd": 0.008328524584864733,
+      "discountedExpectedLoss": 0.010563125260213075,
+      "byState": [
+       0.8727564051410601,
+       0.0008044086807664956,
+       4.531072835026783e-05
+      ]
+     },
+     {
+      "k": 36,
+      "month": "2029-08",
+      "loanAge": 66,
+      "survival": 0.8163048789496857,
+      "marginalDefault": 6.981274568430151e-06,
+      "marginalPrepay": 0.0053129488093430375,
+      "cumulativeDefault": 0.008900040176073244,
+      "stressedProbability": 0.23001968318461943,
+      "exposure": 146576.8451228278,
+      "lgd": 0.008328524584864733,
+      "discountedExpectedLoss": 0.007175154831168164,
+      "byState": [
+       0.8155420960714055,
+       0.0007131229589012562,
+       4.9659919379084494e-05
+      ]
+     },
+     {
+      "k": 60,
+      "month": "2031-08",
+      "loanAge": 90,
+      "survival": 0.7086242139642364,
+      "marginalDefault": 2.698890649724471e-05,
+      "marginalPrepay": 0.0040728093052095045,
+      "cumulativeDefault": 0.009294106352880182,
+      "stressedProbability": 0.24245455118303832,
+      "exposure": 122260.23420686938,
+      "lgd": 0.008328524584864733,
+      "discountedExpectedLoss": 0.02062894943838949,
+      "byState": [
+       0.7080407885950691,
+       0.0005422301989773035,
+       4.119517018990229e-05
+      ]
+     },
+     {
+      "k": 120,
+      "month": "2036-08",
+      "loanAge": 150,
+      "survival": 0.6382441207453491,
+      "marginalDefault": 3.027556093708221e-05,
+      "marginalPrepay": 0.0007037350717825451,
+      "cumulativeDefault": 0.011222071927096563,
+      "stressedProbability": 0.2529204710312023,
+      "exposure": 47738.06312583182,
+      "lgd": 0.008328524584864733,
+      "discountedExpectedLoss": 0.006782692358806504,
+      "byState": [
+       0.6376980684435061,
+       0.0005013521627688286,
+       4.4700139074315245e-05
+      ]
+     },
+     {
+      "k": 150,
+      "month": "2039-02",
+      "loanAge": 180,
+      "survival": 0.6166090764754579,
+      "marginalDefault": 2.924130210949801e-05,
+      "marginalPrepay": 0.0006800156631650929,
+      "cumulativeDefault": 0.012114186024662497,
+      "stressedProbability": 0.25334728746146906,
+      "exposure": 1652.9000280715147,
+      "lgd": 0.008328524584864733,
+      "discountedExpectedLoss": 0.0001965204205887496,
+      "byState": [
+       0.6160815249882153,
+       0.0004843625117541393,
+       4.3188975488404043e-05
+      ]
+     }
+    ],
+    "conservation": 3.6637359812630166e-15
+   }
+  },
+  {
+   "request": {
+    "loan": {
+     "loanId": "no-mi",
+     "creditScore": 690,
+     "originalDti": 44.0,
+     "originalUpb": 420000.0,
+     "originalCltv": 95.0,
+     "originalLtv": 95.0,
+     "originalInterestRate": 6.875,
+     "originalLoanTerm": 360,
+     "numberOfBorrowers": 1,
+     "numberOfUnits": 1,
+     "miPercent": 0.0,
+     "occupancyStatus": "I",
+     "propertyType": "CO",
+     "loanPurpose": "C",
+     "channel": "B",
+     "firstTimeHomebuyerFlag": "N",
+     "propertyState": "NV",
+     "originationMonth": "2024-11"
+    },
+    "scenario": {
+     "name": "CUSTOM",
+     "description": "golden test",
+     "stressedMonths": 6,
+     "unemploymentShockPp": 2.0,
+     "unemploymentShockMonths": 6,
+     "unemploymentRecoveryMonths": 0,
+     "hpiShockPct": 15.0,
+     "hpiShockMonths": 18,
+     "hpiAnnualGrowthPct": 1.0,
+     "rateShockBp": -100.0
+    },
+    "daysPastDue": 66,
+    "history": {
+     "episodes": 1,
+     "monthsSinceCure": 13,
+     "maxState": 2
+    }
+   },
+   "expected": {
+    "monthsOnBook": 21,
+    "remainingMonths": 339,
+    "startState": 2,
+    "pd12m": 0.994237943670604,
+    "pd24m": 0.9945709098205221,
+    "pdLifetime": 0.9959778991103593,
+    "prepayLifetime": 0.003955479240300474,
+    "expectedLifeMonths": 1.281596668562622,
+    "maturityProbability": 6.662164934111091e-05,
+    "stage": 2,
+    "referencePd12m": null,
+    "exposure": 412149.7960395866,
+    "lgd": 0.00898021970536747,
+    "lgdPeak": 0.18346454414073743,
+    "ecl12m": 26248.597994087704,
+    "eclLifetime": 26303.4088027003,
+    "eclIfrs9": 26303.4088027003,
+    "eclCecl": 26303.4088027003,
+    "points": [
+     {
+      "k": 1,
+      "month": "2026-09",
+      "loanAge": 22,
+      "survival": 0.007453524508732268,
+      "marginalDefault": 0.9915483370624331,
+      "marginalPrepay": 0.0009981384288348938,
+      "cumulativeDefault": 0.9915483370624331,
+      "stressedProbability": 1.0,
+      "exposure": 412149.7960395866,
+      "lgd": 0.06436276745369718,
+      "discountedExpectedLoss": 26153.06807234586,
+      "byState": [
+       0.004674028167766631,
+       0.0017813579121308543,
+       0.0009981384288347828
+      ]
+     },
+     {
+      "k": 2,
+      "month": "2026-10",
+      "loanAge": 23,
+      "survival": 0.006306069535103871,
+      "marginalDefault": 0.0009935868671317421,
+      "marginalPrepay": 0.00015386810649665366,
+      "cumulativeDefault": 0.9925419239295648,
+      "stressedProbability": 1.0,
+      "exposure": 411751.96989529283,
+      "lgd": 0.07187658661000429,
+      "discountedExpectedLoss": 29.071462635119307,
+      "byState": [
+       0.004852189766468563,
+       0.0009081749785164729,
+       0.000545704790118835
+      ]
+     },
+     {
+      "k": 3,
+      "month": "2026-11",
+      "loanAge": 24,
+      "survival": 0.005626797112280122,
+      "marginalDefault": 0.0005421711538594871,
+      "marginalPrepay": 0.00013710126896426236,
+      "cumulativeDefault": 0.9930840950834242,
+      "stressedProbability": 1.0,
+      "exposure": 411351.8645387142,
+      "lgd": 0.0793241038739424,
+      "discountedExpectedLoss": 17.39049391634124,
+      "byState": [
+       0.004797958502820421,
+       0.00055697702477142,
+       0.00027186158468828003
+      ]
+     },
+     {
+      "k": 6,
+      "month": "2027-02",
+      "loanAge": 27,
+      "survival": 0.004711032674010209,
+      "marginalDefault": 0.00012366260941429623,
+      "marginalPrepay": 0.000111092240066554,
+      "cumulativeDefault": 0.9936385749802368,
+      "stressedProbability": 1.0,
+      "exposure": 410137.7422409119,
+      "lgd": 0.1012746442002288,
+      "discountedExpectedLoss": 4.963437965668081,
+      "byState": [
+       0.004264487704703004,
+       0.00030782134075963736,
+       0.00013872362854756758
+      ]
+     },
+     {
+      "k": 12,
+      "month": "2027-08",
+      "loanAge": 33,
+      "survival": 0.0037876630609368165,
+      "marginalDefault": 6.911404626317228e-05,
+      "marginalPrepay": 2.7087090032963198e-05,
+      "cumulativeDefault": 0.994237943670604,
+      "stressedProbability": 0.7925275917820859,
+      "exposure": 407646.1723219045,
+      "lgd": 0.1434625869342212,
+      "discountedExpectedLoss": 3.7741208725150295,
+      "byState": [
+       0.0035887988773067804,
+       0.0001332670359690304,
+       6.559714766100585e-05
+      ]
+     },
+     {
+      "k": 13,
+      "month": "2027-09",
+      "loanAge": 34,
+      "survival": 0.003672408234880252,
+      "marginalDefault": 6.549964282768684e-05,
+      "marginalPrepay": 4.975518322887745e-05,
+      "cumulativeDefault": 0.9943034433134317,
+      "stressedProbability": 0.7658389235274043,
+      "exposure": 407222.5441667283,
+      "lgd": 0.1502782740854347,
+      "discountedExpectedLoss": 3.7214600167784284,
+      "byState": [
+       0.003533287057579629,
+       8.726156577263812e-05,
+       5.1859611527984887e-05
+      ]
+     },
+     {
+      "k": 24,
+      "month": "2028-08",
+      "loanAge": 45,
+      "survival": 0.002988630885265887,
+      "marginalDefault": 1.855423795451075e-05,
+      "marginalPrepay": 3.3180020773698216e-05,
+      "cumulativeDefault": 0.9945709098205221,
+      "stressedProbability": 0.5309708452809047,
+      "exposure": 402399.3511892876,
+      "lgd": 0.17395045456433855,
+      "discountedExpectedLoss": 1.1323505099416535,
+      "byState": [
+       0.002915348922758183,
+       5.444102073250438e-05,
+       1.8840941775199112e-05
+      ]
+     },
+     {
+      "k": 25,
+      "month": "2028-09",
+      "loanAge": 46,
+      "survival": 0.002937419998010311,
+      "marginalDefault": 1.8820329382458543e-05,
+      "marginalPrepay": 3.239055787311725e-05,
+      "cumulativeDefault": 0.9945897301499046,
+      "stressedProbability": 0.5153639313406827,
+      "exposure": 401945.6631213724,
+      "lgd": 0.1723320547524413,
+      "discountedExpectedLoss": 1.1301458806329618,
+      "byState": [
+       0.0028651636960661444,
+       5.3005203278334105e-05,
+       1.925109866583229e-05
+      ]
+     },
+     {
+      "k": 36,
+      "month": "2029-08",
+      "loanAge": 57,
+      "survival": 0.002398237358146627,
+      "marginalDefault": 1.6724337014316137e-05,
+      "marginalPrepay": 2.793793593306233e-05,
+      "cumulativeDefault": 0.9947887959213755,
+      "stressedProbability": 0.3897904900437893,
+      "exposure": 396780.2248085982,
+      "lgd": 0.15387461835629235,
+      "discountedExpectedLoss": 0.8312818449790688,
+      "byState": [
+       0.002336695611341502,
+       4.4923809546576717e-05,
+       1.6617937258548578e-05
+      ]
+     },
+     {
+      "k": 60,
+      "month": "2031-08",
+      "loanAge": 81,
+      "survival": 0.0015170306833100658,
+      "marginalDefault": 1.5719085385821758e-05,
+      "marginalPrepay": 1.9775572833403724e-05,
+      "cumulativeDefault": 0.9951681113769526,
+      "stressedProbability": 0.28235123381075533,
+      "exposure": 384317.50920261675,
+      "lgd": 0.10887768600439551,
+      "discountedExpectedLoss": 0.4668674776290868,
+      "byState": [
+       0.001463321109119826,
+       3.814442048546694e-05,
+       1.5565153704772892e-05
+      ]
+     },
+     {
+      "k": 120,
+      "month": "2036-08",
+      "loanAge": 141,
+      "survival": 0.0005864473371853334,
+      "marginalDefault": 4.997868223637475e-06,
+      "marginalPrepay": 2.7314877200502332e-06,
+      "cumulativeDefault": 0.9956866238445738,
+      "stressedProbability": 0.25201088053778015,
+      "exposure": 344548.89518721605,
+      "lgd": 0.00898021970536747,
+      "discountedExpectedLoss": 0.007791071961624545,
+      "byState": [
+       0.0005683941280432237,
+       1.3296639114599986e-05,
+       4.756570027509786e-06
+      ]
+     },
+     {
+      "k": 240,
+      "month": "2046-08",
+      "loanAge": 261,
+      "survival": 0.00016905234455587176,
+      "marginalDefault": 9.09622713262413e-07,
+      "marginalPrepay": 8.093430056913087e-07,
+      "cumulativeDefault": 0.9959237997883924,
+      "stressedProbability": 0.250051500859931,
+      "exposure": 209586.82935803372,
+      "lgd": 0.00898021970536747,
+      "discountedExpectedLoss": 0.0004345716866679861,
+      "byState": [
+       0.00016491149095925863,
+       3.240363533052759e-06,
+       9.004900635603557e-07
+      ]
+     },
+     {
+      "k": 339,
+      "month": "2054-11",
+      "loanAge": 360,
+      "survival": 6.662164934111091e-05,
+      "marginalDefault": 2.9578757465716074e-07,
+      "marginalPrepay": 3.0410959437369267e-07,
+      "cumulativeDefault": 0.9959778991103593,
+      "stressedProbability": 0.25048795056483564,
+      "exposure": 2743.383714903828,
+      "lgd": 0.00898021970536747,
+      "discountedExpectedLoss": 1.0507010443721184e-06,
+      "byState": [
+       6.541858686097028e-05,
+       9.099189451626649e-07,
+       2.931435349779701e-07
+      ]
+     }
+    ],
+    "conservation": 8.881784197001252e-16
+   }
+  },
+  {
+   "request": {
+    "loan": {
+     "loanId": "no-mi",
+     "creditScore": 690,
+     "originalDti": 44.0,
+     "originalUpb": 420000.0,
+     "originalCltv": 95.0,
+     "originalLtv": 95.0,
+     "originalInterestRate": 6.875,
+     "originalLoanTerm": 360,
+     "numberOfBorrowers": 1,
+     "numberOfUnits": 1,
+     "miPercent": 0.0,
+     "occupancyStatus": "I",
+     "propertyType": "CO",
+     "loanPurpose": "C",
+     "channel": "B",
+     "firstTimeHomebuyerFlag": "N",
+     "propertyState": "NV",
+     "originationMonth": "2024-11"
+    },
+    "scenario": {
+     "name": "SEVERELY_ADVERSE",
+     "description": "",
+     "stressedMonths": 24,
+     "unemploymentShockPp": 5.0,
+     "unemploymentShockMonths": 12,
+     "unemploymentRecoveryMonths": 48,
+     "hpiShockPct": 25.0,
+     "hpiShockMonths": 24,
+     "hpiAnnualGrowthPct": 2.0,
+     "rateShockBp": 0.0
+    },
+    "daysPastDue": 0,
+    "history": {
+     "episodes": 2,
+     "monthsSinceCure": 3,
+     "maxState": 1
+    },
+    "currentBalance": 430000.0
+   },
+   "expected": {
+    "monthsOnBook": 21,
+    "remainingMonths": 339,
+    "startState": 0,
+    "pd12m": 0.5241704646473009,
+    "pd24m": 0.5709359350926724,
+    "pdLifetime": 0.7213139818139113,
+    "prepayLifetime": 0.22810672480158284,
+    "expectedLifeMonths": 53.68335199125053,
+    "maturityProbability": 0.050579293384504606,
+    "stage": 2,
+    "referencePd12m": 0.03269422282184132,
+    "exposure": 430000.00000000006,
+    "lgd": 0.00898021970536747,
+    "lgdPeak": 0.30485663635979976,
+    "ecl12m": 38886.52926148857,
+    "eclLifetime": 46670.737216134614,
+    "eclIfrs9": 46670.737216134614,
+    "eclCecl": 46670.737216134614,
+    "points": [
+     {
+      "k": 1,
+      "month": "2026-09",
+      "loanAge": 22,
+      "survival": 0.9828493553466104,
+      "marginalDefault": 8.910110478622066e-05,
+      "marginalPrepay": 0.01706154354860323,
+      "cumulativeDefault": 8.910110478622066e-05,
+      "stressedProbability": 1.0,
+      "exposure": 430000.00000000006,
+      "lgd": 0.10585177349825736,
+      "discountedExpectedLoss": 4.032446724419822,
+      "byState": [
+       0.8235116405078642,
+       0.15792626909847332,
+       0.0014114457402730088
+      ]
+     },
+     {
+      "k": 2,
+      "month": "2026-10",
+      "loanAge": 23,
+      "survival": 0.9649267707072109,
+      "marginalDefault": 0.0007294705316931164,
+      "marginalPrepay": 0.01719311410770641,
+      "cumulativeDefault": 0.000818571636479337,
+      "stressedProbability": 1.0,
+      "exposure": 429584.94400897424,
+      "lgd": 0.11565211303897904,
+      "discountedExpectedLoss": 35.83012194327786,
+      "byState": [
+       0.7761127098822077,
+       0.13476298107683837,
+       0.054051079748164824
+      ]
+     },
+     {
+      "k": 3,
+      "month": "2026-11",
+      "loanAge": 24,
+      "survival": 0.9252095277536014,
+      "marginalDefault": 0.024677473591305683,
+      "marginalPrepay": 0.015039769362303815,
+      "cumulativeDefault": 0.025496045227785022,
+      "stressedProbability": 1.0,
+      "exposure": 429167.51009299984,
+      "lgd": 0.1253393728796427,
+      "discountedExpectedLoss": 1304.8840255766504,
+      "byState": [
+       0.7562861973089905,
+       0.12325429317036267,
+       0.04566903727424835
+      ]
+     },
+     {
+      "k": 6,
+      "month": "2027-02",
+      "loanAge": 27,
+      "survival": 0.8208505697559313,
+      "marginalDefault": 0.025336722601910264,
+      "marginalPrepay": 0.006251824475369274,
+      "cumulativeDefault": 0.09624816446065433,
+      "stressedProbability": 1.0,
+      "exposure": 427900.80416939716,
+      "lgd": 0.15373580023534117,
+      "discountedExpectedLoss": 1610.579925272587,
+      "byState": [
+       0.7027040716279922,
+       0.08542714950428665,
+       0.032719348623652465
+      ]
+     },
+     {
+      "k": 12,
+      "month": "2027-08",
+      "loanAge": 33,
+      "survival": 0.36979122757657845,
+      "marginalDefault": 0.030856576810118955,
+      "marginalPrepay": 0.002586371427304416,
+      "cumulativeDefault": 0.5241704646473009,
+      "stressedProbability": 1.0,
+      "exposure": 425301.32437960187,
+      "lgd": 0.20764892340649732,
+      "discountedExpectedLoss": 2544.4951199223347,
+      "byState": [
+       0.3504080984206654,
+       0.012095724267827627,
+       0.007287404888085425
+      ]
+     },
+     {
+      "k": 13,
+      "month": "2027-09",
+      "loanAge": 34,
+      "survival": 0.3600159069194242,
+      "marginalDefault": 0.007292483989229788,
+      "marginalPrepay": 0.002482836667924491,
+      "cumulativeDefault": 0.5314629486365307,
+      "stressedProbability": 1.0,
+      "exposure": 424859.3488928342,
+      "lgd": 0.2162754925967454,
+      "discountedExpectedLoss": 622.120320935289,
+      "byState": [
+       0.34052878582613433,
+       0.008671363666684792,
+       0.010815757426605075
+      ]
+     },
+     {
+      "k": 24,
+      "month": "2028-08",
+      "loanAge": 45,
+      "survival": 0.2947763097443139,
+      "marginalDefault": 1.3704101836255508e-05,
+      "marginalPrepay": 0.002117769629057682,
+      "cumulativeDefault": 0.5709359350926724,
+      "stressedProbability": 1.0,
+      "exposure": 419827.26347091084,
+      "lgd": 0.30485663635979976,
+      "discountedExpectedLoss": 1.52922640060002,
+      "byState": [
+       0.2867461375672489,
+       0.004980388167181158,
+       0.0030497840098837946
+      ]
+     },
+     {
+      "k": 25,
+      "month": "2028-09",
+      "loanAge": 46,
+      "survival": 0.2926359264427274,
+      "marginalDefault": 7.423465528600656e-05,
+      "marginalPrepay": 0.002066148646300459,
+      "cumulativeDefault": 0.5710101697479584,
+      "stressedProbability": 0.9599311375659026,
+      "exposure": 419353.92617685377,
+      "lgd": 0.302922625635217,
+      "discountedExpectedLoss": 8.175098521371519,
+      "byState": [
+       0.2838891298317437,
+       0.0051011922579528215,
+       0.003645604353030867
+      ]
+     },
+     {
+      "k": 36,
+      "month": "2029-08",
+      "loanAge": 57,
+      "survival": 0.27038874760588916,
+      "marginalDefault": 5.196595026500695e-05,
+      "marginalPrepay": 0.001559275205817023,
+      "cumulativeDefault": 0.5721633029621402,
+      "stressedProbability": 0.6364133449348457,
+      "exposure": 413964.77277720114,
+      "lgd": 0.28091239068117024,
+      "discountedExpectedLoss": 4.919665010966481,
+      "byState": [
+       0.2606827314352743,
+       0.004402494619531312,
+       0.005303521551083513
+      ]
+     },
+     {
+      "k": 60,
+      "month": "2031-08",
+      "loanAge": 81,
+      "survival": 0.2421899415013975,
+      "marginalDefault": 1.1310561672051358e-05,
+      "marginalPrepay": 0.000607723158421939,
+      "cumulativeDefault": 0.5740378149510745,
+      "stressedProbability": 0.3491638883498351,
+      "exposure": 400962.2970703896,
+      "lgd": 0.22760047668106953,
+      "discountedExpectedLoss": 0.7326527300195592,
+      "byState": [
+       0.23167408726021566,
+       0.005257608050416718,
+       0.005258246190765103
+      ]
+     },
+     {
+      "k": 120,
+      "month": "2036-08",
+      "loanAge": 141,
+      "survival": 0.147739932609818,
+      "marginalDefault": 0.0008601076749513071,
+      "marginalPrepay": 0.00020929114062689878,
+      "cumulativeDefault": 0.6531766754263942,
+      "stressedProbability": 0.255518914502039,
+      "exposure": 359471.30473958224,
+      "lgd": 0.04877738868379322,
+      "discountedExpectedLoss": 7.59819068335646,
+      "byState": [
+       0.1446049410014567,
+       0.0022757422708876386,
+       0.0008592493374736364
+      ]
+     },
+     {
+      "k": 240,
+      "month": "2046-08",
+      "loanAge": 261,
+      "survival": 0.07910627580823787,
+      "marginalDefault": 0.00024413890813420501,
+      "marginalPrepay": 0.0001285119900254005,
+      "cumulativeDefault": 0.7027385928277798,
+      "stressedProbability": 0.2504229310290439,
+      "exposure": 218664.03305292025,
+      "lgd": 0.00898021970536747,
+      "discountedExpectedLoss": 0.12168876842210548,
+      "byState": [
+       0.07782064188532793,
+       0.001046740711020811,
+       0.0002388932118891237
+      ]
+     },
+     {
+      "k": 339,
+      "month": "2054-11",
+      "loanAge": 360,
+      "survival": 0.050579293384504606,
+      "marginalDefault": 0.0001402607996981797,
+      "marginalPrepay": 8.1375668957852e-05,
+      "cumulativeDefault": 0.7213139818139113,
+      "stressedProbability": 0.25041011459925483,
+      "exposure": 2862.199638927739,
+      "lgd": 0.00898021970536747,
+      "discountedExpectedLoss": 0.0005198151281640757,
+      "byState": [
+       0.0499318237703213,
+       0.0005081843164268097,
+       0.00013928529775650186
+      ]
+     }
+    ],
+    "conservation": 1.7763568394002505e-15
+   }
+  }
+ ]
+}

@@ -210,10 +210,12 @@ def float32_exact_booster(booster):
     return lgb.Booster(model_str="\n".join(patched))
 
 
-def export_onnx(model, n_features: int, path: Path, sample: np.ndarray) -> "lightgbm.Booster":
+def export_onnx(model, n_features: int, path: Path, sample: np.ndarray, rtol: float = 1e-4) -> "lightgbm.Booster":
     """LightGBM -> ONNX with a plain float probability tensor (zipmap off), then verifies ONNX Runtime
     reproduces the (float32-exact) booster before the artifact is trusted. Returns that booster, which
-    is the model of record: callers compute every reported metric with it."""
+    is the model of record: callers compute every reported metric with it. `rtol` is the largest relative difference
+    accepted between the graph's and the booster's probabilities (plus 1e-6 absolute); every export before the
+    delinquency model uses the default."""
     import onnxruntime as ort
     from onnxmltools.convert import convert_lightgbm
     from onnxmltools.convert.common.data_types import FloatTensorType
@@ -241,7 +243,7 @@ def export_onnx(model, n_features: int, path: Path, sample: np.ndarray) -> "ligh
         reference = np.column_stack([1 - reference, reference])
     diff = np.abs(got - reference)
     # What remains is float32 accumulation of leaf values (ONNX) vs float64 (LightGBM): ~1e-6 relative.
-    ok = bool(np.all(diff <= 1e-6 + 1e-4 * np.abs(reference)))
+    ok = bool(np.all(diff <= 1e-6 + rtol * np.abs(reference)))
     print(f"wrote {path} ({path.stat().st_size / 1e6:.1f} MB); ONNX vs native max |diff| = {diff.max():.2e}, "
           f"max relative = {(diff / np.maximum(np.abs(reference), 1e-12)).max():.2e}")
     if not ok:
