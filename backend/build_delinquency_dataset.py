@@ -25,7 +25,10 @@ correction as the survival rows. Every other row (any move, and every row from a
 weight 1.
 
 Output (per origination quarter, resumable):
-  ../data/processed/delinquency/rows/<quarter>.parquet
+  ../data/processed/delinquency/rows/<quarter>.parquet     the transitions above, subsampled
+  ../data/processed/delinquency/states/<quarter>.parquet   every reported month's state, for the loans held out of
+      every fit (loan bucket 0 or 1, credit_common.loan_bucket) from 2022-12 on: the realized paths the validation
+      gates compare 12-month default and cure rates with
 Run from backend/ (owner-run: reads the 5.8 GB monthly panel).
 """
 from __future__ import annotations
@@ -39,6 +42,7 @@ import polars as pl
 
 from build_survival_dataset import (ADVERSE_ZB, CATEGORICAL, CONTINUE_KEEP_PER_MILLE, DATA, NUMERIC, PANEL_COLS,
                                     PREPAID_ZB, SEED, month_idx)
+from credit_common import loan_bucket
 
 OUT = DATA / "delinquency"
 CURRENT, D30, D60, DEFAULT, PREPAID = 0, 1, 2, 3, 4
@@ -46,6 +50,8 @@ EXIT = -1                       # removal for a non-credit reason: the loan is c
 NO_CURE = 13                    # hist_months_since_cure when there was no cure in the last 12 months
 WINDOW = 12
 KEY = "loan_sequence_number"
+HELD_OUT_BUCKETS = 2            # loans whose bucket is below this are in no fit (export_delinquency_model.py)
+STATES_FROM = 2022 * 12 + 11    # 2022-12: the month before the first out-of-time month
 
 
 def record_states(panel: pl.DataFrame) -> pl.DataFrame:
@@ -149,7 +155,8 @@ def quarters() -> list[tuple[int, str]]:
 def process_quarter(year: int, q: str) -> None:
     label = f"{year}{q}"
     out = OUT / "rows" / f"{label}.parquet"
-    if out.exists():
+    states_out = OUT / "states" / f"{label}.parquet"
+    if out.exists() and states_out.exists():
         print(f"[skip] {label}", flush=True)
         return
     started = time.time()
@@ -165,6 +172,11 @@ def process_quarter(year: int, q: str) -> None:
     problems = check_quarter(label, panel, loans, transitions)
     if any(problems.values()):
         raise SystemExit(f"{label}: dataset check failed: {problems}")
+    (OUT / "states").mkdir(parents=True, exist_ok=True)
+    record_states(panel).filter((loan_bucket(pl.col(KEY)) < HELD_OUT_BUCKETS) & (pl.col("month") >= STATES_FROM)).write_parquet(states_out)
+    if out.exists():
+        print(f"[ok]   {label}: states written", flush=True)
+        return
     rows = subsample(transitions).join(loans.select([KEY, *NUMERIC, *CATEGORICAL, "orig_month"]), on=KEY).with_columns(
         orig_year=pl.lit(year, pl.Int32), orig_quarter=pl.lit(q)).sort([KEY, "loan_age"])
     (OUT / "rows").mkdir(parents=True, exist_ok=True)
