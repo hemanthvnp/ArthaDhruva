@@ -49,3 +49,6 @@ secrets/
 
 # Server-side deployment settings (see DEPLOY.md); the committed template is deploy/.env.example
 .env
+
+# Written by the k6 capacity and soak tests (loadtest/capacity.js, soak.js)
+loadtest/*-summary.json

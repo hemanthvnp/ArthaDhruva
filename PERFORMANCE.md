@@ -180,3 +180,28 @@ index on undelivered rows), primary-key lookups.
   [model-serving-extraction.md](openspec/changes/saas-platform-expansion/model-serving-extraction.md).
 - **Caveats:** short 25 s runs on a shared desktop host; not a steady-state or soak result. The CI
   load test gates on latency thresholds and error rate, not on these absolute throughput numbers.
+
+## 5. Finding the ceiling, and what only shows with time
+
+Two k6 scripts beside the CI smoke test share its traffic mix ([loadtest/lib.js](loadtest/lib.js)):
+
+- **Capacity** ([loadtest/capacity.js](loadtest/capacity.js)): the mix offered at rising fixed rates
+  (`STEPS`, each held `STEP_SECONDS`), with a table of achieved rate, p95, failures and 429s per step,
+  and the highest step that met the target (rate achieved, p95 under 400 ms, under 1% failures other
+  than the rate limiter's). Run it under an account whose plan allows the top step, or the table
+  measures the limiter, not the service.
+- **Soak** ([loadtest/soak.js](loadtest/soak.js)): a steady rate for `DURATION` (30 minutes by
+  default). Fails on any real error rate or on the last quarter missing the smoke test's latency
+  targets, and reports whether p95 drifted between the first and last quarters. Watch the JVM and
+  connection-pool panels in Grafana alongside.
+
+```bash
+docker run --rm --network <project>_edge -v "$PWD/loadtest:/work" -e TOKEN=... -e BASE=http://backend:8080/v1   -e STEPS=25,50,100,150,200,300 grafana/k6 run /work/capacity.js
+docker run --rm --network <project>_edge -v "$PWD/loadtest:/work" -e TOKEN=... -e BASE=http://backend:8080/v1   -e RATE=30 -e DURATION=30m grafana/k6 run /work/soak.js
+```
+
+**Not yet measured.** Both scripts were run against the stack on 2026-10-15 only briefly, to prove they
+work (capacity at 10, 40 and 80 req/s, all within target, p95 34-41 ms; a 60 s soak, no drift), on a host
+also running about twenty other projects' containers. Those figures say the scripts work, not where the
+ceiling is. The capacity table and a 30-minute soak still have to be taken on a quiet machine or the
+1.5-CPU VM, and recorded here.
