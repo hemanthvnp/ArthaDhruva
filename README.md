@@ -74,6 +74,9 @@ How the models were built, validated and where they should not be trusted: [MODE
 - **An audit trail the application cannot rewrite.** Every API call is recorded with who, what, the
   outcome and the model version; the application's role has no `UPDATE` or `DELETE` on it, and
   credentials are redacted before an entry is written.
+- **Bounded waits on the database.** Statement, lock and idle-in-transaction timeouts on every pooled
+  connection, so one slow query cannot hold a connection for as long as it likes; a timeout reaches
+  the client as 503 with `Retry-After`, and a stream of them raises an alert.
 - **A borrower sees a band, not a score.** The borrower API's response types have no field for the
   probability, the model version, an explanation or a case note (a unit test fails if one is added), and
   every borrower endpoint resolves the caller's own loans on the server, so a loan id sent by the client
