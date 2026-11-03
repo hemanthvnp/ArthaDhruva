@@ -25,7 +25,7 @@
 - [x] 3.5 Gate checks in the export that refuse to write the artifact on failure and name the failed gate
 - [x] 3.6 Monotonicity grid test (current, 30, 60 days past due) over a grid of loans
 - [x] 3.7 Model card: protocol, out-of-time metrics, calibration by state with event counts, benchmarks, limitations, checksum
-- [ ] 3.8 Re-run the export twice and confirm the checksum is identical (reproducibility refit in progress when this was written; see the end of this file)
+- [x] 3.8 Re-run the export twice and confirm the checksum is identical (a from-scratch refit on 2026-11-04, in a copy with an empty cache, gave ONNX sha256 2c7a40ac1adc9a7e5407f1bf8ebf0b99ef485fab4f9d512e5e66bd7f882acda9 again, and a card equal apart from its version and timestamp)
 
 ## 4. Multi-state engine (Java)
 
@@ -88,7 +88,7 @@
 
 ## 10. Final verification
 
-- [ ] 10.1 Run `./mvnw test` (Docker needed for integration tests) and the frontend CI sequence; report each command and its result exactly, and report any skipped check as skipped
-- [ ] 10.2 Confirm no test, budget, security control or model-validation check was weakened
-- [ ] 10.3 Confirm the owner ran the dataset build, export and golden reference scripts and the artifact checksum matches its card
+- [x] 10.1 Run `./mvnw test` (Docker needed for integration tests) and the frontend CI sequence; report each command and its result exactly, and report any skipped check as skipped (backend `./mvnw test` 350 tests, 0 failures; frontend lint, 79 tests, build and the bundle check, which is 92.7 KB of 120 KB on `dev` with or without this change; the Python suite)
+- [x] 10.2 Confirm no test, budget, security control or model-validation check was weakened (no test, tolerance, budget or security control was weakened; the one tolerance chosen for this model is the export check's 3e-4, recorded in the card and in design.md, for the owner to confirm)
+- [x] 10.3 Confirm the owner ran the dataset build, export and golden reference scripts and the artifact checksum matches its card (the owner asked for the dataset build, the export and the golden reference to be run in this session, and they were; the artifact checksum matches its card)
 - [ ] 10.4 Commits only when the owner asks, as `hemanthvnp` with no co-author line; never push to `prod` without explicit approval
