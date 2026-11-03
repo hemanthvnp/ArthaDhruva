@@ -80,6 +80,9 @@ How the models were built, validated and where they should not be trusted: [MODE
 - **Bounded waits on the database.** Statement, lock and idle-in-transaction timeouts on every pooled
   connection, so one slow query cannot hold a connection for as long as it likes; a timeout reaches
   the client as 503 with `Retry-After`, and a stream of them raises an alert.
+- **Conditional requests.** Polled reads (a run's status, the model inventory) carry an `ETag` and
+  answer an unchanged `If-None-Match` with 304; a case's version is its `ETag`, and an update may name
+  it in `If-Match` (412 if someone changed the case meanwhile).
 - **A borrower sees a band, not a score.** The borrower API's response types have no field for the
   probability, the model version, an explanation or a case note (a unit test fails if one is added), and
   every borrower endpoint resolves the caller's own loans on the server, so a loan id sent by the client
