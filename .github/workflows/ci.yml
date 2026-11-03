@@ -51,6 +51,14 @@ jobs:
         working-directory: frontend
         run: npm test
 
+      - name: API types match the backend's OpenAPI description
+        # openapi.json is held to the Java controllers by OpenApiContractTest; the generated types must be
+        # regenerated from it, and the build below then type-checks types.ts against them (src/api/contract.ts).
+        working-directory: frontend
+        run: |
+          npm run api:types
+          git diff --exit-code -- src/api/openapi.gen.ts             || { echo "::error::openapi.gen.ts is out of date: run npm run api:types and commit it"; exit 1; }
+
       - name: Type-check and build
         working-directory: frontend
         run: npm run build
