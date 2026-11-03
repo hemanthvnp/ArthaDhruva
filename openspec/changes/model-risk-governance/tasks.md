@@ -49,5 +49,5 @@ backtest job) was replaced; `design.md` explains each departure.
 ## Not done
 
 - [ ] A scheduled comparison of stored scores with realized outcomes. It needs a servicing feed this deployment does not have (design decision 4).
-- [ ] Model cards and out-of-time validation for the LGD, regime, early-warning and trajectory models. Each is listed as unvalidated in the inventory with its gaps.
+- [x] Model cards and out-of-time validation for the LGD, regime, early-warning and trajectory models (the trajectory model by piece C earlier; the other three on 2026-11-04: `validate_lgd_model.py`, `validate_regime_model.py`, `validate_early_warning_model.py`, results in `MODELS.md`). The regime chain was found not to be stable out of time and the LGD model to be no better than a constant; both are listed as gaps in the inventory.
 - [x] Drift monitoring for the survival model's macro inputs. `MacroDriftService`, `GET /v1/models/survival/drift`, a card on the Model Governance page; `MacroDriftServiceTest` 5/5 and the governance integration test (2026-10-14). Reference is state-months of the training window (design.md, open questions).

@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.HexFormat;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -36,6 +38,43 @@ class ModelRegistryTest {
         assertTrue((double) entry.headline().get("delinquentLogLoss") < (double) entry.headline().get("survivalModelDelinquentLogLoss"));
         assertEquals(0, entry.headline().get("failedGates"));
         assertFalse(entry.gaps().isEmpty(), "what the model does not cover is listed");
+    }
+
+    @Test
+    void theThreeModelsThatHadNoCardAreValidatedAndSayWhatTheirValidationFound() throws Exception {
+        ModelRegistry registry = registry(new SegmentGraphArtifact());
+        for (String id : List.of("lgd", "regime_hmm", "early_warning")) {
+            ModelRegistry.Entry e = registry.entries().stream().filter(x -> x.id().equals(id)).findFirst().orElseThrow();
+            assertTrue(e.validated(), id);
+            assertEquals(Boolean.TRUE, e.checksumVerified(), id);
+            assertEquals(64, e.sha256().length(), id);
+            assertTrue(registry.card(id).isPresent(), id);
+            assertFalse(e.gaps().isEmpty(), id + ": the validation's findings are listed, not hidden");
+            assertFalse(e.headline().isEmpty(), id);
+        }
+        ModelRegistry.Entry regime = registry.entries().stream().filter(x -> x.id().equals("regime_hmm")).findFirst().orElseThrow();
+        assertEquals(Boolean.TRUE, regime.headline().get("refitReproducesShippedChain"));
+        assertTrue(regime.gaps().stream().anyMatch(g -> g.contains("not stable out of time") || g.contains("labels")),
+                "the regime chain's out-of-time instability is stated: " + regime.gaps());
+    }
+
+    @Test
+    void aCardRefusesAnArtifactItDoesNotDescribe() {
+        byte[] artifact = "{\"const\": -5.07}".getBytes(StandardCharsets.UTF_8);
+        String declared = HexFormat.of().formatHex(sha256(artifact));
+        ModelRegistry.verifyChecksum("lgd_model.json", artifact, declared, "lgd_model_card.json");   // matches: no exception
+        byte[] altered = "{\"const\": -5.08}".getBytes(StandardCharsets.UTF_8);
+        IllegalStateException e = assertThrows(IllegalStateException.class,
+                () -> ModelRegistry.verifyChecksum("lgd_model.json", altered, declared, "lgd_model_card.json"));
+        assertTrue(e.getMessage().contains("lgd_model.json") && e.getMessage().contains("lgd_model_card.json"), e.getMessage());
+    }
+
+    private static byte[] sha256(byte[] bytes) {
+        try {
+            return java.security.MessageDigest.getInstance("SHA-256").digest(bytes);
+        } catch (java.security.NoSuchAlgorithmException ex) {
+            throw new IllegalStateException(ex);
+        }
     }
 
     @Test

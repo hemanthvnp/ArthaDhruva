@@ -941,13 +941,18 @@ class ApiIntegrationTest extends AbstractIntegrationTest {
         JsonNode inventory = body(call(get("/v1/models"), ana, null));
         assertEquals(9, inventory.size());
         for (JsonNode model : inventory) {
-            boolean validated = List.of("pd_24m", "survival", "delinquency", "trajectory_lstm", "segment_graph").contains(model.get("id").asString());
+            boolean validated = List.of("pd_24m", "survival", "delinquency", "lgd", "regime_hmm", "early_warning", "trajectory_lstm",
+                    "segment_graph").contains(model.get("id").asString());
             assertEquals(validated, model.get("validated").asBoolean(), model.get("id").asString());
             if (validated) {
                 assertTrue(model.get("checksumVerified").asBoolean());
                 assertEquals(64, model.get("sha256").asString().length());
             } else {
                 assertFalse(model.get("gaps").isEmpty(), "an unvalidated model says what is missing");
+            }
+            if (List.of("lgd", "regime_hmm", "early_warning").contains(model.get("id").asString())) {
+                assertFalse(model.get("gaps").isEmpty(), "a validated model still lists what its validation found");
+                assertTrue(body(call(get("/v1/models/" + model.get("id").asString()), ana, null)).has("validation"), "its card is served");
             }
         }
         JsonNode card = body(call(get("/v1/models/pd_24m"), ana, null));

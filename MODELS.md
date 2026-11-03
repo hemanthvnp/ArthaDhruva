@@ -13,13 +13,15 @@ Governance page.
 | Competing-risks survival (`survival_model.onnx`) | Monthly default and prepayment hazards behind PD term structures, lifetime ECL and stress scenarios | 1 | Yes |
 | Delinquency transitions (`delinquency_model.onnx`) | Month-to-month moves between current, 30 and 60 days past due, default and prepaid; projections of loans whose status and history are known, with ranges | 1 | Yes |
 | Origination PD (`model.onnx`) | Default within 24 months of origination; explanations and reason codes | 1 | Yes |
-| Loss given default (`lgd_model.json`) | Fitted LGD, the floor of the collateral-based LGD | 1 | No |
-| Macro regime (`hmm_regime.json`) | Calm / stressed regime and its transition matrix | 1 | No |
+| Loss given default (`lgd_model.json`) | Fitted LGD, the floor of the collateral-based LGD | 1 | Yes, with weak results (see below) |
+| Macro regime (`hmm_regime.json`) | Calm / stressed regime and its transition matrix | 1 | Yes, and it is not stable out of time (see below) |
 | Portfolio loss distribution | Value at risk, expected shortfall, tail contributions | 1 | No (analytical; see below) |
-| Early warning, delinquency trajectory | Analyst decision support | 2 | No |
+| Early warning (`early_warning_model.onnx`) | Flags performing loans drifting toward delinquency; analyst decision support | 2 | Yes |
+| Delinquency trajectory (`lstm_model.onnx`) | Sequence model over a loan's payment history; analyst decision support | 2 | Yes |
 | Segment graph (`segment_graph.json`) | Which states' macro drivers move together; the Segment Graph page and its neighbour queries | 2 | Yes |
 
-"Validated" means the model ships a card with out-of-time validation. The others are listed with their
+"Validated" means the model ships a card with an out-of-time validation and the card's checksum matches the artifact. It
+does not mean the model passed: a validated model's findings are in its gaps, and three of them are not flattering. The others are listed with their
 checksum and a plain statement of what is missing, because an inventory that lists only the
 well-documented models is not an inventory. At start-up the service hashes each artifact and refuses to
 run one that does not match the checksum its card declares.
@@ -380,6 +382,77 @@ reason.
 Rebuild (owner-run, about an hour with the data on disk): `build_delinquency_dataset.py` then `export_delinquency_model.py`
 (`--pilot` runs the protocol and the benchmarks only), then `golden_multistate.py`; `DelinquencyGoldenTest` holds the engine
 to the reference to 1e-6.
+
+## The loss, regime and early-warning models: validation
+
+These three had no card and no out-of-time result. Each now has a card (`lgd_model_card.json`, `hmm_regime_card.json`,
+`early_warning_card.json`) whose checksum of the artifact the service verifies at start-up, and a script that produced it
+(`validate_lgd_model.py`, `validate_regime_model.py`, `validate_early_warning_model.py`, owner-run). None of the scripts
+rewrites an artifact: each reads the shipped one as the model of record and refits its specification on earlier data to judge
+it on later data. The results below are what the validation found, not what the models were hoped to be.
+
+### Loss given default
+
+A Beta regression (logit link) of realized loss over the balance removed, on credit score, DTI, original balance, CLTV and
+note rate, fitted on the 2,746 defaulted loans with a recorded loss (vintages 2020 to 2024). The dataset has no liquidation
+date, so out of time here is by origination vintage: refit on 2020 and 2021 (1,839 loans), judged on 2022 to 2024 (907).
+
+| Out of time (907 loans) | Model | Constant (fitting vintages' mean) |
+|---|---|---|
+| Mean LGD predicted / realized | 1.00% / 0.53% | 0.88% / 0.53% |
+| Mean absolute error | 0.0134 | 0.0123 |
+| Root mean square error | 0.0281 | 0.0279 |
+| Rank correlation, predicted with realized | 0.10 | |
+
+It over-predicts by 1.9 times, ranks loans barely better than chance, and is no better than a constant on error. That is a
+fair description of the data: about 88% of these defaulted loans lost nothing, because house prices were rising, so there is
+little for a model to learn. The fitted LGD is only the floor of the engine's LGD (`LGD = min(1, max(fitted, collateral shortfall))`),
+which is why the model can be this weak without moving a lifetime figure much, and why a scenario with falling prices is
+driven by the shortfall and not by this model. The limits (no downturn, the raw note rate, a total-loss clip, the
+original balance as exposure) are in the card.
+
+### Macro regime
+
+A two-state Gaussian hidden Markov model on the monthly share of loans 90+ days past due and the average note rate, 99 months
+(2017-07 to 2025-09). Its transition matrix is the survival model's regime chain, and the survival model reads its stressed
+periods from the labels it decodes (one: 2020-06 to 2022-06). A refit with the shipped settings reproduces the shipped matrix
+exactly. Refit on shortened histories and judged on the months after the cut:
+
+| Fitted through | Fitting months | Later months | Stress spell / long-run stressed share | Later months labelled stressed (full fit) | Log-likelihood per later month against one regime |
+|---|---|---|---|---|---|
+| 2020-12 | 42 | 57 | 11.6 months / 28% | 57 (18) | +4.4 |
+| 2022-12 | 66 | 33 | stressed is absorbing / 100% | 17 (0) | -11.3 |
+| Full (shipped) | 99 | | 25 months / 26% | | |
+
+**The chain is not stable out of time.** Fitted through 2022-12, with the whole stress episode in the fitting months, the
+stressed state becomes absorbing (stress-to-calm probability 5e-36), the model labels 17 of the 33 later calm months
+stressed, and it explains them far worse than a single regime does. Fitted through 2020-12 it labels every later month
+stressed. The shipped chain rests on one entry into stress and one exit (one transition each way in 99 months), and a refit
+with a few months more or less could land on a different chain. Two consequences: the survival model's baseline lifetime PD
+inherits that, which is one reason the delinquency model's ranges draw the chain from a Dirichlet posterior, and the regime
+should be refit and re-examined whenever months are added. There is no ground truth for a regime; agreement between fits
+measures stability, not accuracy.
+
+### Early warning
+
+LightGBM (300 trees) on loan-months, answering: for a performing loan (0 days past due, never late before), the chance of
+30+ days past due within three months. Trained on a 10:1 downsampled target and calibrated to real rates by an isotonic map
+fitted on a separate holdout of four origination quarters. Refit on loans' rows before 2023-01 and judged on the months from
+2023-01 (for loans it never saw):
+
+| Out of time | Refit (the same specification) | Shipped artifact (not out of time) |
+|---|---|---|
+| ROC-AUC, downsampled rows (608,153) | 0.70 | |
+| ROC-AUC, natural-rate holdout from 2023-01 (1,004,752 rows, base rate 0.93%) | 0.71 | 0.75 |
+| PR-AUC | 0.025 | 0.037 |
+| Predicted over actual, raw / calibrated | 11.0 / 1.39 | 8.1 / 0.96 |
+| Top decile, predicted / actual (calibrated) | 5.3% / 2.6% | 3.2% / 3.3% |
+
+Out of time the ranking holds (AUC 0.71) but the calibrated rates are too high by 39%, worst in the top decile (5.3% against
+2.6%). The map was fitted on the earlier months, and the model and map learned a period (2020 to 2022, with pandemic
+forbearance) when first delinquencies were more common; that explanation was not tested separately. The shipped artifact scores better (AUC 0.75, 0.96) on the same holdout, but its fitting rows run to 2025 and
+its calibration was fitted on half of this holdout, so that is out of sample and not out of time. The target counts the first
+30+ day delinquency, much of which in 2020 and 2021 was forbearance and not distress.
 
 ## Origination PD model
 
