@@ -61,8 +61,16 @@ export const JOBS: readonly Job[] = [
       { name: 'Install dependencies', commands: ['frontend-ci'] },
       { name: 'Lint', commands: ['frontend-lint'] },
       { name: 'Unit tests', commands: ['frontend-test'] },
+      { name: 'API types match the backend\'s OpenAPI description', commands: ['frontend-api-types', 'api-types-unchanged'] },
       { name: 'Type-check and build', commands: ['frontend-build'] },
       { name: 'Enforce initial-bundle budget', commands: ['frontend-bundle'] },
+    ],
+  },
+  {
+    id: 'python-tests', workflow: 'CI', githubName: 'python-tests', paths: ['backend/tests/', 'backend/credit_common', 'backend/build_', 'backend/export_', 'backend/golden_', 'backend/segment_'], fallbackSec: 90,
+    steps: [
+      { name: 'Install', ciOnly: 'pip install on the runner; locally the installed Python and packages are used (the tests import polars, numpy, pandas, scipy, scikit-learn, networkx and pytest)' },
+      { name: 'Test', commands: ['python-tests'] },
     ],
   },
   {
@@ -98,6 +106,11 @@ export const JOBS: readonly Job[] = [
     steps: [{ name: 'Kill a replica in the middle of a run', ciOnly: 'scripts/failover-test.sh boots two replicas; run it by hand or in CI' }],
   },
   {
+    id: 'pitr', workflow: 'CI', githubName: 'pitr', paths: ['scripts/', 'deploy/', 'docker-compose', 'postgres/'], fallbackSec: 180,
+    optIn: 'starts a throwaway Postgres, takes a base backup, deletes rows and restores them from the archived WAL (a few minutes, needs Docker)',
+    steps: [{ name: 'Restore to the moment before a mistake', commands: ['pitr-test'], needsDocker: true }],
+  },
+  {
     id: 'secrets', workflow: 'Security', githubName: 'Secret scan', paths: [''], fallbackSec: 45,
     steps: [{ name: 'Scan every commit with gitleaks', commands: ['gitleaks'], needsDocker: true }],
   },
@@ -123,7 +136,7 @@ export const JOBS: readonly Job[] = [
 ];
 
 /** Cheap jobs first, so a mistake surfaces in seconds rather than after the Maven run. */
-export const ORDER = ['branch-policy', 'secrets', 'deployment-files', 'frontend', 'backend', 'image', 'loadtest', 'failover', 'dependency-review', 'codeql'];
+export const ORDER = ['branch-policy', 'secrets', 'python-tests', 'deployment-files', 'frontend', 'backend', 'image', 'loadtest', 'failover', 'pitr', 'dependency-review', 'codeql'];
 
 export interface Platform {
   windows: boolean;
@@ -149,6 +162,10 @@ export function allowlist(p: Platform): AllowedCommand[] {
     { id: 'frontend-test', command: npm, args: ['test'], cwd: 'frontend', timeoutMs: 10 * min, env: { CI: 'true' } },
     { id: 'frontend-build', command: npm, args: ['run', 'build'], cwd: 'frontend', timeoutMs: 10 * min },
     { id: 'frontend-bundle', command: npm, args: ['run', 'check:bundle'], cwd: 'frontend', timeoutMs: 2 * min },
+    { id: 'frontend-api-types', command: npm, args: ['run', 'api:types'], cwd: 'frontend', timeoutMs: 3 * min },
+    { id: 'api-types-unchanged', command: 'git', args: ['diff', '--exit-code', '--', 'frontend/src/api/openapi.gen.ts'], timeoutMs: min },
+    { id: 'python-tests', command: p.windows ? 'python' : 'python3', args: ['-m', 'pytest', 'tests', '-q'], cwd: 'backend', timeoutMs: 10 * min },
+    { id: 'pitr-test', command: 'bash', args: ['scripts/pitr-test.sh'], timeoutMs: 15 * min },
     { id: 'compose-all', command: 'docker', args: ['compose', '--profile', 'app', '--profile', 'edge', '--profile', 'observability', '--profile', 'notebooks', '--profile', 'pipeline', 'config', '-q'], timeoutMs: 2 * min },
     { id: 'compose-dev', command: 'docker', args: ['compose', '-f', 'docker-compose.yml', '-f', 'docker-compose.dev.yml', 'config', '-q'], timeoutMs: 2 * min },
     { id: 'compose-prod', command: 'docker', args: ['compose', '-f', 'docker-compose.yml', '-f', 'docker-compose.prod.yml', '-f', 'docker-compose.deploy.yml', '--profile', 'app', '--profile', 'edge', 'config', '-q'], env: { SITE_ADDRESS: 'example.test' }, timeoutMs: 2 * min },
