@@ -426,8 +426,9 @@ lifetime PD spreads about ±7% around its unperturbed value and the 12-month PD 
 SEVERELY_ADVERSE -12% to +24% and -14% to +35% (seed 11; other seeds move an end by up to ten points). Under
 the previous survival model the same loan gave ±7% and ±25%, then ±22% and ±43%: the 12-month figure is now
 steadier and the severe lifetime figure is skewed upward. The table in
-`openspec/changes/rough-set-boundary-regions/design.md` and the charts in the notebook were produced with the
-previous model.
+`openspec/changes/archive/2026-10-15-rough-set-boundary-regions/design.md` and the charts in the notebook were
+re-run on this model on 2026-11-03; the table's 12-month rows for the prime loan under SEVERELY_ADVERSE are
+about half what the previous model gave.
 
 **What it does not do.**
 - It is not a probability and carries no coverage guarantee: "boundary" means the answer depends on the details
