@@ -939,9 +939,9 @@ class ApiIntegrationTest extends AbstractIntegrationTest {
     @Test
     void theModelInventoryCardsBacktestAndDriftAreServed() throws Exception {
         JsonNode inventory = body(call(get("/v1/models"), ana, null));
-        assertEquals(8, inventory.size());
+        assertEquals(9, inventory.size());
         for (JsonNode model : inventory) {
-            boolean validated = List.of("pd_24m", "survival", "trajectory_lstm", "segment_graph").contains(model.get("id").asString());
+            boolean validated = List.of("pd_24m", "survival", "delinquency", "trajectory_lstm", "segment_graph").contains(model.get("id").asString());
             assertEquals(validated, model.get("validated").asBoolean(), model.get("id").asString());
             if (validated) {
                 assertTrue(model.get("checksumVerified").asBoolean());
