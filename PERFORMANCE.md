@@ -200,8 +200,31 @@ docker run --rm --network <project>_edge -v "$PWD/loadtest:/work" -e TOKEN=... -
 docker run --rm --network <project>_edge -v "$PWD/loadtest:/work" -e TOKEN=... -e BASE=http://backend:8080/v1   -e RATE=30 -e DURATION=30m grafana/k6 run /work/soak.js
 ```
 
-**Not yet measured.** Both scripts were run against the stack on 2026-10-15 only briefly, to prove they
-work (capacity at 10, 40 and 80 req/s, all within target, p95 34-41 ms; a 60 s soak, no drift), on a host
-also running about twenty other projects' containers. Those figures say the scripts work, not where the
-ceiling is. The capacity table and a 30-minute soak still have to be taken on a quiet machine or the
-1.5-CPU VM, and recorded here.
+**Measured 2026-11-03** on commit `44a2d8b`: one backend replica (1.5 CPU, 1 GiB) with Postgres, Redis
+and Neo4j, the survival model re-exported on 2026-10-13, and the demo plan's rate limit raised in the
+throwaway database so the limiter never answered (no 429s). **This host was not quiet:** 24 containers
+from other projects were running, as on 2026-10-15, so read the absolute figures as a floor and take the
+ratios and the shape.
+
+| Offered req/s | Achieved | p95 | Failed | Meets target |
+|---|---|---|---|---|
+| 25 | 25 | 54 ms | 0% | yes |
+| 50 | 50 | 44 ms | 0% | yes |
+| 100 | 99.3 | 1,468 ms | 0% | no |
+| 150 | 102.8 | 8,790 ms | 0% | no |
+| 200 | 104.8 | 8,380 ms | 0% | no |
+| 300 | 91.6 | 13,469 ms | 0% | no |
+
+One replica meets the target up to 50 req/s and saturates at about 100 req/s; past that it queues, so
+latency climbs while throughput stays flat and then falls, and nothing fails outright. Which call
+saturates first was not separated out.
+
+The soak ran 30 minutes at 30 req/s (54,300 iterations): p95 46 ms in the first quarter and 45 ms in
+the last, no drift, no errors. The backend container stood at 896 MiB of its 1 GiB limit at the end, with
+Postgres at 147 MiB and Neo4j at 447 MiB; heap growth was not separated from the JVM's habit of keeping
+what it has claimed, so a longer run with the JVM panels in Grafana is what would settle that. The CI
+smoke test (40 req/s for 30 s) on the same stack: p95 65 ms overall, 65 ms for scoring and 35 ms for
+search and catalog, with no failures in the measured phase.
+
+Still to do on a quiet machine or the 1.5-CPU VM: repeat the capacity table, and with two replicas,
+which is what section 1 measured (109 req/s achieved of 120 offered, against two).
