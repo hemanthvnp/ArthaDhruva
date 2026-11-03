@@ -3,6 +3,7 @@ package com.arthadhruva.riskengine.governance;
 import com.arthadhruva.riskengine.cvar.CvarRequest;
 import com.arthadhruva.riskengine.graph.SegmentGraphArtifact;
 import com.arthadhruva.riskengine.score.ModelService;
+import com.arthadhruva.riskengine.survival.DelinquencyModel;
 import com.arthadhruva.riskengine.survival.SurvivalModel;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -54,8 +55,8 @@ public class ModelRegistry {
     private final Map<String, JsonNode> cards = new LinkedHashMap<>();
     private final JsonNode survivalBacktest;
 
-    public ModelRegistry(ModelService pd, SurvivalModel survival, SegmentGraphArtifact segmentGraph, MeterRegistry meters)
-            throws IOException {
+    public ModelRegistry(ModelService pd, SurvivalModel survival, DelinquencyModel delinquency, SegmentGraphArtifact segmentGraph,
+                         MeterRegistry meters) throws IOException {
         ObjectMapper mapper = new ObjectMapper();
 
         JsonNode pdCard = mapper.readTree(read("pd_model_card.json"));
@@ -89,6 +90,29 @@ public class ModelRegistry {
                 survivalCard.get("trained_at").asString(), survivalCard.get("algorithm").asString(), survivalHeadline, List.of()));
         cards.put("survival", survivalCard);
         this.survivalBacktest = mapper.readTree(read("survival_backtest.json"));
+
+        // DelinquencyModel has already refused to load an artifact that does not match its card.
+        JsonNode delinquencyCard = delinquency.card();
+        JsonNode held = delinquencyCard.get("validation").get("production_fit_on_held_out_loans").get("one_step");
+        Map<String, Object> delinquencyHeadline = new LinkedHashMap<>();
+        delinquencyHeadline.put("delinquentLogLoss", held.get("delinquency model").get("delinquent_rows").asDouble());
+        delinquencyHeadline.put("survivalModelDelinquentLogLoss", held.get("survival model").get("delinquent_rows").asDouble());
+        delinquencyHeadline.put("rollRateDelinquentLogLoss", held.get("roll-rate table").get("delinquent_rows").asDouble());
+        delinquencyHeadline.put("failedGates", delinquencyCard.get("validation").get("gates").get("failures_at_export").size());
+        delinquencyHeadline.put("loanMonths", delinquencyCard.get("training").get("rows").asLong());
+        List<String> delinquencyGaps = new ArrayList<>();
+        delinquencyCard.get("limitations").forEach(l -> {
+            String text = l.asString();
+            if (text.contains("no housing downturn") || text.contains("Sparse deep-delinquency") || text.contains("forbearance")) {
+                delinquencyGaps.add(text);
+            }
+        });
+        entries.add(new Entry(DelinquencyModel.ID, "Delinquency transitions", "Month-to-month moves between current, 30 and 60 days "
+                + "past due, default and prepaid; projections of loans whose payment status and history are known, with ranges",
+                1, true, delinquencyCard.get("version").asString(), "delinquency_model.onnx", delinquency.artifactSha256(), true,
+                delinquencyCard.get("trained_at").asString(), delinquencyCard.get("algorithm").asString(), delinquencyHeadline,
+                delinquencyGaps));
+        cards.put(DelinquencyModel.ID, delinquencyCard);
 
         entries.add(unvalidated("lgd", "Loss given default", "Fitted LGD by origination features; floor of the collateral-based "
                 + "LGD in the ECL engine", 1, "lgd_model.json", "Beta regression (logit link)",

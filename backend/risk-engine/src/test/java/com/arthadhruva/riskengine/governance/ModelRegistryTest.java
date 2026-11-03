@@ -3,6 +3,7 @@ package com.arthadhruva.riskengine.governance;
 import com.arthadhruva.riskengine.graph.SegmentGraphArtifact;
 import com.arthadhruva.riskengine.ml.MarketData;
 import com.arthadhruva.riskengine.score.ModelService;
+import com.arthadhruva.riskengine.survival.DelinquencyModel;
 import com.arthadhruva.riskengine.survival.SurvivalModel;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
@@ -11,6 +12,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -18,7 +20,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ModelRegistryTest {
 
     private static ModelRegistry registry(SegmentGraphArtifact graph) throws Exception {
-        return new ModelRegistry(new ModelService(new MarketData()), new SurvivalModel(true), graph, new SimpleMeterRegistry());
+        SurvivalModel survival = new SurvivalModel(true);
+        return new ModelRegistry(new ModelService(new MarketData()), survival, new DelinquencyModel(survival), graph, new SimpleMeterRegistry());
+    }
+
+    @Test
+    void listsTheDelinquencyModelAsValidatedWithItsCardAndChecksum() throws Exception {
+        ModelRegistry registry = registry(new SegmentGraphArtifact());
+        ModelRegistry.Entry entry = registry.entries().stream().filter(e -> e.id().equals("delinquency")).findFirst().orElseThrow();
+        assertTrue(entry.validated());
+        assertEquals(1, entry.tier());
+        assertEquals(Boolean.TRUE, entry.checksumVerified());
+        assertEquals("delinquency_model.onnx", entry.artifact());
+        assertTrue(registry.card("delinquency").isPresent());
+        assertTrue((double) entry.headline().get("delinquentLogLoss") < (double) entry.headline().get("survivalModelDelinquentLogLoss"));
+        assertEquals(0, entry.headline().get("failedGates"));
+        assertFalse(entry.gaps().isEmpty(), "what the model does not cover is listed");
     }
 
     @Test
