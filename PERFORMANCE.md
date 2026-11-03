@@ -58,30 +58,40 @@ Roughly 3.6x throughput and 13x lower average latency from one setting. Two more
 
 ## 1a. The cost of the risk engines
 
-Measured with JMH on the real model artifacts (one idle desktop core, full tiered JIT):
+Measured with JMH on the real model artifacts (single fork, 3 warm-up and 5 measured iterations, full
+tiered JIT, one core unless a thread count is given). The survival model was re-exported with the 2006 to
+2008 vintages on 2026-10-13: 1,392 boosting rounds against 596, a 34.8 MB ONNX file against 16.4 MB. The
+columns are the earlier model on an idle machine in early October, then the earlier and the current model
+back to back on 2026-11-03 on a host that was not idle (24 containers from other projects running, about
+37% CPU in use):
 
-| Computation | Time |
-|---|---|
-| PD score | 0.030 ms |
-| Shapley explanation of that score | 6.6 ms |
-| One loan's term structure to maturity (720 model rows) | 52.6 ms |
-| Loss simulation, 1,000 loans x 20,000 scenarios, 1 thread / 4 threads | 145 ms / 53 ms |
+| Computation | Earlier model, idle (Oct) | Earlier model, 2026-11-03 | Current model, 2026-11-03 |
+|---|---|---|---|
+| PD score | 0.030 ms | 0.092 ms | 0.089 ms |
+| Shapley explanation of that score | 6.6 ms | 16.0 ms | 13.5 ms |
+| One loan's term structure to maturity (720 model rows) | 52.6 ms | 136.7 ms | 224.8 ms |
+| The same loan under all five scenarios, one model call | 258.8 ms | 682.1 ms | 1,142.9 ms |
+| Loss simulation, 1,000 loans x 20,000 scenarios, 1 thread / 4 threads | 145 ms / 53 ms | 224.5 ms / 75.5 ms | 248.2 ms / 77.3 ms |
 
-These were measured before the survival model was re-exported with the 2006 to 2008 vintages
-(2026-10-13). That model has 1,392 boosting rounds against 596 and its ONNX file is 34.8 MB against
-16.4 MB, and the time is inside ONNX Runtime, so every term-structure figure in this section should be
-read as roughly doubled until the benchmark is rerun: the engine test classes took 2.0 to 2.2 times as
-long on the same machine (`TermStructureEngineTest` 1.8 s to 4.0 s, `PortfolioRiskEngineTest` 10.5 s to
-21.9 s), and the region tests about three times (`DecisionServiceTest` 22 s to 68 s). The JMH benchmark
-and the k6 smoke test have not been rerun against it.
+Read across a row, not down a column. The PD score, the explanation and the simulation did not change in
+the re-export, so their 1.6 to 3 times slower figures on 2026-11-03 are the host, not the code. The two
+survival models were measured under the same conditions, and the re-export cost a term structure **1.65
+times** as much (136.7 to 224.8 ms) and five scenarios 1.67 times (682.1 to 1,142.9 ms), as it should: the
+time is inside ONNX Runtime, in proportion to the trees. Applied to the idle October figure, that would put
+one loan's term structure near 87 ms on a quiet machine, but that is an estimate and was not measured. The
+engine test classes took 2.0 to 2.2 times as long after the re-export (`TermStructureEngineTest` 1.8 s to
+4.0 s, `PortfolioRiskEngineTest` 10.5 s to 21.9 s), and the region tests about three times
+(`DecisionServiceTest` 22 s to 68 s). The k6 smoke test was rerun against the current model on 2026-11-03
+(section 5): p95 65 ms over the three call types, no failures in the measured phase.
 
-A projection is about 73 microseconds per model row, nearly all inside ONNX Runtime, so a new 30-year
-loan under three scenarios costs around 150 ms and a portfolio of thousands costs minutes of CPU. That
+With the earlier model a projection was about 73 microseconds per model row, nearly all inside ONNX
+Runtime, so a new 30-year loan under three scenarios cost around 150 ms and a portfolio of thousands
+minutes of CPU; with the current model each of those is about 1.65 times larger. That
 arithmetic is the design: a portfolio run is a background job with a progress row and a heartbeat, a
 worker pool bounded below the core count keeps it from starving request threads, portfolios above 5,000
 loans are sampled with a reported standard error, and the rate limiter charges twenty tokens to start
-one. In the 1.5-CPU container, 400 loans under three scenarios (1,200 projections) take 48 s on its
-single worker.
+one. In the 1.5-CPU container, 400 loans under three scenarios (1,200 projections) took 48 s on its
+single worker with the earlier model; that run was not repeated with the current one.
 
 Three things follow from runs being that expensive, and each is a setting:
 

@@ -235,7 +235,8 @@ excluded, so its base row differs from the results above.)
   for nine), and 99.5% of the training months lie within 107 months of origination; beyond that the
   dependence on loan age is held at its last fitted level.
 - The model is about twice the size of the previous one (1,392 boosting rounds against 596, ONNX 34.8 MB
-  against 16.4 MB) and a projection costs about twice as much; see PERFORMANCE.md.
+  against 16.4 MB) and a projection costs about 1.65 times as much, measured back to back on one
+  machine; see PERFORMANCE.md.
 - One stress episode (2020-06 to 2022-06) defines the stressed regime, and the regime chain is estimated
   from 99 months. An expected stress spell of 25 months and a long-run stressed share of 26% are
   uncertain, and the baseline lifetime PD inherits that uncertainty.
