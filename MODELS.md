@@ -11,6 +11,7 @@ Governance page.
 | Model | Used for | Tier | Validated |
 |---|---|---|---|
 | Competing-risks survival (`survival_model.onnx`) | Monthly default and prepayment hazards behind PD term structures, lifetime ECL and stress scenarios | 1 | Yes |
+| Delinquency transitions (`delinquency_model.onnx`) | Month-to-month moves between current, 30 and 60 days past due, default and prepaid; projections of loans whose status and history are known, with ranges | 1 | Yes |
 | Origination PD (`model.onnx`) | Default within 24 months of origination; explanations and reason codes | 1 | Yes |
 | Loss given default (`lgd_model.json`) | Fitted LGD, the floor of the collateral-based LGD | 1 | No |
 | Macro regime (`hmm_regime.json`) | Calm / stressed regime and its transition matrix | 1 | No |
@@ -240,11 +241,145 @@ excluded, so its base row differs from the results above.)
 - One stress episode (2020-06 to 2022-06) defines the stressed regime, and the regime chain is estimated
   from 99 months. An expected stress spell of 25 months and a long-run stressed share of 26% are
   uncertain, and the baseline lifetime PD inherits that uncertainty.
-- The model conditions on origination attributes and macro drivers, not on current delinquency status,
-  so it understates the risk of a loan that is already past due.
+- The model conditions on origination attributes and macro drivers, not on current delinquency status, so it
+  understates the risk of a loan that is already past due. For a loan whose status (`daysPastDue`) and recent history
+  are supplied, the delinquency model below projects it instead; a status without a history still runs this model and
+  the response says why (`fallbackReason`). The caveat stands for those.
 - The property's state is a feature. Geography can stand in for protected characteristics; a lender
   using these figures in credit decisions must test for disparate impact on its own portfolio.
 - Trained on agency-conforming fixed-rate mortgages; not validated for other products.
+
+## Delinquency transition model
+
+The survival model above gives every loan the same projection whether or not it is already late, and every lifetime
+figure is a point estimate. This model is the move between delinquency states: from current, 30 or 60 days past due,
+the probability of each next state (current, 30, 60, default, prepaid), conditioned on the source state, the loan's
+history up to the previous month, its origination attributes, loan age, the macro regime, the rate incentive and the state
+macro drivers. `survival.MultiStateEngine` projects it exactly over the regime chain (the same recursion, carrying the
+joint probability of a regime and a state, no sampling), reusing the existing engine's scenario path, exposure, loss given
+default and discounting; with delinquent transitions switched off it equals the existing engine to 1e-9
+(`MultiStateEquivalenceTest`). It is its own artifact, card and checksum; the survival model is untouched.
+
+Default is the survival model's definition (first month 90+ days past due, REO, or an adverse zero-balance termination);
+default and prepayment are absorbing, and a loan that cures after reaching 90 days does not re-enter, as in the survival
+data. Features: the survival model's 23, then the source state and three history features computed from months strictly
+before the one predicted (spells of 30+ days that began in the last 12 months, months since the latest cure, the worst
+state in the window; a test alters every later record and asserts the features do not move). One LightGBM multiclass model
+with the source state as a feature, 799 rounds.
+
+### Protocol and results
+
+The same sample as the survival model (40,000 loans per origination quarter, 2017 to 2026): 874,134 loans and 3,857,204
+loan-months fitted, with stay-current months subsampled at 10% and weighted 10. Validation fit on loan-buckets 3 to 9 before
+2023-01; evaluation on loan-buckets 0 and 1, which are in no fit, from 2023-01 (527,886 loan-months: 488,144 from current,
+33,035 from 30 days past due, 6,707 from 60). Log loss on the survival model's three classes (continue, default, prepay),
+on the same loan-months, for the survival model refit by its own protocol and for a roll-rate table (state by loan-age
+bucket, no loan or macro conditioning):
+
+| Loan-months starting | Delinquency model | Survival model | Roll-rate table |
+|---|---|---|---|
+| All | 0.0334 | 0.0362 | 0.0854 |
+| Current | 0.0315 | 0.0318 | 0.0841 |
+| 30 days past due | 0.0756 | 0.0730 | 0.1254 |
+| 60 days past due | 1.085 | 2.753 | 0.802 |
+| **Delinquent (30 and 60)** | **0.246** | **0.525** | **0.240** |
+
+The model beats the survival model, which cannot know a loan is late, and is level with a plain roll-rate table on
+delinquent loan-months: better from 30 days, worse from 60, where the table wins and the model is the weakest. The
+production fit (every month of buckets 3 to 9) scores 0.262 on delinquent loan-months for the same loans.
+
+The projection is judged on 12-month default and cure rates by starting state, from 82,161 starts with fully observed
+paths (60,000 from current; all 18,547 and 3,614 from 30 and 60 days), predicted with the realized macro and regime path:
+
+| Start | Rate | Predicted | Realized | Ratio | Events |
+|---|---|---|---|---|---|
+| Current | default | 0.36% | 0.52% | 0.70 | 737 |
+| 30 days | default | 15.7% | 21.2% | 0.74 | 3,933 |
+| 30 days | cure | 87.0% | 78.4% | 1.11 | 14,548 |
+| 60 days | default | 61.4% | 64.9% | 0.95 | 2,346 |
+| 60 days | cure | 40.6% | 34.8% | 1.17 | 1,258 |
+
+The survival model predicts 1.2% and 1.5% default from 30 and 60 days; the roll-rate table 29.9% and 72.7% from 30 and
+60 days and 5.8% from current (eleven times what happened). Out of time the model under-predicts default from current and
+from 30 days by about a quarter to a third: 2023 to 2025 conversion of delinquency into default was higher than the 2017
+to 2022 behaviour it learned, which includes pandemic forbearance. The production fit, which saw 2023 and 2024 for the
+fitted loans, is closer (0.85, 0.81, 0.97 default; 1.09, 1.10 cure), and is what is judged against the gates below.
+
+**Gates**, frozen from a pilot fit before the production fit (`design.md` D7 in the change): log loss on delinquent
+loan-months below the survival model's; predicted over realized 12-month default within 1 +/- 0.40 and cure within
+1 +/- 0.15 for every starting state with at least 200 events; lifetime PD non-decreasing in the starting state on a grid of
+five loans, two scenarios and two histories. The export refuses to write the artifact if any fails and names it. All three
+hold for the shipped artifact. The tolerances are the pilot's worst deviation rounded up, not what the final fit happened
+to achieve.
+
+### How a projection uses it
+
+Four rules, each in the reference (`golden_multistate.py`, `delinquency_history.py`), the evaluation and the Java engine:
+
+- **History is aged with the projection**, not held and not followed. The history features depend on the path, which would
+  make the exact recursion over states impossible. On a path with no new spell the history is exactly clean once the
+  12-month window has passed, so a cure that is `n` months old is clean `12 - n` months on; a spell with no cure in the
+  window is taken to end at the start (the most recent a cure can be). A spell that begins during the projection is
+  represented only by rule 2. Holding the history fixed, the first rule tried, made a loan with a cure three months ago
+  look like a permanent recent offender for the whole 360 months (lifetime PD 9.7% against 1.0% for a clean history).
+- **A delinquent row carries its own spell:** at least one spell and a worst state at least the source, as every training
+  row from a late state does.
+- **A floor of 0.1%** on every probability from a delinquent state. Boosted trees grow pure leaves for near-deterministic
+  cells, and a loan that does the unexpected was given a probability near 1e-200 (the first pilot's log loss on delinquent
+  loan-months was 1.14, worse than the survival model, for that reason). 0.1% is below the sparsest observed cell from a
+  delinquent state (30 days to default, 0.15%). It is not applied from current, whose real transitions are rarer.
+- **Stochastic ordering by starting state.** Each month's three source rows are made stochastically ordered (with the classes
+  ordered prepaid < current < 30 < 60 < default, each upper-tail probability is replaced by its running maximum over source
+  states). Valid probabilities result, unchanged where the order holds, and lifetime default then cannot fall as the
+  starting state worsens (a chain whose steps are all stochastically ordered keeps the order of its starting states, on each
+  regime path and so for the expectation the engine takes). The raw output broke the order for a few grid loans (a loan 30
+  days late judged safer than a current one with a recent history), so this guarantee is by construction and not a property
+  the model learned. **It changes most of the months it is applied to:** on the 12-month evaluation grid 98% of the
+  (start, month) triples moved by more than 1e-12 and the largest moved probability averaged 1.5 percentage points
+  (4.4 for the production fit, at most 99), mostly prepaid against current for a late loan, and in rows for brand-new loans
+  at age 1 that are 60 days late, which are out of the model's range (the raw cure probability there is 98%). The 12-month
+  rates above are with the repair applied; the one-step log losses are on single rows and are not repaired.
+
+### Intervals
+
+A range is the spread the figures take when the regime chain is not known exactly, widened by how far past predictions have
+been from realized incidence. The chain (calm, stressed) is estimated from 99 months containing one stress episode: 73
+months from calm with one move to stressed, 25 from stressed with one move back. Each draw replaces its two rows with a
+Dirichlet sample whose pseudo-counts are `n_i P[i][j]` (centred on the chain of record), and is projected exactly by the same
+recursion, so a draw is an exact expectation. The 5th to 95th percentile of the draws is widened by `exp(-sigma)` below and
+`exp(+sigma)` above, where `sigma` is the standard deviation of log(realized / predicted cumulative incidence) across the
+survival model's vintage backtests that reach the horizon (0.083 at 12 months over 10 vintages; 0.088, 0.054 and 0.037 at 24,
+36 and 48 months over 9, 8 and 7). Draws are seeded from the request, so the same request gives bit-identical bounds on any
+thread count or replica. The interval is labelled "regime uncertainty plus historical calibration error": it is not a
+confidence interval, the hazard model's own parameters are not resampled, and the band alone contained the realized incidence
+for 6 of 10, 7 of 9, 6 of 8 and 3 of 7 vintages when each was left out (leave-one-out, small samples that share one macro
+cycle). It is bounded by a configured draw cap and time budget; past either the response is the point estimate with the
+reason.
+
+### Limitations
+
+- Loan-months starting 60 days past due are 1.46% of the fitted rows (and far less of loan-months once the subsampled
+  stay-current rows are weighted back; 6,707 in the evaluation), so transitions from that state are noisier than the others,
+  and a rate with fewer than 200 events is reported but not judged.
+- Cure behaviour reflects 2017 to 2026, including forbearance, and out of time the model under-predicts default from current
+  and 30 days by about a quarter to a third.
+- The data contains no housing downturn: unlike the survival model this one is not fitted on the 2006 to 2008 vintages
+  (their history features were scoped out), so its response to falling prices rests on 2017 to 2026 alone.
+- History ageing and the stochastic ordering are approximations to the exact path-dependent model, described above; a spell
+  that begins during a projection is not followed.
+- No drift overlay: the held-out ratios of realized to predicted default and prepayment from current (1.01 and 0.98) are in the
+  card and not applied.
+- The ONNX graph differs from the float64 booster by up to 1.8e-4 relative on 3 of 50,000 sampled loan-months (all from 60
+  days past due); the shared export check allows 1e-4, and this export allows 3e-4, recorded in the card. The graph is the
+  model of record in the service and the fixtures.
+- Portfolio runs do not take per-loan delinquency data yet; the delinquency model serves single-loan projections
+  (`POST /v1/risk/term-structure`).
+- Agency-conforming fixed-rate mortgages only. The property's state is a feature, and geography can stand in for protected
+  characteristics: a lender using these figures in credit decisions must test for disparate impact on its own portfolio.
+
+Rebuild (owner-run, about an hour with the data on disk): `build_delinquency_dataset.py` then `export_delinquency_model.py`
+(`--pilot` runs the protocol and the benchmarks only), then `golden_multistate.py`; `DelinquencyGoldenTest` holds the engine
+to the reference to 1e-6.
 
 ## Origination PD model
 
