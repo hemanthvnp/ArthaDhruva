@@ -9,12 +9,12 @@
 
 ## 2. Dataset and features (Python; additive, owner-run)
 
-- [ ] 2.1 Add a separate dataset output with state, history features and next-state labels, leaving `build_survival_dataset.py` outputs unchanged
-- [ ] 2.2 Implement the four history features strictly from prior months
-- [ ] 2.3 Leakage test: altering months after t leaves every feature for month t unchanged
-- [ ] 2.4 Apply the existing hygiene rules (drop the last month of each release, hash-of-loan-id split, 10% no-event subsampling with weight 10 where applicable)
-- [ ] 2.5 Dataset checks: states are mutually exclusive, default definition matches the existing dataset, no loan straddles the split
-- [ ] 2.6 Confirm the existing survival artifact checksum equals the `baseline.md` value after the new dataset code lands
+- [x] 2.1 Add a separate dataset output with state, history features and next-state labels, leaving `build_survival_dataset.py` outputs unchanged
+- [x] 2.2 Implement the four history features strictly from prior months
+- [x] 2.3 Leakage test: altering months after t leaves every feature for month t unchanged
+- [x] 2.4 Apply the existing hygiene rules (drop the last month of each release, hash-of-loan-id split, 10% no-event subsampling with weight 10 where applicable)
+- [x] 2.5 Dataset checks: states are mutually exclusive, default definition matches the existing dataset, no loan straddles the split
+- [x] 2.6 Confirm the existing survival artifact checksum equals the `baseline.md` value after the new dataset code lands
 
 ## 3. Model training and export (owner-run only)
 
