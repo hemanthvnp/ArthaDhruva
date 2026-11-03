@@ -162,6 +162,15 @@ index on undelivered rows), primary-key lookups.
   lock timeout is answered with 503 and `Retry-After: 2`, counted as `db_timeouts_total{kind}`, and
   more than five in ten minutes raises `DatabaseStatementTimeouts`. Flyway migrates on its own
   connection and is not bound by them.
+- **Tables that only grow:** the audit trail is partitioned by month (V31), so a query for a time
+  window reads only its months and retention drops a month whole at a cost independent of its size;
+  partitions are made three months ahead, and a row whose month has none yet goes to a default
+  partition and is moved when it gets one. Retention (`RetentionJob`, daily, one replica): audit 84
+  months (`RETENTION_AUDIT_MONTHS`, never under 12), delivered webhooks 30 days, failed ones 90,
+  read notifications 90 days and all notifications 365, login attempts 365, the job ledger 30. Rows
+  go in batches of 5,000 per table, each batch its own statement well inside the statement timeout.
+  The work is done by owner-defined database functions with floors under each period, because the
+  app role may not delete from the audit trail or create tables.
 - **Footprint:** a backend replica idles at ~485 MiB of its 1 GiB limit; Postgres ~100 MiB, Redis ~5
   MiB, Neo4j ~385 MiB. The whole stack fits in ~2.5 GiB. Everything runs under CPU and memory limits
   so it cannot starve its neighbours.

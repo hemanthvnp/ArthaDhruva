@@ -73,7 +73,10 @@ How the models were built, validated and where they should not be trusted: [MODE
   the application connects as a role that does not own them. The integration tests run as that role.
 - **An audit trail the application cannot rewrite.** Every API call is recorded with who, what, the
   outcome and the model version; the application's role has no `UPDATE` or `DELETE` on it, and
-  credentials are redacted before an entry is written.
+  credentials are redacted before an entry is written. It is partitioned by month, so retention drops
+  a month whole (never under a year, enforced in the database) and a time-window query reads only its
+  months; the other tables that only grow are trimmed daily in short batches
+  ([`RetentionJob`](backend/risk-engine/src/main/java/com/arthadhruva/riskengine/retention/RetentionJob.java)).
 - **Bounded waits on the database.** Statement, lock and idle-in-transaction timeouts on every pooled
   connection, so one slow query cannot hold a connection for as long as it likes; a timeout reaches
   the client as 503 with `Retry-After`, and a stream of them raises an alert.
