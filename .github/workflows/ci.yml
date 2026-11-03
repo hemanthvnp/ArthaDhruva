@@ -193,3 +193,14 @@ jobs:
 
       - name: Kill a replica in the middle of a run
         run: bash scripts/failover-test.sh
+
+  pitr:
+    # Recovery gate: a base backup, rows written after it, then a mistake that deletes them all. Fails
+    # unless deploy/restore-pitr.sh, given the backup and the moment before the mistake, brings every row
+    # back, the later ones from the archived WAL. Uses the production backup and restore scripts unchanged.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Restore to the moment before a mistake
+        run: bash scripts/pitr-test.sh

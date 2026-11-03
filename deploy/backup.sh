@@ -3,7 +3,8 @@
 # documents (the `attachments` volume). Redis is a cache and Neo4j is reloaded at startup. Keeps the
 # newest N of each.
 #   0 3 * * * bash /home/ubuntu/ArthaDhruva/deploy/backup.sh >> /home/ubuntu/backups/backup.log 2>&1
-# Restore with deploy/restore.sh.
+# Restore with deploy/restore.sh (the dump), or deploy/restore-pitr.sh (the base backup plus archived
+# WAL, to a chosen moment).
 #
 # Two things this script cannot do for you. Copy the files off the server (rclone to a free cloud
 # bucket, or scp): a backup on the same disk does not survive losing the VM. And keep a private copy
@@ -43,3 +44,6 @@ for kind in sql.gz files.tar.gz; do
   if [ "$excess" -gt 0 ]; then rm -- "${kept[@]:0:excess}"; fi
 done
 echo "$(date -u +%FT%TZ) wrote $db ($(du -h "$db" | cut -f1)) and $files ($(du -h "$files" | cut -f1))"
+
+# And a physical base backup, which with the archived WAL restores to any moment since (restore-pitr.sh).
+BACKUP_DIR="$DEST" BACKUP_KEEP="$KEEP" bash deploy/basebackup.sh

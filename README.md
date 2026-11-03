@@ -101,7 +101,9 @@ How the models were built, validated and where they should not be trusted: [MODE
 - **Operations that were rehearsed.** Prometheus alert rules with unit tests, including two that are
   about integrity rather than uptime: a decision served without its audit record, and replicas serving
   different binaries of one model. Nightly backups, and a restore that was run end to end onto an empty
-  stack ([DEPLOY.md](DEPLOY.md)).
+  stack ([DEPLOY.md](DEPLOY.md)). Postgres archives its write-ahead log, so the database can be
+  restored to any moment since the last nightly base backup; CI deletes rows and gets them back
+  ([`scripts/pitr-test.sh`](scripts/pitr-test.sh)).
 - **A demo that costs nothing while nobody is looking.** On Azure the VM deallocates itself after 30
   idle minutes and a serverless page starts it again on a click, about a minute later
   ([`deploy/azure/`](deploy/azure/)). Each side holds a managed identity that can do exactly one thing.
