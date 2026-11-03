@@ -254,3 +254,10 @@ of a projection's model call. That cost was not timed separately. Settings (`app
 The delinquency model evaluates each model row from three source states, so a projection builds three times the rows of the
 existing engine (about 2,160 for a 30-year loan) and its artifact is 33.6 MB, loaded beside the survival model's 34.8 MB.
 Not measured on a quiet host; the figures above are arithmetic from the row counts and the existing per-row cost.
+
+## 7. The monthly comparison of stored scores with outcomes
+
+`governance.realized.cron` (default `0 10 4 * * *`, daily, once across all replicas) queues a report row per organization that has
+recorded outcomes and has none this month; the arithmetic runs on `riskComputeExecutor`, one report per organization at a time. The
+comparison reads each matched score and outcome once (one indexed join per organization) and sorts the resolved scores; it holds
+two arrays of the resolved loans in memory and refuses more than 2,000,000. Not timed on a large portfolio.

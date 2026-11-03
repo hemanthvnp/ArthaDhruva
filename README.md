@@ -16,7 +16,7 @@ how much worse than expected a bad year can be.
 | **Region analysis** | Whether a loan's stressed figure is high under every variant of the stress, under none, or on the boundary where the answer turns on the details, for one loan or the whole book (rough-set three-way decision) |
 | **Segment graph** | Which states' unemployment and house prices move together beyond the national cycle, learned and checked out of time against mortgage delinquency, drawn on a map with the figures that validate it (Neo4j) |
 | **Loss distribution** | Value at risk and expected shortfall of the portfolio, and the loans that drive the tail |
-| **Model governance** | Every model with its checksum, validation, backtests and limitations, population drift against the training data, and today's macro conditions against the survival model's training window |
+| **Model governance** | Every model with its checksum, validation, backtests and limitations, population drift against the training data, today's macro conditions against the survival model's training window, and the PD model's stored scores against the outcomes the organization has recorded for its loans |
 | **Workflow** | Cases with enforced transitions, a four-eyes rule and an immutable history; notes, documents, automation rules, notifications, webhooks |
 | **Borrower portal** | A borrower's own loan as a status band and a sentence on how it moved (never the probability), the open review and who to contact, their documents, and a safety assistant that checks whether a message they received looks like a scam |
 | **Platform** | Multi-tenant, with single sign-on, API keys, usage metering, an audit trail and rate limits |
