@@ -37,12 +37,20 @@ services:
       POSTGRES_DB: arthadhruva
       POSTGRES_USER: arthadhruva
       POSTGRES_PASSWORD: ${DB_PASSWORD:-arthadhruva}
-    command: ["postgres", "-c", "ssl=on", "-c", "ssl_cert_file=/pki/server.crt", "-c", "ssl_key_file=/pki/server.key", "-c", "hba_file=/etc/postgresql/pg_hba.conf"]
+    # Every completed WAL segment is copied, gzipped, to the wal_archive volume, and at least every 15
+    # minutes when anything was written: with a nightly base backup (deploy/backup.sh) that allows a
+    # restore to any moment since that backup (deploy/restore-pitr.sh). The wrapper only makes the
+    # archive directory the postgres user's before the image's own entrypoint runs.
+    entrypoint: ["/bin/sh", "-c", "install -d -o postgres -g postgres -m 0700 /wal-archive && exec docker-entrypoint.sh \"$$@\"", "postgres-entrypoint"]
+    command: ["postgres", "-c", "ssl=on", "-c", "ssl_cert_file=/pki/server.crt", "-c", "ssl_key_file=/pki/server.key", "-c", "hba_file=/etc/postgresql/pg_hba.conf",
+              "-c", "wal_level=replica", "-c", "archive_mode=on", "-c", "archive_timeout=900",
+              "-c", "archive_command=test ! -f /wal-archive/%f.gz && gzip -c %p > /wal-archive/%f.gz.tmp && mv /wal-archive/%f.gz.tmp /wal-archive/%f.gz"]
     cap_add: [CHOWN, SETUID, SETGID, FOWNER, DAC_OVERRIDE]
     depends_on:
       pki: { condition: service_completed_successfully }
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - wal_archive:/wal-archive
       - pki:/pki:ro
       - ./postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
     healthcheck:
@@ -334,6 +342,7 @@ services:
 
 volumes:
   pgdata:
+  wal_archive:
   pki:
   neo4jdata:
   attachments:
