@@ -101,6 +101,8 @@ services:
   backend:
     <<: *hardening
     build: ./backend/risk-engine
+    # Named, so deploy.sh can keep the image that was serving as :previous and roll back to it.
+    image: arthadhruva-backend:latest
     profiles: ["app"]
     networks: [edge, data, observability]
     environment:

@@ -315,7 +315,7 @@ unit tests (`node --test deploy/azure/wake.test.js`, run by CI).
 | Task | Command |
 |---|---|
 | Update to the latest `prod` | `bash deploy/deploy.sh` |
-| Roll back | push a revert commit to `prod`; CI plus the deploy job apply it. Rolling back past the learned segment graph (#40) also needs `MATCH (n) WHERE n:State OR n:SegmentGraph DETACH DELETE n` in Neo4j and a backend restart: the older loader only adds edges and would leave the learned links next to its own |
+| Roll back | automatic when a release never reports healthy: `deploy.sh` restarts the previous commit, backend image and frontend build, and still fails the deploy. To undo a release that is healthy but wrong, push a revert commit to `prod`; CI plus the deploy job apply it. Rolling back past the learned segment graph (#40) also needs `MATCH (n) WHERE n:State OR n:SegmentGraph DETACH DELETE n` in Neo4j and a backend restart: the older loader only adds edges and would leave the learned links next to its own |
 | Status | `docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.deploy.yml ps` |
 | Backend log | same prefix, then `logs -f backend` |
 | Scale the backend | add `--scale backend=2` to the `up` line in `deploy.sh` (one shared JWT secret is already in use) |
