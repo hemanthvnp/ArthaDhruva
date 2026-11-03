@@ -502,6 +502,32 @@ writes no loan-weighted macro reference, so the distribution check describes the
 contained rather than how many loans lived through each. A projection from a state outside the envelope
 is still made, and its response already lists the drivers it extrapolates.
 
+### Stored scores against what happened
+
+The model's validation above is on historical data; this is the same question asked of an organization's own loans, which
+the exports cannot answer. There is no servicing feed in this deployment, so the outcome source is the organization's own: an
+administrator records, per loan, that it `DEFAULTED`, `PREPAID` or is `ACTIVE` (last seen performing) and the date
+(`POST /v1/admin/outcomes`, up to 5,000 a call, replacing an earlier record of the same loan). A comparison then sets each
+loan's stored score against its outcome:
+
+- a default after the score and within 24 months is a default; a default after that, a prepayment, or being seen performing
+  through the 24 months is not (the label rules the model was trained with: a loan that left the book without defaulting is not a
+  default);
+- a default or prepayment on or before the day the loan was scored, or being last seen performing before the horizon has ended,
+  cannot resolve the score. These are counted in the report and not guessed.
+
+The report gives the resolved and default counts, mean predicted against the realized rate and their ratio, the AUC of the
+stored scores, and a table by decile of predicted risk (deciles and AUC only where there are at least 100 resolved loans and 5
+of each class; below that the report says so). `loan_score` keeps only a loan's latest score, so this is each loan's most
+recent score against what followed it, not a record of every score issued.
+
+It is deferred work: a daily job (once across all replicas, `governance.realized.cron`) inserts a QUEUED row for each
+organization that has outcomes and no report this month and hands it to the compute pool, so the scheduler thread only
+inserts; a request for one now (`POST /v1/admin/models/pd_24m/realized`, 202) does the same. One report is in flight per
+organization (a unique index), a report whose worker died is closed as stale after 30 minutes, and each report records the
+thread that computed it. The result is on the governance page under the Origination PD model
+(`GET /v1/models/pd_24m/realized`).
+
 ## From hazards to expected credit loss
 
 `survival.TermStructureEngine` projects one loan month by month under a scenario.
