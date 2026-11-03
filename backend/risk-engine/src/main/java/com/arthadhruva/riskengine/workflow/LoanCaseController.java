@@ -10,6 +10,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
@@ -43,27 +45,75 @@ public class LoanCaseController {
         this.loanCaseService = loanCaseService;
     }
 
+    /** The case, with its version as the {@code ETag}, for an update to name in {@code If-Match}. */
     @GetMapping("/loans/{loanId}/case")
-    public LoanCaseView getCase(@PathVariable String loanId) {
+    public ResponseEntity<LoanCaseView> getCase(@PathVariable String loanId) {
         Long tenantId = TenantContext.get();
-        return LoanCaseView.of(loanCaseService.getOrCreate(tenantId, loanId), loanCaseService.notesFor(tenantId, loanId),
-                loanCaseService.history(tenantId, loanId, 20));
+        LoanCase loanCase = loanCaseService.getOrCreate(tenantId, loanId);
+        return ResponseEntity.ok().eTag(etag(loanCase))
+                .body(LoanCaseView.of(loanCase, loanCaseService.notesFor(tenantId, loanId), loanCaseService.history(tenantId, loanId, 20)));
     }
 
-    /** Full replacement of the case state, based on {@code expectedVersion} (the version the client
-     * displayed): refused with 409 and the current state if someone else changed it meanwhile. */
+    /**
+     * Full replacement of the case state, based on the version the client displayed: given either as
+     * {@code expectedVersion} in the body (refused with 409 and the current state if someone else changed
+     * the case meanwhile) or, the HTTP way, as the case's {@code ETag} in {@code If-Match} (refused with
+     * 412, the same body). Neither given: applied to whatever the current state is.
+     */
     @PostMapping("/loans/{loanId}/case")
     public ResponseEntity<?> updateCase(@PathVariable String loanId, @Valid @RequestBody UpdateCaseRequest request,
+                                        @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch,
                                         Authentication authentication) {
         Long tenantId = TenantContext.get();
         if (!loanCaseService.isKnownLoan(tenantId, loanId)) {
             return ResponseEntity.status(404).body(Map.of("error", "Unknown loan"));
         }
+        Long expected = request.expectedVersion();
+        Long precondition = null;
+        if (ifMatch != null && !ifMatch.isBlank() && !ifMatch.trim().equals("*")) {
+            precondition = versionOf(ifMatch);
+            if (precondition == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "If-Match must be the ETag of the case, e.g. \"3\"."));
+            }
+            if (expected != null && !expected.equals(precondition)) {
+                return ResponseEntity.badRequest().body(Map.of("error", "If-Match and expectedVersion name different versions."));
+            }
+            expected = precondition;
+        }
         String assignee = request.assignedTo() == null || request.assignedTo().isBlank() ? null : request.assignedTo().trim();
-        LoanCase loanCase = loanCaseService.update(tenantId, loanId, authentication.getName(), request.expectedVersion(),
-                request.reason(), current -> new LoanCase.State(request.status(), assignee, request.flagged()));
-        return ResponseEntity.ok(LoanCaseView.of(loanCase, loanCaseService.notesFor(tenantId, loanId),
+        LoanCase loanCase;
+        try {
+            loanCase = loanCaseService.update(tenantId, loanId, authentication.getName(), expected,
+                    request.reason(), current -> new LoanCase.State(request.status(), assignee, request.flagged()));
+        } catch (CaseRuleException e) {
+            if (precondition != null && e.getStatus() == HttpStatus.CONFLICT.value()) {
+                ResponseEntity<Map<String, Object>> conflict = onRuleViolation(e);
+                return ResponseEntity.status(HttpStatus.PRECONDITION_FAILED).eTag(etag(e.getCurrent())).body(conflict.getBody());
+            }
+            throw e;
+        }
+        return ResponseEntity.ok().eTag(etag(loanCase)).body(LoanCaseView.of(loanCase, loanCaseService.notesFor(tenantId, loanId),
                 loanCaseService.history(tenantId, loanId, 20)));
+    }
+
+    static String etag(LoanCase loanCase) {
+        return "\"" + loanCase.getVersion() + "\"";
+    }
+
+    /** The version an {@code If-Match} names: one strong or weak entity tag holding a number, else null. */
+    static Long versionOf(String ifMatch) {
+        String tag = ifMatch.trim();
+        if (tag.startsWith("W/")) {
+            tag = tag.substring(2);
+        }
+        if (tag.length() < 3 || tag.charAt(0) != '"' || tag.charAt(tag.length() - 1) != '"') {
+            return null;
+        }
+        try {
+            return Long.parseLong(tag.substring(1, tag.length() - 1));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     @PostMapping("/loans/{loanId}/notes")
