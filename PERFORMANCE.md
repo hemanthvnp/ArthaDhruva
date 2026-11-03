@@ -238,3 +238,19 @@ search and catalog, with no failures in the measured phase.
 
 Still to do on a quiet machine or the 1.5-CPU VM: repeat the capacity table, and with two replicas,
 which is what section 1 measured (109 req/s achieved of 120 offered, against two).
+
+## 6. Ranges around lifetime figures
+
+A request for an interval (`intervals` on `POST /v1/risk/term-structure`) reruns the exact regime recursion once per draw,
+with no further model call: the transition probabilities are computed once and each draw only changes the regime chain, so a
+request costs its draw count times one pass of the recursion (about 360 months x 2 regimes x 15 products), not times the cost
+of a projection's model call. That cost was not timed separately. Settings (`application.properties`, environment variable in brackets):
+
+- `risk.interval.default-draws` 200 (`RISK_INTERVAL_DEFAULT_DRAWS`): draws when the request names none.
+- `risk.interval.max-draws` 400 (`RISK_INTERVAL_MAX_DRAWS`): the cap per request; the response says when it applied.
+- `risk.interval.budget-ms` 2000 (`RISK_INTERVAL_BUDGET_MS`): past it the response is the point estimate with the reason, never
+  a partial interval.
+
+The delinquency model evaluates each model row from three source states, so a projection builds three times the rows of the
+existing engine (about 2,160 for a 30-year loan) and its artifact is 33.6 MB, loaded beside the survival model's 34.8 MB.
+Not measured on a quiet host; the figures above are arithmetic from the row counts and the existing per-row cost.
