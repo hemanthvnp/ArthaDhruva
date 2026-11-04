@@ -255,8 +255,11 @@ The delinquency model evaluates each model row from three source states, so a pr
 existing engine (about 2,160 for a 30-year loan) and its artifact is 33.6 MB, loaded beside the survival model's 34.8 MB.
 Measured on 2026-11-04 on the shared development host (one thread per session, warm, 40 repetitions of a new 30-year loan): a
 survival projection takes about 250 ms and a delinquency-aware one about 750 ms, three times the rows at the same cost per row;
-loading the delinquency model takes about 3.4 s at start-up. Requests that do not send `delinquency` never reach it, and portfolio
-runs do not use it yet. A smaller model (fewer rounds) would cut this in proportion but means a re-export that passes the same
+loading the delinquency model takes about 3.4 s at start-up. Requests that do not send `delinquency` never reach it, and a
+portfolio run reaches it only for the loans that carry a status. In a run, a loan with a status costs about three times a loan
+without: 80 loans under two scenarios on one worker thread took 27 to 29 s without statuses and 78 to 89 s with them (three
+rounds each, 2026-11-04, on the shared development host with Docker and an editor running, so take the ratio, about 3.0, and not
+the seconds). A portfolio with no statuses costs what it did. A smaller model (fewer rounds) would cut this in proportion but means a re-export that passes the same
 gates; it has not been tried. An interval request adds only the recursion, not model calls.
 
 ## 7. The monthly comparison of stored scores with outcomes
