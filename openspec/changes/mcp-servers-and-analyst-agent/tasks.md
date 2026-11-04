@@ -96,11 +96,11 @@
 
 ## 9. deploy-ops server
 
-- [ ] 9.1 Prometheus adapter with fixed bounded queries, short timeouts and bounded retries
-- [ ] 9.2 Read-only `az` allowlist for VM power state
-- [ ] 9.3 Health tool that reports an asleep VM as a normal state
-- [ ] 9.4 Idempotent `wake` against the configured wake URL only
-- [ ] 9.5 Tests for each scenario in `specs/deploy-ops-mcp`
+- [x] 9.1 Prometheus adapter with fixed bounded queries, short timeouts and bounded retries (done 2026-11-04: tools/mcp/deploy-ops: `metric_query` takes a metric name from a fixed catalog (the alert rules' own expressions), `alert_state` reads /api/v1/alerts; 3 s timeout, at most 3 retries with doubling backoff, so the worst case is stated (9.6 s by default))
+- [x] 9.2 Read-only `az` allowlist for VM power state (done 2026-11-04: src/azure.ts: exactly one az command line is allowed; every other one, mutating or not, is Forbidden before a process is spawned; names are pattern-checked at start-up)
+- [x] 9.3 Health tool that reports an asleep VM as a normal state (done 2026-11-04: `health` reports a deallocated or stopped VM as `asleep`, normal, with a hint, and does not ask the application or Prometheus; without a power source an unanswering application is `unknown`, not a failure)
+- [x] 9.4 Idempotent `wake` against the configured wake URL only (done 2026-11-04: `wake` reads /status, asks for /wake only from a deallocated or stopped VM, reports already-running, already-starting, started-by-this-call or going-to-sleep, and only ever requests the configured URL's two paths)
+- [x] 9.5 Tests for each scenario in `specs/deploy-ops-mcp` (done 2026-11-04: test/deploy-ops.test.ts, 26 tests covering each scenario of specs/deploy-ops-mcp; mutation-checked (allowing any az command, and wake starting unconditionally, each fail tests))
 
 ## 10. Registration, docs and CI
 
