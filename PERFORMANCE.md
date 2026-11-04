@@ -253,7 +253,11 @@ of a projection's model call. That cost was not timed separately. Settings (`app
 
 The delinquency model evaluates each model row from three source states, so a projection builds three times the rows of the
 existing engine (about 2,160 for a 30-year loan) and its artifact is 33.6 MB, loaded beside the survival model's 34.8 MB.
-Not measured on a quiet host; the figures above are arithmetic from the row counts and the existing per-row cost.
+Measured on 2026-11-04 on the shared development host (one thread per session, warm, 40 repetitions of a new 30-year loan): a
+survival projection takes about 250 ms and a delinquency-aware one about 750 ms, three times the rows at the same cost per row;
+loading the delinquency model takes about 3.4 s at start-up. Requests that do not send `delinquency` never reach it, and portfolio
+runs do not use it yet. A smaller model (fewer rounds) would cut this in proportion but means a re-export that passes the same
+gates; it has not been tried. An interval request adds only the recursion, not model calls.
 
 ## 7. The monthly comparison of stored scores with outcomes
 
