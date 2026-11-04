@@ -34,7 +34,7 @@
 - [x] 4.3 Staging from supplied delinquency state, with the existing rules as the fallback
 - [x] 4.4 Fallback routing: no delinquency data, or current with no history, uses the existing engine; assert bit-identical results
 - [x] 4.5 Out-of-range driver reporting for the new model's training ranges
-- [ ] 4.6 Artifact loader with checksum verification and start-up refusal on mismatch (the loader verifies the checksum and refuses to start; there is no tamper test for it yet)
+- [x] 4.6 Artifact loader with checksum verification and start-up refusal on mismatch (`DelinquencyLoaderTest` hands the loader a card with another checksum, one changed digit, reordered survival features and missing history features; each refuses to load, and disabling the checksum comparison fails two of them)
 - [ ] 4.7 Portfolio integration: per-loan routing, per-model counts, bit-identical totals across thread counts (NOT DONE: portfolio runs do not take per-loan delinquency data; the delinquency model serves single-loan projections)
 
 ## 5. Engine verification (gate: all pass before any API work)
