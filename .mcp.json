@@ -1,0 +1,45 @@
+{
+  "mcpServers": {
+    "risk-engine": {
+      "command": "node",
+      "args": ["tools/mcp/risk-engine/dist/cli.js"],
+      "env": {
+        "RISK_ENGINE_URL": "${RISK_ENGINE_URL:-http://localhost:8080}",
+        "RISK_ENGINE_SESSION": "${RISK_ENGINE_SESSION}"
+      }
+    },
+    "tenant-ops": {
+      "command": "node",
+      "args": ["tools/mcp/tenant-ops/dist/cli.js"],
+      "env": {
+        "TENANT_OPS_DATABASE_URL": "${TENANT_OPS_DATABASE_URL}",
+        "TENANT_OPS_TENANT_ID": "${TENANT_OPS_TENANT_ID}",
+        "RISK_ENGINE_URL": "${RISK_ENGINE_URL:-http://localhost:8080}",
+        "RISK_ENGINE_SESSION": "${RISK_ENGINE_SESSION}"
+      }
+    },
+    "model-validation": {
+      "command": "node",
+      "args": ["tools/mcp/model-validation/dist/cli.js"],
+      "env": {
+        "RISK_ENGINE_URL": "${RISK_ENGINE_URL:-http://localhost:8080}",
+        "RISK_ENGINE_SESSION": "${RISK_ENGINE_SESSION:-}"
+      }
+    },
+    "deploy-ops": {
+      "command": "node",
+      "args": ["tools/mcp/deploy-ops/dist/cli.js"],
+      "env": {
+        "DEPLOY_OPS_PROMETHEUS_URL": "${DEPLOY_OPS_PROMETHEUS_URL:-http://localhost:9090}",
+        "DEPLOY_OPS_APP_URL": "${DEPLOY_OPS_APP_URL:-}",
+        "DEPLOY_OPS_WAKE_URL": "${DEPLOY_OPS_WAKE_URL:-}",
+        "DEPLOY_OPS_AZ_RESOURCE_GROUP": "${DEPLOY_OPS_AZ_RESOURCE_GROUP:-}",
+        "DEPLOY_OPS_AZ_VM": "${DEPLOY_OPS_AZ_VM:-}"
+      }
+    },
+    "ci-guard": {
+      "command": "node",
+      "args": ["tools/mcp/ci-guard/dist/cli.js"]
+    }
+  }
+}
