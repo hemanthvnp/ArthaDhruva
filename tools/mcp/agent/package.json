@@ -1,0 +1,24 @@
+{
+  "name": "@arthadhruva/analyst-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A budgeted analyst agent over the ArthaDhruva MCP servers: read-only, one fixed tenant, every figure cited and verified against the tool result it came from.",
+  "main": "dist/index.js",
+  "bin": {
+    "analyst-agent": "dist/cli.js",
+    "analyst-eval": "dist/eval-cli.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.1.0",
+    "@arthadhruva/mcp-kit": "0.1.0",
+    "@modelcontextprotocol/sdk": "1.32.0",
+    "zod": "4.6.6"
+  },
+  "scripts": {
+    "ask": "node dist/cli.js ask",
+    "eval:live": "node dist/eval-cli.js live",
+    "eval:selection": "node dist/eval-cli.js selection",
+    "eval:injection": "node dist/eval-cli.js injection"
+  }
+}

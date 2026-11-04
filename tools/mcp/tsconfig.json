@@ -18,6 +18,9 @@
     },
     {
       "path": "model-validation"
+    },
+    {
+      "path": "agent"
     }
   ]
 }
