@@ -55,6 +55,15 @@ public class LoanCatalogService {
     }
 
     /**
+     * As {@link #all()}, with where each loan stands where the organization supplied it. The demo catalog is origination
+     * data only, so its loans carry no status and are projected as current.
+     */
+    public List<PortfolioLoan> allWithStatus() {
+        Long tenant = ownPortfolioTenant();
+        return tenant != null ? tenantLoans.allWithStatus(tenant) : PortfolioLoan.all(demoInOrder);
+    }
+
+    /**
      * A page of the portfolio in loan-id order.
      *
      * @param idContains keep only loans whose id contains this text (case-insensitive); null for all
