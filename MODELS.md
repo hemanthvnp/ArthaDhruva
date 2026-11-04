@@ -13,7 +13,7 @@ Governance page.
 | Competing-risks survival (`survival_model.onnx`) | Monthly default and prepayment hazards behind PD term structures, lifetime ECL and stress scenarios | 1 | Yes |
 | Delinquency transitions (`delinquency_model.onnx`) | Month-to-month moves between current, 30 and 60 days past due, default and prepaid; projections of loans whose status and history are known, with ranges | 1 | Yes |
 | Origination PD (`model.onnx`) | Default within 24 months of origination; explanations and reason codes | 1 | Yes |
-| Loss given default (`lgd_model.json`) | Fitted LGD, the floor of the collateral-based LGD | 1 | Yes, with weak results (see below) |
+| Loss given default (a constant, 0.76%) | The floor of the collateral-based LGD | 1 | No: a constant, not a model. The fitted model it replaced was retired (see below) |
 | Macro regime (`hmm_regime.json`) | Calm / stressed regime and its transition matrix | 1 | Yes, and it is not stable out of time (see below) |
 | Portfolio loss distribution | Value at risk, expected shortfall, tail contributions | 1 | No (analytical; see below) |
 | Early warning (`early_warning_model.onnx`) | Flags performing loans drifting toward delinquency; analyst decision support | 2 | Yes |
@@ -385,13 +385,14 @@ to the reference to 1e-6.
 
 ## The loss, regime and early-warning models: validation
 
-These three had no card and no out-of-time result. Each now has a card (`lgd_model_card.json`, `hmm_regime_card.json`,
+These had no card and no out-of-time result. The regime and early-warning models now have one (`hmm_regime_card.json`,
 `early_warning_card.json`) whose checksum of the artifact the service verifies at start-up, and a script that produced it
-(`validate_lgd_model.py`, `validate_regime_model.py`, `validate_early_warning_model.py`, owner-run). None of the scripts
+(`validate_regime_model.py`, `validate_early_warning_model.py`, owner-run). The loss-given-default model was validated the same way, found
+no better than a constant, and retired; its results are kept below and its card and scripts in `backend/experiments/retired/lgd`. None of the scripts
 rewrites an artifact: each reads the shipped one as the model of record and refits its specification on earlier data to judge
 it on later data. The results below are what the validation found, not what the models were hoped to be.
 
-### Loss given default
+### Loss given default (retired: the service uses a constant)
 
 A Beta regression (logit link) of realized loss over the balance removed, on credit score, DTI, original balance, CLTV and
 note rate, fitted on the 2,746 defaulted loans with a recorded loss (vintages 2020 to 2024). The dataset has no liquidation
@@ -408,7 +409,15 @@ It over-predicts by 1.9 times, ranks loans barely better than chance, and is no 
 fair description of the data: about 88% of these defaulted loans lost nothing, because house prices were rising, so there is
 little for a model to learn. The fitted LGD is only the floor of the engine's LGD (`LGD = min(1, max(fitted, collateral shortfall))`),
 which is why the model can be this weak without moving a lifetime figure much, and why a scenario with falling prices is
-driven by the shortfall and not by this model. The limits (no downturn, the raw note rate, a total-loss clip, the
+driven by the shortfall and not by this model.
+
+**What the service does now.** It no longer loads this model. The fitted LGD under the collateral shortfall is one number for every
+loan, 0.76%, the mean realized loss over all 2,746 defaulted loans (`LgdPredictor.HISTORICAL_MEAN_LGD`, held to the same figure in
+`golden_term_structure.py`). A constant does as well as the regression did out of time, has no coefficients that can drift or be
+misread, and costs nothing to load; the regression predicted 0.87% on average, so an expected loss that the floor decided moves by
+about a seventh. Lifetime and portfolio ECL under falling prices are unchanged in kind, since the shortfall decides them. The
+registry lists `lgd` as a constant with this finding as its gap; the old card (checksum included) and scripts are in
+`backend/experiments/retired/lgd`, and the figures in the table above are from them. The limits (no downturn, the raw note rate, a total-loss clip, the
 original balance as exposure) are in the card.
 
 ### Macro regime
@@ -545,8 +554,8 @@ a_k(r)    = b_k(r) (1 - h_d(k, r) - h_p(k, r))
 
 That is the exact expectation over all 2^T regime paths in O(T), with no simulation noise.
 
-**Loss.** Exposure is the scheduled balance at the start of each month. Loss given default is the fitted
-LGD, floored each month by the shortfall a forced sale would leave:
+**Loss.** Exposure is the scheduled balance at the start of each month. Loss given default is the historical mean
+LGD (a constant, see above), floored each month by the shortfall a forced sale would leave:
 `1 - (1 - haircut) x 100 / LTV - mortgage insurance`, with LTV re-marked along the scenario's house-price
 path and a 15% liquidation haircut. A price shock therefore raises severity as well as frequency. Losses
 are discounted at the note rate.

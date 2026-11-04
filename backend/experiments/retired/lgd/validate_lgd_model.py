@@ -23,8 +23,8 @@ import statsmodels.api as sm
 from scipy.stats import spearmanr
 from statsmodels.othermod.betareg import BetaModel
 
-RESOURCES = Path("risk-engine/src/main/resources")
-DATA = Path("../data/docs/lgd_ead_dataset.parquet")
+RESOURCES = Path(__file__).resolve().parent     # the retired artifact and card live beside this script
+DATA = Path(__file__).resolve().parents[4] / "data" / "docs" / "lgd_ead_dataset.parquet"
 NUMERIC_FEATURES = ["credit_score", "original_dti", "original_upb", "original_cltv", "original_interest_rate"]
 SPLIT_YEAR = 2021          # fit on vintages up to this year, judge on later ones
 EPS = 1e-4                 # the bound export_lgd_model.py puts on the response before the Beta likelihood

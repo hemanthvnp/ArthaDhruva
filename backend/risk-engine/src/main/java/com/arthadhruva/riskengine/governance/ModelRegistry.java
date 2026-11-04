@@ -4,6 +4,7 @@ import com.arthadhruva.riskengine.cvar.CvarRequest;
 import com.arthadhruva.riskengine.graph.SegmentGraphArtifact;
 import com.arthadhruva.riskengine.score.ModelService;
 import com.arthadhruva.riskengine.survival.DelinquencyModel;
+import com.arthadhruva.riskengine.survival.LgdPredictor;
 import com.arthadhruva.riskengine.survival.SurvivalModel;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -114,7 +115,7 @@ public class ModelRegistry {
                 delinquencyGaps));
         cards.put(DelinquencyModel.ID, delinquencyCard);
 
-        addLgd(mapper);
+        addLgd();
         addRegime(mapper);
         addEarlyWarning(mapper);
         JsonNode lstmCard = mapper.readTree(read("lstm_card.json"));
@@ -193,31 +194,23 @@ public class ModelRegistry {
         }
     }
 
-    private void addLgd(ObjectMapper mapper) throws IOException {
-        JsonNode card = mapper.readTree(read("lgd_model_card.json"));
-        byte[] artifact = read("lgd_model.json");
-        verifyChecksum("lgd_model.json", artifact, card.get("artifact_sha256").asString(), "lgd_model_card.json");
-        JsonNode oot = card.get("validation").get("out_of_time");
+    /**
+     * Loss given default is a constant, not a model: the fitted regression that used to stand here was no better than the mean out of
+     * time, so the service no longer loads it. The entry says so, with the retired model's results, instead of omitting the floor.
+     */
+    private void addLgd() {
         Map<String, Object> headline = new LinkedHashMap<>();
-        headline.put("outOfTimeLoans", oot.get("loans").asLong());
-        headline.put("meanPredicted", oot.get("mean_predicted").asDouble());
-        headline.put("meanActual", oot.get("mean_actual").asDouble());
-        headline.put("maeVersusConstant", oot.get("mae").asDouble() / oot.get("benchmark_mae").asDouble());
-        headline.put("rankCorrelation", oot.get("spearman").isNull() ? null : oot.get("spearman").asDouble());
-        List<String> gaps = new ArrayList<>();
-        if (oot.get("mae").asDouble() >= oot.get("benchmark_mae").asDouble()) {
-            gaps.add(String.format("Out of time it does not beat a constant: mean absolute error %.4f against %.4f for the fitting vintages' mean",
-                    oot.get("mae").asDouble(), oot.get("benchmark_mae").asDouble()));
-        }
-        if (oot.get("mean_predicted").asDouble() > 1.25 * oot.get("mean_actual").asDouble()) {
-            gaps.add(String.format("Out of time it over-predicts: mean %.2f%% against %.2f%% realized",
-                    100 * oot.get("mean_predicted").asDouble(), 100 * oot.get("mean_actual").asDouble()));
-        }
-        card.get("limitations").forEach(l -> gaps.add(l.asString()));
-        entries.add(new Entry("lgd", "Loss given default", "Fitted LGD by origination features; the floor of the collateral-based LGD in "
-                + "the ECL engine", 1, true, card.get("version").asString(), "lgd_model.json", sha256(artifact), true,
-                card.get("validated_at").asString(), card.get("algorithm").asString(), headline, gaps));
-        cards.put("lgd", card);
+        headline.put("fixedFloor", LgdPredictor.HISTORICAL_MEAN_LGD);
+        headline.put("retiredModelOutOfTimeOverPrediction", 1.9);
+        headline.put("retiredModelRankCorrelation", 0.10);
+        entries.add(new Entry("lgd", "Loss given default", "A fixed floor under the collateral-based LGD in the ECL engine: the mean "
+                + "realized loss on defaulted loans", 1, false, "constant", null, null, null, null,
+                "Historical mean of realized loss (2,746 defaulted loans, vintages 2020 to 2024)", headline,
+                List.of("A constant, not a fitted model: a Beta regression on origination features was no better than it out of time "
+                        + "(it over-predicted 1.9 times, rank correlation 0.10), so it was retired; see MODELS.md",
+                        "The data has no housing downturn and about 88% of these defaulted loans lost nothing; severity in a falling-price "
+                        + "scenario comes from the collateral shortfall, not from this floor",
+                        "Exposure at default is the original balance, a stated simplification")));
     }
 
     private void addRegime(ObjectMapper mapper) throws IOException {

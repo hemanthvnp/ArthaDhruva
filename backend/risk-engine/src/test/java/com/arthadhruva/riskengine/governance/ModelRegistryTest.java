@@ -4,6 +4,7 @@ import com.arthadhruva.riskengine.graph.SegmentGraphArtifact;
 import com.arthadhruva.riskengine.ml.MarketData;
 import com.arthadhruva.riskengine.score.ModelService;
 import com.arthadhruva.riskengine.survival.DelinquencyModel;
+import com.arthadhruva.riskengine.survival.LgdPredictor;
 import com.arthadhruva.riskengine.survival.SurvivalModel;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
@@ -15,6 +16,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -41,9 +43,9 @@ class ModelRegistryTest {
     }
 
     @Test
-    void theThreeModelsThatHadNoCardAreValidatedAndSayWhatTheirValidationFound() throws Exception {
+    void theRegimeAndEarlyWarningModelsAreValidatedAndSayWhatTheirValidationFound() throws Exception {
         ModelRegistry registry = registry(new SegmentGraphArtifact());
-        for (String id : List.of("lgd", "regime_hmm", "early_warning")) {
+        for (String id : List.of("regime_hmm", "early_warning")) {
             ModelRegistry.Entry e = registry.entries().stream().filter(x -> x.id().equals(id)).findFirst().orElseThrow();
             assertTrue(e.validated(), id);
             assertEquals(Boolean.TRUE, e.checksumVerified(), id);
@@ -59,14 +61,24 @@ class ModelRegistryTest {
     }
 
     @Test
+    void lossGivenDefaultIsListedAsAConstantWithTheRetiredModelsFindings() throws Exception {
+        ModelRegistry registry = registry(new SegmentGraphArtifact());
+        ModelRegistry.Entry lgd = registry.entries().stream().filter(x -> x.id().equals("lgd")).findFirst().orElseThrow();
+        assertFalse(lgd.validated(), "a constant is not a validated model");
+        assertNull(lgd.artifact(), "no artifact is loaded for it");
+        assertEquals(LgdPredictor.HISTORICAL_MEAN_LGD, (double) lgd.headline().get("fixedFloor"));
+        assertTrue(lgd.gaps().stream().anyMatch(g -> g.contains("no better than it out of time")), lgd.gaps().toString());
+    }
+
+    @Test
     void aCardRefusesAnArtifactItDoesNotDescribe() {
         byte[] artifact = "{\"const\": -5.07}".getBytes(StandardCharsets.UTF_8);
         String declared = HexFormat.of().formatHex(sha256(artifact));
-        ModelRegistry.verifyChecksum("lgd_model.json", artifact, declared, "lgd_model_card.json");   // matches: no exception
+        ModelRegistry.verifyChecksum("survival_model.json", artifact, declared, "survival_model_card.json");   // matches: no exception
         byte[] altered = "{\"const\": -5.08}".getBytes(StandardCharsets.UTF_8);
         IllegalStateException e = assertThrows(IllegalStateException.class,
-                () -> ModelRegistry.verifyChecksum("lgd_model.json", altered, declared, "lgd_model_card.json"));
-        assertTrue(e.getMessage().contains("lgd_model.json") && e.getMessage().contains("lgd_model_card.json"), e.getMessage());
+                () -> ModelRegistry.verifyChecksum("survival_model.json", altered, declared, "survival_model_card.json"));
+        assertTrue(e.getMessage().contains("survival_model.json") && e.getMessage().contains("survival_model_card.json"), e.getMessage());
     }
 
     private static byte[] sha256(byte[] bytes) {
