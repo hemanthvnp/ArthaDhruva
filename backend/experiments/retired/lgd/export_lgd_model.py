@@ -9,13 +9,14 @@ that have already defaulted and been liquidated; for a loan being scored at orig
 no such value yet. The Java side uses original_upb as a stated simplification instead (see
 ExpectedLossController)."""
 import json
+from pathlib import Path
 import polars as pl
 import statsmodels.api as sm
 from statsmodels.othermod.betareg import BetaModel
 
 NUMERIC_FEATURES = ["credit_score", "original_dti", "original_upb", "original_cltv", "original_interest_rate"]
 
-df = pl.read_parquet("../data/docs/lgd_ead_dataset.parquet")
+df = pl.read_parquet(Path(__file__).resolve().parents[4] / "data" / "docs" / "lgd_ead_dataset.parquet")
 has_loss = df.filter(pl.col("actual_loss_calculation").is_not_null())
 lgd_df = has_loss.filter(pl.col("zero_balance_removal_upb") > 0).with_columns(
     lgd_raw=(pl.col("actual_loss_calculation") / pl.col("zero_balance_removal_upb"))
@@ -37,6 +38,6 @@ export = {
     "const": float(beta_fit.params["const"]),
     "coefficients": {name: float(beta_fit.params[name]) for name in NUMERIC_FEATURES},
 }
-with open("risk-engine/src/main/resources/lgd_model.json", "w") as f:
+with open(str(Path(__file__).with_name("lgd_model.json")), "w") as f:
     json.dump(export, f, indent=2)
 print("\nSaved risk-engine/src/main/resources/lgd_model.json")
