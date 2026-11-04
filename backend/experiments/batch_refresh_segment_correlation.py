@@ -9,7 +9,7 @@ layer" (reusing the same bounded-chunk/Polars pattern used throughout this proje
 introducing Apache Spark, which caused real memory problems elsewhere on this machine when
 tried -- see pipeline/chunked.py's own docstring).
 
-Unlike export_segment_correlation.py (a one-time export GraphLoader.java reads once at Java app
+Unlike experiments/export_segment_correlation_legacy.py (a one-time export GraphLoader.java reads once at Java app
 startup), this connects directly to a *running* Neo4j and replaces its graph in place -- no app
 restart needed. Stale edges (a pair that qualified last run but no longer does) are deleted, not
 just left in place, since a repeated refresh -- unlike GraphLoader's one-time load into an empty
@@ -48,7 +48,7 @@ def compute_graph(threshold: float):
 
 
 def write_export_json(states, edges):
-    path = "risk-engine/src/main/resources/segment_correlation_graph.json"
+    path = "experiments/segment_correlation_graph_legacy.json"
     with open(path, "w") as f:
         json.dump({"nodes": states, "edges": edges}, f, indent=2)
     print(f"Wrote {path}")
