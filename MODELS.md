@@ -681,6 +681,9 @@ steadier and the severe lifetime figure is skewed upward. The table in
 `openspec/changes/archive/2026-10-15-rough-set-boundary-regions/design.md` and the charts in the notebook were
 re-run on this model on 2026-11-03; the table's 12-month rows for the prime loan under SEVERELY_ADVERSE are
 about half what the previous model gave.
+The notebook was run again on 2026-11-04, after the loss given default became a constant: the expected-loss dollars in its tables
+moved (the prime loan's unperturbed severe figure from $997 to $990, the 400-loan high-risk loss range from $187,620 to
+$407,416 down to $169,550 to $386,880) and no probability, region or count did.
 
 **What it does not do.**
 - It is not a probability and carries no coverage guarantee: "boundary" means the answer depends on the details
