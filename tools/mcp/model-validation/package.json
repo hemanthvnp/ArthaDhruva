@@ -1,0 +1,14 @@
+{
+  "name": "@arthadhruva/model-validation-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "MCP server that checks the committed model artifacts against their cards, runs the term-structure golden test, says when the owner must re-run a golden script, and reports drift and backtests. Never exports or retrains anything.",
+  "main": "dist/index.js",
+  "bin": { "model-validation-mcp": "dist/cli.js" },
+  "dependencies": {
+    "@arthadhruva/mcp-kit": "0.1.0",
+    "@modelcontextprotocol/sdk": "1.31.0",
+    "zod": "4.6.5"
+  }
+}
