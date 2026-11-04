@@ -3,6 +3,7 @@ package com.arthadhruva.riskengine.survival;
 import ai.onnxruntime.OrtException;
 import com.arthadhruva.riskengine.ml.OnnxModel;
 import jakarta.annotation.PreDestroy;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -55,9 +56,15 @@ public class DelinquencyModel {
     private final double probabilityFloor;
     private final Map<String, SurvivalModel.Range> envelope = new LinkedHashMap<>();
 
+    @Autowired
     public DelinquencyModel(SurvivalModel survival) throws IOException, OrtException {
+        this(survival, read("delinquency_model.json"));
+    }
+
+    /** The card is a parameter so a test can hand the loader a tampered one; production reads the shipped card. */
+    DelinquencyModel(SurvivalModel survival, byte[] cardJson) throws IOException, OrtException {
         ObjectMapper mapper = new ObjectMapper();
-        this.card = mapper.readTree(read("delinquency_model.json"));
+        this.card = mapper.readTree(cardJson);
         this.survivalWidth = survival.features();
         List<String> order = new ArrayList<>();
         card.get("features_in_order").forEach(f -> order.add(f.asString()));
