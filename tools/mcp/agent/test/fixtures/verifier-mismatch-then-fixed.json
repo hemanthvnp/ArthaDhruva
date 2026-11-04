@@ -1,0 +1,129 @@
+{
+  "name": "verifier-mismatch-then-fixed",
+  "description": "Stating 7.7% when the result holds 3.4%: rejected, corrected once.",
+  "question": "How is the portfolio doing?",
+  "session": {
+    "tenant": "7",
+    "allowRunStart": false
+  },
+  "tools": [
+    {
+      "name": "portfolio_summary",
+      "description": "portfolio_summary tool",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "readOnly": true,
+      "server": "risk-engine"
+    },
+    {
+      "name": "audit_query",
+      "description": "audit_query tool",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "readOnly": true,
+      "server": "tenant-ops"
+    },
+    {
+      "name": "portfolio_run_start",
+      "description": "portfolio_run_start tool",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "readOnly": true,
+      "server": "risk-engine"
+    },
+    {
+      "name": "wake",
+      "description": "wake tool",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "readOnly": false,
+      "server": "deploy-ops"
+    }
+  ],
+  "model": [
+    {
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "a",
+          "name": "portfolio_summary",
+          "input": {}
+        }
+      ],
+      "stopReason": "tool_use",
+      "usage": {
+        "inputTokens": 1000,
+        "outputTokens": 200,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0
+      },
+      "model": "claude-opus-5-5"
+    },
+    {
+      "content": [
+        {
+          "type": "text",
+          "text": "Loss is 7.7% [r1]."
+        }
+      ],
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 1000,
+        "outputTokens": 200,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0
+      },
+      "model": "claude-opus-5-5"
+    },
+    {
+      "content": [
+        {
+          "type": "text",
+          "text": "Loss is 3.4% [r1]."
+        }
+      ],
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 1000,
+        "outputTokens": 200,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0
+      },
+      "model": "claude-opus-5-5"
+    }
+  ],
+  "toolResults": [
+    {
+      "name": "portfolio_summary",
+      "args": {},
+      "outcome": {
+        "isError": false,
+        "text": "{\"portfolioLoans\": 400, \"baseline\": {\"pd12m\": 0.00312, \"lossRatio\": 0.03412, \"spread\": 0.0034, \"lossPercent\": 3.412}}",
+        "structured": {
+          "portfolioLoans": 400,
+          "baseline": {
+            "pd12m": 0.00312,
+            "lossRatio": 0.03412,
+            "spread": 0.0034,
+            "lossPercent": 3.412
+          }
+        }
+      }
+    }
+  ],
+  "expect": {
+    "status": "verified",
+    "verdicts": [
+      "supported"
+    ],
+    "steps": 3
+  }
+}

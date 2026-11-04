@@ -9,7 +9,8 @@
     "risk-engine",
     "tenant-ops",
     "deploy-ops",
-    "model-validation"
+    "model-validation",
+    "agent"
   ],
   "engines": {
     "node": ">=22"
