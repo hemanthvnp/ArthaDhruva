@@ -67,6 +67,33 @@ jobs:
         working-directory: frontend
         run: npm run check:bundle
 
+  mcp:
+    # The MCP servers and the analyst agent under tools/mcp. Only the deterministic tests run: the servers' protocol tests, the tenant-ops
+    # isolation test on a real Postgres in Testcontainers (this runner has Docker), and the agent's replay and injection suites. They use
+    # no network and no model. The live eval suites cost money and are never run here (tools/mcp/agent/evals/README.md).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: tools/mcp/package-lock.json
+
+      - name: Install dependencies
+        working-directory: tools/mcp
+        run: npm ci
+
+      - name: Type-check and build
+        working-directory: tools/mcp
+        run: npm run build
+
+      - name: Tests
+        working-directory: tools/mcp
+        run: npm test
+
   branch-policy:
     # The branching model, checked where a local hook cannot be skipped. staging takes pull requests from
     # release/* branches only and prod from staging only, and deploy/azure/network/ (extra Azure resources,

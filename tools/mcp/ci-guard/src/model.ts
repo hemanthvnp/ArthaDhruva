@@ -67,6 +67,15 @@ export const JOBS: readonly Job[] = [
     ],
   },
   {
+    id: 'mcp', workflow: 'CI', githubName: 'mcp', paths: ['tools/mcp/', 'backend/risk-engine/src/main/resources/'], fallbackSec: 240,
+    steps: [
+      { name: 'Set up Node.js', ciOnly: SETUP },
+      { name: 'Install dependencies', commands: ['mcp-ci'] },
+      { name: 'Type-check and build', commands: ['mcp-build'] },
+      { name: 'Tests', commands: ['mcp-test'], needsDocker: true },
+    ],
+  },
+  {
     id: 'python-tests', workflow: 'CI', githubName: 'python-tests', paths: ['backend/tests/', 'backend/credit_common', 'backend/build_', 'backend/export_', 'backend/golden_', 'backend/segment_'], fallbackSec: 90,
     steps: [
       { name: 'Install', ciOnly: 'pip install on the runner; locally the installed Python and packages are used (the tests import polars, numpy, pandas, scipy, scikit-learn, networkx and pytest)' },
@@ -165,6 +174,9 @@ export function allowlist(p: Platform): AllowedCommand[] {
     { id: 'frontend-bundle', command: npm, args: ['run', 'check:bundle'], cwd: 'frontend', timeoutMs: 2 * min },
     { id: 'frontend-api-types', command: npm, args: ['run', 'api:types'], cwd: 'frontend', timeoutMs: 3 * min },
     { id: 'api-types-unchanged', command: 'git', args: ['diff', '--exit-code', '--', 'frontend/src/api/openapi.gen.ts'], timeoutMs: min },
+    { id: 'mcp-ci', command: npm, args: ['ci', '--no-audit', '--no-fund'], cwd: 'tools/mcp', timeoutMs: 10 * min },
+    { id: 'mcp-build', command: npm, args: ['run', 'build'], cwd: 'tools/mcp', timeoutMs: 5 * min },
+    { id: 'mcp-test', command: npm, args: ['test'], cwd: 'tools/mcp', timeoutMs: 15 * min },
     { id: 'python-tests', command: p.windows ? 'python' : 'python3', args: ['-m', 'pytest', 'tests', '-q'], cwd: 'backend', timeoutMs: 10 * min },
     { id: 'pitr-test', command: 'bash', args: ['scripts/pitr-test.sh'], timeoutMs: 15 * min },
     { id: 'compose-all', command: 'docker', args: ['compose', '--profile', 'app', '--profile', 'edge', '--profile', 'observability', '--profile', 'notebooks', '--profile', 'pipeline', 'config', '-q'], timeoutMs: 2 * min },
