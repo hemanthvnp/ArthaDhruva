@@ -6,7 +6,8 @@
   "workspaces": [
     "kit",
     "ci-guard",
-    "risk-engine"
+    "risk-engine",
+    "tenant-ops"
   ],
   "engines": {
     "node": ">=22"
