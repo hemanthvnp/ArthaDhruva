@@ -66,24 +66,24 @@
 
 ## 6. Analyst agent (gate: deterministic suite green; pause for review)
 
-- [ ] 6.1 MCP client connections to servers 1 and 2, with operator mode enabling 3 to 5 explicitly
-- [ ] 6.2 Tool-use loop on the Claude API with configurable model and hard step, token, time and cost budgets
-- [ ] 6.3 Fixed-tenant session object and the `allowRunStart` flag
-- [ ] 6.4 Tool-result store with ids and the citation contract in the system prompt
-- [ ] 6.5 Verifier: figure extraction, tolerance and unit rules, one retry, "could not verify" output
-- [ ] 6.6 Injection layers: fencing, neutralising instruction-like text, no widening of permissions
-- [ ] 6.7 Local run traces without credentials
-- [ ] 6.8 Confirm no file under `backend/` changed and `/assistant/chat` is untouched
+- [x] 6.1 MCP client connections to servers 1 and 2, with operator mode enabling 3 to 5 explicitly (done 2026-11-04: tools/mcp/agent/src/host.ts: an MCP client per server, over stdio (tested against a real stdio server) or in-process; default servers are risk-engine and tenant-ops, `--operator` adds model-validation, deploy-ops and ci-guard; each server is given only its own variables)
+- [x] 6.2 Tool-use loop on the Claude API with configurable model and hard step, token, time and cost budgets (done 2026-11-04: src/agent.ts and src/budget.ts: a manual tool-use loop on the Claude API through the official SDK (default claude-opus-5-5, adaptive thinking, effort high, refusal fallback on) with limits on model calls, tokens, seconds and estimated dollars; the first reached stops the question and is named)
+- [x] 6.3 Fixed-tenant session object and the `allowRunStart` flag (done 2026-11-04: src/session.ts: the tenant is fixed at construction and the tool set is frozen; a call naming another tenant is refused before any server is asked; `portfolio_run_start` is offered only with `--allow-run-start`, whatever its annotation says)
+- [x] 6.4 Tool-result store with ids and the citation contract in the system prompt (done 2026-11-04: src/store.ts and src/prompt.ts: every result kept whole under an id (r1, r2, ...); the system prompt states the citation contract and that tool data is never an instruction)
+- [x] 6.5 Verifier: figure extraction, tolerance and unit rules, one retry, "could not verify" output (done 2026-11-04: src/verifier.ts: figure extraction, unit and precision rules (percent against a fraction or a percentage, bps, $/k/m/bn), one correction, then "could not verify" naming the figures; 25 rule tests and 12 replay fixtures. Numbers only: claims in words are not verified)
+- [x] 6.6 Injection layers: fencing, neutralising instruction-like text, no widening of permissions (done 2026-11-04: src/neutralise.ts: fenced results, instruction-like strings withheld before the model sees them, the frozen read-only tool set, and the verifier; 30 adversarial cases, and each layer broken in turn fails 28 to 31 of them)
+- [x] 6.7 Local run traces without credentials (done 2026-11-04: src/trace.ts: a local JSON trace per question (steps, tool calls with outcomes, tokens, estimated cost, verdict), no result bodies, redacted; tested with a secret placed in a call)
+- [x] 6.8 Confirm no file under `backend/` changed and `/assistant/chat` is untouched (done 2026-11-04: git diff --stat origin/dev -- backend/ is empty for this work, and `/assistant/chat` is untouched)
 
 ## 7. Evals (gate: deterministic suite in CI; live suite scored once)
 
-- [ ] 7.1 Replay harness and recorded transcripts for every verifier rule
-- [ ] 7.2 Deterministic suite wired to `npm test` with no network or model use
-- [ ] 7.3 Live behavioural suite (about 30 questions) with tool-call and answer scoring and a mandatory spending cap
-- [ ] 7.4 Injection suite (about 30 cases) covering audit rows, notes, webhook names, cross-tenant and run-start attempts
-- [ ] 7.5 Run the live and injection suites once and save the score report
-- [ ] 7.6 Tool-selection suite with per-tool and per-server accuracy and a comparison against the previous report
-- [ ] 7.7 Record mode that captures real runs into redacted replay fixtures, with a record-then-replay test
+- [x] 7.1 Replay harness and recorded transcripts for every verifier rule (done 2026-11-04: src/replay.ts and src/fixtures.ts: a scripted model and a recorded host replay a fixture through the real loop; 12 JSON fixtures in agent/test/fixtures, one per verifier rule plus the step limit, a refused run start, a refused cross-tenant call and an injection)
+- [x] 7.2 Deterministic suite wired to `npm test` with no network or model use (done 2026-11-04: agent/test/replay.test.ts runs every fixture by name under `npm test` and in the CI job `mcp`, with fetch stubbed to throw so any network use fails it)
+- [x] 7.3 Live behavioural suite (about 30 questions) with tool-call and answer scoring and a mandatory spending cap (done 2026-11-04: built, not run: src/evals/runner.ts (mandatory spending cap, stops mid-run when it is reached, reports the finished subset and marks the run incomplete) and 30 questions in agent/evals/questions.json; `npm run eval:live -w agent`)
+- [x] 7.4 Injection suite (about 30 cases) covering audit rows, notes, webhook names, cross-tenant and run-start attempts (done 2026-11-04: src/injection-cases.ts: 30 cases (audit row, loan note, webhook error x 10 payloads) driven in CI by a scripted compromised model (agent/test/injection.test.ts), and by the real model in `npm run eval:injection -w agent` (built, not run))
+- [ ] 7.5 Run the live and injection suites once and save the score report (NOT DONE: needs an Anthropic API key, a spending cap and a running stack, none of which the build had; the suites are built and tested with scripted models. The three scores the report would hold are unknown)
+- [x] 7.6 Tool-selection suite with per-tool and per-server accuracy and a comparison against the previous report (done 2026-11-04: built, not run: `npm run eval:selection -w agent` scores tool choice apart from the answer, per tool and per server, and prints the change against the previous completed report)
+- [x] 7.7 Record mode that captures real runs into redacted replay fixtures, with a record-then-replay test (done 2026-11-04: RecordingModel and RecordingHost capture a real run into a redacted fixture; agent/test/replay.test.ts records, replays offline, and checks the same verdict and no credential in the file)
 
 ## 8. model-validation server
 
@@ -104,8 +104,8 @@
 
 ## 10. Registration, docs and CI
 
-- [ ] 10.1 Repo-root `.mcp.json` registering servers 1 to 5 (no secrets in the file)
-- [ ] 10.2 README per server and an architecture and threat-model document
-- [ ] 10.3 Two-minute demo script
-- [ ] 10.4 Ask the owner, then add an MCP-workspace CI job running the deterministic tests (edits `ci.yml`)
+- [x] 10.1 Repo-root `.mcp.json` registering servers 1 to 5 (no secrets in the file) (done 2026-11-04: .mcp.json registers all five servers with references to environment variables only (no secrets))
+- [x] 10.2 README per server and an architecture and threat-model document (done 2026-11-04: a README in each package, tools/mcp/README.md, and tools/mcp/ARCHITECTURE.md with the threat model, including what is NOT defended)
+- [x] 10.3 Two-minute demo script (done 2026-11-04: tools/mcp/DEMO.md)
+- [x] 10.4 Ask the owner, then add an MCP-workspace CI job running the deterministic tests (edits `ci.yml`) (done 2026-11-04: the owner, asked whether to continue with the agent and the CI job, said "do everything": job `mcp` added to ci.yml (build and `npm test`, no model, no live suite) and to ci-guard's job model, whose drift test holds the two together)
 - [ ] 10.5 Final check: every command run and its result reported exactly; commits only when the owner asks, as `hemanthvnp` with no co-author line
