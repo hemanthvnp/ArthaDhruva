@@ -87,12 +87,12 @@
 
 ## 8. model-validation server
 
-- [ ] 8.1 Artifact checksum comparison against `pd_model_card.json`
-- [ ] 8.2 Golden-test runner limited to `TermStructureGoldenTest`, with skipped-not-passed when Maven cannot run
-- [ ] 8.3 Command allowlist refusing exports, `fetch_macro.py`, the pipeline and notebook profiles
-- [ ] 8.4 Re-run advisory when artifacts or export scripts changed
-- [ ] 8.5 Drift and backtest reports from the API
-- [ ] 8.6 Tests for each scenario in `specs/model-validation-mcp`
+- [x] 8.1 Artifact checksum comparison against `pd_model_card.json` (done 2026-11-04: `verify_artifacts` checks seven artifact/card pairs (PD, survival, delinquency, regime chain, early warning and its calibration, segment graph); the repository's own pass today, and a tampered one is a mismatch with both checksums)
+- [x] 8.2 Golden-test runner limited to `TermStructureGoldenTest`, with skipped-not-passed when Maven cannot run (done 2026-11-04: `run_golden_test`: the fixed Maven command, passed/failed/skipped, skipped and never passed when the wrapper cannot run; run once for real through the server (passed, 2 tests, 42.9 s). That run found that cmd.exe cannot resolve a bare `mvnw.cmd` here (NoDefaultCurrentDirectoryInExePath=1), so the path is `.\mvnw.cmd`, also fixed in ci-guard)
+- [x] 8.3 Command allowlist refusing exports, `fetch_macro.py`, the pipeline and notebook profiles (done 2026-11-04: src/forbidden.ts: exports, fetch_macro, dataset builds, golden and validate scripts, the pipeline, notebooks and profiles are Forbidden before spawning, saying the owner must run them)
+- [x] 8.4 Re-run advisory when artifacts or export scripts changed (done 2026-11-04: `rerun_advisory` against a base ref, from what each golden script actually reads; never runs a script)
+- [x] 8.5 Drift and backtest reports from the API (done 2026-11-04: `drift_report` and `survival_backtest` pass the API's reports through unaltered with source and fetch time)
+- [x] 8.6 Tests for each scenario in `specs/model-validation-mcp` (done 2026-11-04: test/model-validation.test.ts, 23 tests covering each scenario of specs/model-validation-mcp; mutation-checked (no forbidden commands, and every checksum matching, each fail a test))
 
 ## 9. deploy-ops server
 
