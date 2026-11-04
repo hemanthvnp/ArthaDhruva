@@ -1,10 +1,13 @@
-"""Independent reference for the trajectory LSTM, for a cross-language parity test.
+"""RETIRED: the service no longer serves this model (see MODELS.md). Kept as the record of how it was built; outputs land beside
+this script, not in the service resources.
+
+Independent reference for the trajectory LSTM, for a cross-language parity test.
 
 TrajectoryModelService (Java) turns a loan's months into (status, UPB ratio, modified) rows -- status parsed or
 sentinel 12, UPB ratio clipped to [0, 5], the first two standardised with lstm_meta.json, the flag raw 0/1 -- and
 runs lstm_model.onnx. This script does the same in plain Python/numpy from the committed artifacts and writes
 inputs, expected feature vectors and expected probability to
-risk-engine/src/test/resources/lstm_golden.json (TrajectoryParityTest).
+experiments/retired/lstm/lstm_golden.json.
 
 It only reads the artifacts; nothing is trained or exported.
 
@@ -19,8 +22,8 @@ from pathlib import Path
 import numpy as np
 import onnxruntime as ort
 
-RESOURCES = Path("risk-engine/src/main/resources")
-OUT = Path("risk-engine/src/test/resources/lstm_golden.json")
+RESOURCES = Path("experiments/retired/lstm")
+OUT = Path("experiments/retired/lstm/lstm_golden.json")
 SENTINEL = 12
 
 

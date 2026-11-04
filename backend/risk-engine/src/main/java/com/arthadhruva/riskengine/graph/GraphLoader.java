@@ -26,7 +26,7 @@ import java.util.Optional;
  * or the new one, never half; replicas starting together are serialised by Neo4j and write the same content.
  *
  * <p>Failures are logged and swallowed, not rethrown: an {@link ApplicationRunner} exception is fatal to
- * {@code SpringApplication.run()}, which would take down PD/CVaR/LGD/LSTM serving too if Neo4j merely happens to be
+ * {@code SpringApplication.run()}, which would take down PD/CVaR/early-warning serving too if Neo4j merely happens to be
  * slow or unavailable at boot. A Neo4j outage only degrades the {@code /segments} endpoints, which then fail per
  * request until a later start succeeds. The artifact itself has already been held to its card by
  * {@link com.arthadhruva.riskengine.governance.ModelRegistry}; a mismatch there does stop the application.

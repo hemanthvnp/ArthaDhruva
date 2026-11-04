@@ -46,7 +46,6 @@ export type ApiContract = [
   Expect<FieldsExistOnServer<Schema['LoanScoreSummary'], T.LoanScoreSummary>>,
   Expect<FieldsExistOnServer<Schema['MacroDriftReport'], T.MacroDriftReport>>,
   Expect<FieldsExistOnServer<Schema['MonthPoint'], T.MonthPoint>>,
-  Expect<FieldsExistOnServer<Schema['MonthlyRecord'], T.MonthlyRecord>>,
   Expect<FieldsExistOnServer<Schema['MyLoanView'], T.MyLoanView>>,
   Expect<FieldsExistOnServer<Schema['NotificationView'], T.NotificationView>>,
   Expect<FieldsExistOnServer<Schema['PortfolioView'], T.PortfolioView>>,
@@ -57,9 +56,6 @@ export type ApiContract = [
   Expect<FieldsExistOnServer<Schema['SegmentNeighbor'], T.SegmentNeighbor>>,
   Expect<FieldsExistOnServer<Schema['TermStructure'], T.TermStructure>>,
   Expect<FieldsExistOnServer<Schema['TermStructureResponse'], T.TermStructureResponse>>,
-  Expect<FieldsExistOnServer<Schema['TrajectoryCatalogEntry'], T.TrajectoryCatalogEntry>>,
-  Expect<FieldsExistOnServer<Schema['TrajectoryRequest'], T.TrajectoryRequest>>,
-  Expect<FieldsExistOnServer<Schema['TrajectoryScoreResponse'], T.TrajectoryScoreResponse>>,
   Expect<FieldsExistOnServer<Schema['UserSummary'], T.UserSummary>>,
   // Named differently on the two sides.
   Expect<FieldsExistOnServer<Schema['Run'], T.PortfolioRun>>,

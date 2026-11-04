@@ -587,7 +587,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["loans_3"];
+        get: operations["loans_2"];
         put?: never;
         post?: never;
         delete?: never;
@@ -605,7 +605,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["score_2"];
+        post: operations["score_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -811,7 +811,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["loans_2"];
+        get: operations["loans_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1403,7 +1403,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["loans_1"];
+        get: operations["loans"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1549,7 +1549,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["score_1"];
+        post: operations["score"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1662,38 +1662,6 @@ export interface paths {
         get: operations["start_1"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/trajectory-loans": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["loans"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/trajectory-score": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["score"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2542,12 +2510,6 @@ export interface components {
             /** Format: double */
             unemployment?: number;
         };
-        MonthlyRecord: {
-            /** Format: double */
-            currentActualUpb: number;
-            currentLoanDelinquencyStatus: string;
-            modificationFlag?: string;
-        };
         MyLoanView: {
             contact?: components["schemas"]["Contact"];
             loanId?: string;
@@ -2910,19 +2872,6 @@ export interface components {
         };
         TotpCodeRequest: {
             code: string;
-        };
-        TrajectoryCatalogEntry: {
-            label?: string;
-            request?: components["schemas"]["TrajectoryRequest"];
-        };
-        TrajectoryRequest: {
-            months: components["schemas"]["MonthlyRecord"][];
-            /** Format: double */
-            originalUpb: number;
-        };
-        TrajectoryScoreResponse: {
-            /** Format: double */
-            probability?: number;
         };
         UpdateCaseRequest: {
             assignedTo?: string;
@@ -4016,7 +3965,7 @@ export interface operations {
             };
         };
     };
-    loans_3: {
+    loans_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -4036,7 +3985,7 @@ export interface operations {
             };
         };
     };
-    score_2: {
+    score_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -4341,7 +4290,7 @@ export interface operations {
             };
         };
     };
-    loans_2: {
+    loans_1: {
         parameters: {
             query?: {
                 q?: string;
@@ -5280,7 +5229,7 @@ export interface operations {
             };
         };
     };
-    loans_1: {
+    loans: {
         parameters: {
             query?: {
                 stage?: number;
@@ -5488,7 +5437,7 @@ export interface operations {
             };
         };
     };
-    score_1: {
+    score: {
         parameters: {
             query?: never;
             header?: never;
@@ -5665,50 +5614,6 @@ export interface operations {
                 };
                 content: {
                     "*/*": Record<string, never>;
-                };
-            };
-        };
-    };
-    loans: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["TrajectoryCatalogEntry"][];
-                };
-            };
-        };
-    };
-    score: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TrajectoryRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["TrajectoryScoreResponse"];
                 };
             };
         };

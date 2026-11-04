@@ -1,4 +1,7 @@
-"""Exports a browsable catalog of real loans' actual first-12-months performance (matching
+"""RETIRED: the service no longer serves this model (see MODELS.md). Kept as the record of how it was built; outputs land beside
+this script, not in the service resources.
+
+Exports a browsable catalog of real loans' actual first-12-months performance (matching
 TrajectoryRequest) so an analyst can look up and score one by its real loan_sequence_number
 instead of hand-typing a month-by-month delinquency/UPB/modification history -- same purpose as
 export_loan_catalog.py, for the LSTM trajectory model instead of the PD model.
@@ -70,7 +73,7 @@ def main() -> None:
             },
         })
 
-    resources_dir = "risk-engine/src/main/resources"
+    resources_dir = "experiments/retired/lstm"
     os.makedirs(resources_dir, exist_ok=True)
     out_path = f"{resources_dir}/trajectory_catalog.json"
     with open(out_path, "w") as f:

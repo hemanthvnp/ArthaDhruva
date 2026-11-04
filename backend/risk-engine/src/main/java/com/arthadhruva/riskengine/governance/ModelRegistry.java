@@ -118,24 +118,6 @@ public class ModelRegistry {
         addLgd();
         addRegime(mapper);
         addEarlyWarning(mapper);
-        JsonNode lstmCard = mapper.readTree(read("lstm_card.json"));
-        String lstmSha = sha256(read("lstm_model.onnx"));
-        if (!lstmSha.equals(lstmCard.get("artifact_sha256").asString())) {
-            throw new IllegalStateException("lstm_model.onnx does not match the checksum in lstm_card.json");
-        }
-        JsonNode lstmOot = lstmCard.get("out_of_time_calibrated");
-        Map<String, Object> lstmHeadline = new LinkedHashMap<>();
-        lstmHeadline.put("outOfTimeAuc", lstmOot.get("roc_auc").asDouble());
-        lstmHeadline.put("outOfTimePrAuc", lstmOot.get("pr_auc").asDouble());
-        lstmHeadline.put("predictedOverActual", lstmOot.get("predicted_over_actual").asDouble());
-        lstmHeadline.put("outOfTimeLoans", lstmOot.get("n").asLong());
-        List<String> lstmGaps = new ArrayList<>();
-        lstmCard.get("limitations").forEach(l -> lstmGaps.add(l.asString()));
-        entries.add(new Entry("trajectory_lstm", "Delinquency trajectory", "Sequence model over a loan's monthly payment "
-                + "history", 2, true, "unversioned", "lstm_model.onnx", lstmSha, true, null, "LSTM, Platt-calibrated",
-                lstmHeadline, lstmGaps));
-        cards.put("trajectory_lstm", lstmCard);
-
         if (!segmentGraph.sha256().equals(segmentGraph.declaredSha256())) {
             throw new IllegalStateException(SegmentGraphArtifact.FILE + " does not match the checksum in "
                     + SegmentGraphArtifact.CARD);
