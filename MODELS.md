@@ -383,8 +383,19 @@ reason.
 - The ONNX graph differs from the float64 booster by up to 1.8e-4 relative on 3 of 50,000 sampled loan-months (all from 60
   days past due); the shared export check allows 1e-4, and this export allows 3e-4, recorded in the card. The graph is the
   model of record in the service and the fixtures.
-- Portfolio runs do not take per-loan delinquency data yet; the delinquency model serves single-loan projections
-  (`POST /v1/risk/term-structure`).
+- In a portfolio run the model projects only the loans that carry both days past due and a payment history. They are stored
+  with the loan (`statuses`, keyed by loan id, in `POST /v1/admin/portfolio` and `POST /v1/ingest/loans`; an impossible one
+  refuses that loan with the reason, and a loan uploaded again without one loses the old: it described the loan as it was). Every
+  other loan, and the whole demo catalog, runs on the survival model exactly as before: a portfolio with no statuses gives the
+  same figures to the byte as the engine did before they existed. The stored result says how many loans ran on each model
+  (`modelLoans`) and why the rest did not (`fallbackReasons`), and the Portfolio risk page shows it when the run was mixed. A
+  status the router would refuse that reaches a run some other way is not dropped: the loan runs on the survival model and is
+  counted under that reason. The three-way region analysis (rough set) and the ranges around lifetime figures are not
+  available for these loans: regions are judged on the survival model for every loan, whatever its status, and ranges are
+  single-loan only. A loan with a status costs about three times a loan without (see `PERFORMANCE.md`).
+- `POST /v1/expected-loss/from-status` gives a loan's expected loss from where it stands, by the same routing as the
+  term-structure endpoint (the figures agree with it to 1e-12) and says which model ran. `POST /v1/expected-loss` takes the
+  bare loan as before and its response is unchanged.
 - Agency-conforming fixed-rate mortgages only. The property's state is a feature, and geography can stand in for protected
   characteristics: a lender using these figures in credit decisions must test for disparate impact on its own portfolio.
 

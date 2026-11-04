@@ -35,7 +35,7 @@
 - [x] 4.4 Fallback routing: no delinquency data, or current with no history, uses the existing engine; assert bit-identical results
 - [x] 4.5 Out-of-range driver reporting for the new model's training ranges
 - [x] 4.6 Artifact loader with checksum verification and start-up refusal on mismatch (`DelinquencyLoaderTest` hands the loader a card with another checksum, one changed digit, reordered survival features and missing history features; each refuses to load, and disabling the checksum comparison fails two of them)
-- [ ] 4.7 Portfolio integration: per-loan routing, per-model counts, bit-identical totals across thread counts (NOT DONE: portfolio runs do not take per-loan delinquency data; the delinquency model serves single-loan projections)
+- [x] 4.7 Portfolio integration: per-loan routing, per-model counts, bit-identical totals across thread counts (done 2026-11-04: `PortfolioRiskEngine.runPortfolio` routes each loan by `RiskProjectionService`'s rule, batches the two models separately and adds results in loan order; a portfolio with no statuses is byte-identical to the old engine (A/B on 22 loans, three scenarios); the checkpoint key covers each loan's status and the delinquency model; the rough-set regions still use the existing engine for every loan)
 
 ## 5. Engine verification (gate: all pass before any API work)
 
@@ -46,7 +46,7 @@
 - [x] 5.5 Monotonicity test across starting states
 - [x] 5.6 Equivalence test: with delinquent transitions disabled the engine equals the existing engine within 1e-9
 - [x] 5.7 Regression test: the existing survival model's checksum and golden output equal the `baseline.md` values
-- [ ] 5.8 Thread-independence test on a portfolio (NOT DONE: needs the portfolio integration of 4.7)
+- [x] 5.8 Thread-independence test on a portfolio (`PortfolioDelinquencyTest`: the same figures on one thread or three and in any listing order, resumed from checkpoints, and a chunk stored for one status is not read for another)
 
 ## 6. Uncertainty
 
@@ -61,10 +61,10 @@
 
 ## 7. API
 
-- [ ] 7.1 Optional delinquency fields on term-structure, expected-loss and portfolio requests, with validation and clear messages (term-structure only; `/expected-loss` takes a bare loan body and portfolio runs take none yet)
+- [x] 7.1 Optional delinquency fields on term-structure, expected-loss and portfolio requests, with validation and clear messages (term-structure as before; `POST /v1/expected-loss/from-status` for expected loss, a separate route so the bare-loan body and its error messages are untouched; a portfolio takes the status with each uploaded loan, not on the run request)
 - [x] 7.2 Explicit fallback with the reason in the response
 - [x] 7.3 Additive response fields: `modelUsed`, interval object with method label, draws and vintages, out-of-range months
-- [ ] 7.4 Portfolio uploads: per-loan delinquency where provided, per-model counts in the result (NOT DONE: needs 4.7)
+- [x] 7.4 Portfolio uploads: per-loan delinquency where provided, per-model counts in the result (`statuses` on `POST /v1/admin/portfolio` and `/v1/ingest/loans` (migration V33), checked by the same router, impossible ones refused per loan; the result carries `modelLoans` and `fallbackReasons`)
 - [x] 7.5 Audit entries record the model identifier and version; metering and rate limits unchanged
 - [x] 7.6 Inventory and card endpoints list the new model
 - [x] 7.7 Backward-compatibility test: an old request and old response shape still work
@@ -76,7 +76,7 @@
 - [x] 8.2 Interval component with range, method note, and accessible text alternative
 - [x] 8.3 Delinquency inputs on the Lifetime Risk form with validation matching the API
 - [x] 8.4 Starting-state comparison view
-- [ ] 8.5 Fallback message and the portfolio model split (the fallback message is done; the portfolio model split is NOT, it needs 4.7)
+- [x] 8.5 Fallback message and the portfolio model split (the fallback message is done; the portfolio model split is NOT, it needs 4.7) (the Portfolio risk page lists loans per model and the reasons for the rest when a run was mixed)
 - [x] 8.6 Unit tests; run `npm run lint`, `npm test`, `npm run build`, `npm run check:bundle` in CI order; do not raise the budget
 
 ## 9. Documentation and governance
