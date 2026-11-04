@@ -1,7 +1,7 @@
 {
   "input": {
     "series": "data/docs/segment_monthly_series.parquet",
-    "graph": "backend/risk-engine/src/main/resources/segment_correlation_graph.json",
+    "graph": "backend/experiments/segment_correlation_graph_legacy.json",
     "rows": 1035,
     "states": [
       "CA",
