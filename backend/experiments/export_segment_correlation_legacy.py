@@ -1,4 +1,6 @@
-"""Recompute the same segment-correlation graph as segment_correlation_graph.ipynb and export
+"""SUPERSEDED, not shipped (the service serves segment_graph.json); kept as the record of the Pearson graph.
+
+Recompute the same segment-correlation graph as segment_correlation_graph.ipynb and export
 what the backend needs for Neo4j loading: nodes (state codes) and edges (state pairs whose
 monthly delinquency-rate series correlate at r >= 0.95, same threshold and method as the
 notebook -- see its own honesty note on why 0.95 rather than a looser threshold: at r >= 0.5 the
@@ -32,6 +34,6 @@ for e in sorted(edges, key=lambda x: -x["weight"]):
     print(f"  {e['source']} -- {e['target']}: r={e['weight']}")
 
 export = {"nodes": states, "edges": edges}
-with open("risk-engine/src/main/resources/segment_correlation_graph.json", "w") as f:
+with open("experiments/segment_correlation_graph_legacy.json", "w") as f:
     json.dump(export, f, indent=2)
-print("\nSaved risk-engine/src/main/resources/segment_correlation_graph.json")
+print("\nSaved experiments/segment_correlation_graph_legacy.json")

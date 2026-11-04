@@ -35,7 +35,7 @@ import segment_series as ss  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 RATIO = ROOT / "data" / "processed" / "segments" / "state_ratio.parquet"
-OLD_GRAPH = ROOT / "backend" / "risk-engine" / "src" / "main" / "resources" / "segment_correlation_graph.json"
+OLD_GRAPH = ROOT / "backend" / "experiments" / "segment_correlation_graph_legacy.json"
 
 HORIZON = 3
 MIN_PAIR_MONTHS = 24

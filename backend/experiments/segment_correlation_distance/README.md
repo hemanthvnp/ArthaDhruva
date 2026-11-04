@@ -4,9 +4,8 @@ Converts the Pearson correlation matrix behind the segment graph into the correl
 
     D_ij = sqrt(2 * (1 - r_ij))
 
-and checks it against the graph the service loads,
-`backend/risk-engine/src/main/resources/segment_correlation_graph.json` (written by
-`backend/export_segment_correlation.py`). Nothing on the production path reads these files.
+and checks it against the earlier Pearson graph, `backend/experiments/segment_correlation_graph_legacy.json` (written by
+`backend/experiments/export_segment_correlation_legacy.py`; the service no longer loads it). Nothing on the production path reads these files.
 
 ## Why the distance
 
