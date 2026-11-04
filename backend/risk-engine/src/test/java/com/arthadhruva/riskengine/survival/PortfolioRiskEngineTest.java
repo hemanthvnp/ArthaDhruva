@@ -50,7 +50,8 @@ class PortfolioRiskEngineTest {
     }
 
     private static PortfolioRiskEngine engine(ExecutorService workers, int maxLoans) {
-        return new PortfolioRiskEngine(ENGINE, MODEL, VALIDATOR, new CvarEngine(workers, 2, 400_000_000L, 30), workers, maxLoans);
+        return new PortfolioRiskEngine(ENGINE, DelinquencyFixtures.ENGINE, DelinquencyFixtures.ROUTER, DelinquencyFixtures.MODEL, MODEL,
+                VALIDATOR, new CvarEngine(workers, 2, 400_000_000L, 30), workers, maxLoans);
     }
 
     @Test

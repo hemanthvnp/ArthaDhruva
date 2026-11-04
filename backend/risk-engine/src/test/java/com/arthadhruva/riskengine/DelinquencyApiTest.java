@@ -217,6 +217,74 @@ class DelinquencyApiTest extends AbstractIntegrationTest {
         assertTrue(c.toString().contains("agency-conforming"), "the product scope is stated");
     }
 
+    private static Map<String, Object> statusRequest(Integer dpd, Map<String, Object> delinquency) {
+        Map<String, Object> request = new LinkedHashMap<>();
+        request.put("loan", loan());
+        if (dpd != null) {
+            request.put("daysPastDue", dpd);
+        }
+        if (delinquency != null) {
+            request.put("delinquency", delinquency);
+        }
+        return request;
+    }
+
+    @Test
+    void theBareExpectedLossRequestIsUnchanged() throws Exception {
+        MvcResult result = call(post("/v1/expected-loss"), loan());
+        assertEquals(200, result.getResponse().getStatus());
+        JsonNode b = body(result);
+        assertFalse(b.has("modelUsed"), "the bare endpoint's response does not gain fields");
+        assertFalse(b.has("fallbackReason"));
+        assertTrue(b.get("modelVersion").asString().startsWith("survival@"));
+    }
+
+    @Test
+    void expectedLossFromStatusUsesTheDelinquencyModelAndAgreesWithTheTermStructure() throws Exception {
+        Map<String, Object> history = history(12, 2, 3, "D30");
+        MvcResult result = call(post("/v1/expected-loss/from-status"), statusRequest(35, history));
+        assertEquals(200, result.getResponse().getStatus(), result.getResponse().getContentAsString());
+        JsonNode b = body(result);
+        assertTrue(b.get("modelUsed").asString().startsWith("delinquency@"));
+        assertEquals(b.get("modelUsed").asString(), b.get("modelVersion").asString());
+        assertFalse(b.has("fallbackReason"));
+
+        JsonNode t = body(call(post("/v1/risk/term-structure"), request(35, history, null))).get("termStructure");
+        assertEquals(t.get("summary").get("pd12m").asDouble(), b.get("pd").asDouble(), 1e-12);
+        assertEquals(t.get("summary").get("pdLifetime").asDouble(), b.get("pdLifetime").asDouble(), 1e-12);
+        assertEquals(t.get("ecl").get("ecl12m").asDouble(), b.get("expectedLoss").asDouble(), 1e-9);
+        assertEquals(t.get("ecl").get("eclLifetime").asDouble(), b.get("expectedLossLifetime").asDouble(), 1e-9);
+        assertEquals(t.get("ecl").get("stage").asInt(), b.get("stage").asInt());
+
+        Map<String, Object> audit = inTenant(() -> jdbc.queryForMap(
+                "SELECT model_version FROM model_invocation_events WHERE tenant_id = ? "
+                        + "AND path = '/v1/expected-loss/from-status' ORDER BY occurred_at DESC LIMIT 1", org.getId()));
+        assertTrue(((String) audit.get("model_version")).startsWith("delinquency@"), String.valueOf(audit));
+    }
+
+    @Test
+    void expectedLossFromStatusWithoutAStatusIsTheBareEndpointAndSaysWhy() throws Exception {
+        JsonNode bare = body(call(post("/v1/expected-loss"), loan()));
+        MvcResult result = call(post("/v1/expected-loss/from-status"), statusRequest(null, null));
+        assertEquals(200, result.getResponse().getStatus());
+        JsonNode b = body(result);
+        assertTrue(b.get("modelUsed").asString().startsWith("survival@"));
+        assertEquals(DelinquencyRouterHolder.NO_DATA, b.get("fallbackReason").asString());
+        assertEquals(bare.get("pd").asDouble(), b.get("pd").asDouble(), 0);
+        assertEquals(bare.get("expectedLossLifetime").asDouble(), b.get("expectedLossLifetime").asDouble(), 0);
+    }
+
+    @Test
+    void expectedLossFromStatusRefusesImpossibleInputNamingTheField() throws Exception {
+        MvcResult result = call(post("/v1/expected-loss/from-status"), statusRequest(40, history(3, 5, 1, "D30")));
+        assertEquals(400, result.getResponse().getStatus());
+        assertEquals("history.episodes30Plus", body(result).get("field").asString());
+        assertEquals(400, call(post("/v1/expected-loss/from-status"), statusRequest(95, history(12, 1, null, "D60"))).getResponse().getStatus());
+        Map<String, Object> noLoan = new LinkedHashMap<>();
+        noLoan.put("daysPastDue", 35);
+        assertEquals(400, call(post("/v1/expected-loss/from-status"), noLoan).getResponse().getStatus(), "the loan is required");
+    }
+
     private <T> T inTenant(java.util.function.Supplier<T> work) {
         TenantContext.set(org.getId());
         try {

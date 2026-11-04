@@ -1,5 +1,7 @@
 package com.arthadhruva.riskengine.score;
 
+import com.arthadhruva.riskengine.survival.DelinquencyHistory;
+import com.arthadhruva.riskengine.survival.DelinquencyRouter;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import org.slf4j.Logger;
@@ -10,7 +12,9 @@ import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -38,16 +42,30 @@ public class TenantLoanService {
     private final LoanInputValidator domain;
     private final ObjectMapper mapper = new ObjectMapper();
 
-    public TenantLoanService(JdbcTemplate jdbc, Validator validator, LoanInputValidator domain) {
+    private final DelinquencyRouter router;
+
+    public TenantLoanService(JdbcTemplate jdbc, Validator validator, LoanInputValidator domain, DelinquencyRouter router) {
         this.jdbc = jdbc;
         this.validator = validator;
         this.domain = domain;
+        this.router = router;
     }
 
     public List<ItemResult> upsertAll(Long tenantId, List<LoanFeatures> loans) {
+        return upsertAll(tenantId, loans, Map.of());
+    }
+
+    /**
+     * As above, with where some of the loans stand now, by loan id. A status is checked by the rule the single-loan API
+     * uses, and a loan whose status is impossible is refused with the reason, like any other bad record. A loan with no
+     * entry is stored without a status, and an earlier one is cleared: it described the loan as it was.
+     */
+    public List<ItemResult> upsertAll(Long tenantId, List<LoanFeatures> loans, Map<String, LoanStatus> statuses) {
         if (loans.size() > MAX_BATCH) {
             throw new IllegalArgumentException("At most " + MAX_BATCH + " loans per request");
         }
+        Map<String, LoanStatus> statusById = new HashMap<>();
+        statuses.forEach((id, status) -> statusById.put(id == null ? null : id.trim(), status));
         ItemResult[] results = new ItemResult[loans.size()];
         List<Object[]> rows = new ArrayList<>(loans.size());
         List<Integer> rowIndex = new ArrayList<>(loans.size());
@@ -59,16 +77,26 @@ public class TenantLoanService {
                 continue;
             }
             LoanFeatures loan = raw.normalized();
-            rows.add(new Object[]{tenantId, loan.loanId(), loan.propertyState(), mapper.writeValueAsString(loan)});
+            LoanStatus status = statusById.get(loan.loanId());
+            String statusProblem = status == null ? null : validateStatus(status);
+            if (statusProblem != null) {
+                results[i] = new ItemResult(i, loan.loanId(), false, statusProblem);
+                continue;
+            }
+            rows.add(new Object[]{tenantId, loan.loanId(), loan.propertyState(), mapper.writeValueAsString(loan),
+                    status == null ? null : status.daysPastDue(),
+                    status == null || status.history() == null ? null : mapper.writeValueAsString(status.history())});
             rowIndex.add(i);
         }
         // One round trip for the whole batch, not one per loan.
         boolean stored = true;
         if (!rows.isEmpty()) {
             try {
-                jdbc.batchUpdate("INSERT INTO tenant_loan (tenant_id, loan_id, property_state, features) VALUES (?, ?, ?, ?) "
+                jdbc.batchUpdate("INSERT INTO tenant_loan (tenant_id, loan_id, property_state, features, days_past_due, "
+                        + "delinquency_history) VALUES (?, ?, ?, ?, ?, ?) "
                         + "ON CONFLICT (tenant_id, loan_id) DO UPDATE SET property_state = EXCLUDED.property_state, "
-                        + "features = EXCLUDED.features, updated_at = now()", rows);
+                        + "features = EXCLUDED.features, days_past_due = EXCLUDED.days_past_due, "
+                        + "delinquency_history = EXCLUDED.delinquency_history, updated_at = now()", rows);
             } catch (DataAccessException e) {
                 log.error("Could not store a batch of {} loans for tenant {}", rows.size(), tenantId, e);
                 stored = false;
@@ -102,6 +130,21 @@ public class TenantLoanService {
         }
     }
 
+    /** Null when the status can be projected from; otherwise why not, naming the field. */
+    private String validateStatus(LoanStatus status) {
+        var violations = validator.validate(status);
+        if (!violations.isEmpty()) {
+            return violations.stream().map(ConstraintViolation::getPropertyPath).map(Object::toString).sorted()
+                    .collect(Collectors.joining(", ", "Invalid status: ", ""));
+        }
+        try {
+            router.route(status.daysPastDue(), status.history());
+            return null;
+        } catch (DelinquencyRouter.InvalidDelinquencyInputException e) {
+            return "Invalid status: " + e.getMessage();
+        }
+    }
+
     public boolean hasPortfolio(Long tenantId) {
         return Boolean.TRUE.equals(jdbc.queryForObject(
                 "SELECT EXISTS (SELECT 1 FROM tenant_loan WHERE tenant_id = ?)", Boolean.class, tenantId));
@@ -116,6 +159,19 @@ public class TenantLoanService {
     public List<LoanFeatures> all(Long tenantId) {
         return jdbc.query("SELECT features FROM tenant_loan WHERE tenant_id = ? ORDER BY loan_id",
                 (rs, i) -> mapper.readValue(rs.getString(1), LoanFeatures.class), tenantId);
+    }
+
+    /**
+     * Every loan with where it stands, in loan-id order, for a portfolio run. A loan stored without a status (every loan
+     * stored before statuses existed) has none, and is projected as it always was.
+     */
+    public List<PortfolioLoan> allWithStatus(Long tenantId) {
+        return jdbc.query("SELECT features, days_past_due, delinquency_history FROM tenant_loan WHERE tenant_id = ? ORDER BY loan_id",
+                (rs, i) -> {
+                    String history = rs.getString(3);
+                    return new PortfolioLoan(mapper.readValue(rs.getString(1), LoanFeatures.class), rs.getObject(2, Integer.class),
+                            history == null ? null : mapper.readValue(history, DelinquencyHistory.class));
+                }, tenantId);
     }
 
     /** One page in loan-id order, optionally narrowed to ids containing {@code idContains} and to a state. */

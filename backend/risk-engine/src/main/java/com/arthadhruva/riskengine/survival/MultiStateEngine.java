@@ -200,10 +200,19 @@ public class MultiStateEngine {
     /** Projects every request in one batched model call. */
     public List<Outcome> projectAll(List<Request> requests) {
         List<Prepared> prepared = new ArrayList<>(requests.size());
-        int rows = 0;
         for (Request request : requests) {
-            Prepared p = prepare(request);
-            prepared.add(p);
+            prepared.add(prepare(request));
+        }
+        return projectPrepared(prepared);
+    }
+
+    /**
+     * As {@link #projectAll}, for projections the caller has already prepared (a portfolio chunk prepares each loan once,
+     * to size the batch, and then projects it): one batched model call, outcomes in the order given.
+     */
+    public List<Outcome> projectPrepared(List<Prepared> prepared) {
+        int rows = 0;
+        for (Prepared p : prepared) {
             rows += p.rows();
         }
         float[] flat = new float[rows * model.width()];

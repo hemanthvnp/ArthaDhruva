@@ -628,6 +628,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/expected-loss/from-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["expectedLossFromStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/ingest/loans": {
         parameters: {
             query?: never;
@@ -1752,6 +1768,9 @@ export interface components {
         };
         BatchRequest: {
             loans?: components["schemas"]["LoanFeatures"][];
+            statuses?: {
+                [key: string]: components["schemas"]["LoanStatus"];
+            };
         };
         Bin: {
             /** Format: double */
@@ -2183,8 +2202,10 @@ export interface components {
             expectedLoss?: number;
             /** Format: double */
             expectedLossLifetime?: number;
+            fallbackReason?: string;
             /** Format: double */
             lgd?: number;
+            modelUsed?: string;
             modelVersion?: string;
             /** Format: double */
             pd?: number;
@@ -2391,6 +2412,11 @@ export interface components {
             modelVersion?: string;
             /** Format: double */
             rawProbability?: number;
+        };
+        LoanStatus: {
+            /** Format: int32 */
+            daysPastDue?: number;
+            history?: components["schemas"]["DelinquencyHistory"];
         };
         LoginAttempt: {
             /** Format: int64 */
@@ -2795,6 +2821,12 @@ export interface components {
             checkedAt?: string;
             label?: string;
             trend?: string;
+        };
+        StatusRequest: {
+            /** Format: int32 */
+            daysPastDue?: number;
+            delinquency?: components["schemas"]["DelinquencyHistory"];
+            loan: components["schemas"]["LoanFeatures"];
         };
         StreamingResponseBody: unknown;
         SubmitAccessRequest: {
@@ -4019,6 +4051,30 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["LoanFeatures"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ExpectedLossResponse"];
+                };
+            };
+        };
+    };
+    expectedLossFromStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatusRequest"];
             };
         };
         responses: {

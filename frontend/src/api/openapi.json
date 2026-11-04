@@ -1259,6 +1259,34 @@
         "tags" : [ "expected-loss-controller" ]
       }
     },
+    "/v1/expected-loss/from-status" : {
+      "post" : {
+        "operationId" : "expectedLossFromStatus",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/StatusRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ExpectedLossResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "expected-loss-controller" ]
+      }
+    },
     "/v1/ingest/loans" : {
       "post" : {
         "operationId" : "ingest",
@@ -3565,6 +3593,12 @@
             "items" : {
               "$ref" : "#/components/schemas/LoanFeatures"
             }
+          },
+          "statuses" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/LoanStatus"
+            }
           }
         }
       },
@@ -4728,9 +4762,15 @@
             "type" : "number",
             "format" : "double"
           },
+          "fallbackReason" : {
+            "type" : "string"
+          },
           "lgd" : {
             "type" : "number",
             "format" : "double"
+          },
+          "modelUsed" : {
+            "type" : "string"
           },
           "modelVersion" : {
             "type" : "string"
@@ -5297,6 +5337,20 @@
           "rawProbability" : {
             "type" : "number",
             "format" : "double"
+          }
+        }
+      },
+      "LoanStatus" : {
+        "type" : "object",
+        "properties" : {
+          "daysPastDue" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 3650,
+            "minimum" : 0
+          },
+          "history" : {
+            "$ref" : "#/components/schemas/DelinquencyHistory"
           }
         }
       },
@@ -6359,6 +6413,24 @@
             "type" : "string"
           }
         }
+      },
+      "StatusRequest" : {
+        "type" : "object",
+        "properties" : {
+          "daysPastDue" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 3650,
+            "minimum" : 0
+          },
+          "delinquency" : {
+            "$ref" : "#/components/schemas/DelinquencyHistory"
+          },
+          "loan" : {
+            "$ref" : "#/components/schemas/LoanFeatures"
+          }
+        },
+        "required" : [ "loan" ]
       },
       "StreamingResponseBody" : { },
       "SubmitAccessRequest" : {
