@@ -792,27 +792,6 @@ export interface SurvivalCard extends ModelCard {
   };
 }
 
-export interface MonthlyRecord {
-  currentLoanDelinquencyStatus: string;
-  currentActualUpb: number;
-  modificationFlag: string;
-}
-
-export interface TrajectoryRequest {
-  originalUpb: number;
-  months: MonthlyRecord[];
-}
-
-export interface TrajectoryScoreResponse {
-  probability: number;
-}
-
-/** One entry in the real-trajectory catalog (GET /trajectory-loans). */
-export interface TrajectoryCatalogEntry {
-  label: string;
-  request: TrajectoryRequest;
-}
-
 export interface SegmentNeighbor {
   state: string;
   hops: number;

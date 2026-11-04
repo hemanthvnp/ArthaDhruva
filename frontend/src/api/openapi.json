@@ -1184,7 +1184,7 @@
     },
     "/v1/early-warning-loans" : {
       "get" : {
-        "operationId" : "loans_3",
+        "operationId" : "loans_2",
         "responses" : {
           "200" : {
             "content" : {
@@ -1205,7 +1205,7 @@
     },
     "/v1/early-warning-score" : {
       "post" : {
-        "operationId" : "score_2",
+        "operationId" : "score_1",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -1651,7 +1651,7 @@
     },
     "/v1/loans" : {
       "get" : {
-        "operationId" : "loans_2",
+        "operationId" : "loans_1",
         "parameters" : [ {
           "in" : "query",
           "name" : "q",
@@ -2852,7 +2852,7 @@
     },
     "/v1/risk/portfolio/loans" : {
       "get" : {
-        "operationId" : "loans_1",
+        "operationId" : "loans",
         "parameters" : [ {
           "in" : "query",
           "name" : "stage",
@@ -3125,7 +3125,7 @@
     },
     "/v1/score" : {
       "post" : {
-        "operationId" : "score_1",
+        "operationId" : "score",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -3348,55 +3348,6 @@
           }
         },
         "tags" : [ "sso-controller" ]
-      }
-    },
-    "/v1/trajectory-loans" : {
-      "get" : {
-        "operationId" : "loans",
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "type" : "array",
-                  "items" : {
-                    "$ref" : "#/components/schemas/TrajectoryCatalogEntry"
-                  }
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "trajectory-catalog-controller" ]
-      }
-    },
-    "/v1/trajectory-score" : {
-      "post" : {
-        "operationId" : "score",
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/TrajectoryRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/TrajectoryScoreResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "trajectory-controller" ]
       }
     }
   },
@@ -5633,24 +5584,6 @@
           }
         }
       },
-      "MonthlyRecord" : {
-        "type" : "object",
-        "properties" : {
-          "currentActualUpb" : {
-            "type" : "number",
-            "format" : "double",
-            "minimum" : 0
-          },
-          "currentLoanDelinquencyStatus" : {
-            "type" : "string",
-            "minLength" : 1
-          },
-          "modificationFlag" : {
-            "type" : "string"
-          }
-        },
-        "required" : [ "currentActualUpb", "currentLoanDelinquencyStatus" ]
-      },
       "MyLoanView" : {
         "type" : "object",
         "properties" : {
@@ -6662,45 +6595,6 @@
           }
         },
         "required" : [ "code" ]
-      },
-      "TrajectoryCatalogEntry" : {
-        "type" : "object",
-        "properties" : {
-          "label" : {
-            "type" : "string"
-          },
-          "request" : {
-            "$ref" : "#/components/schemas/TrajectoryRequest"
-          }
-        }
-      },
-      "TrajectoryRequest" : {
-        "type" : "object",
-        "properties" : {
-          "months" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/MonthlyRecord"
-            },
-            "maxItems" : 12,
-            "minItems" : 0
-          },
-          "originalUpb" : {
-            "type" : "number",
-            "format" : "double",
-            "minimum" : 0
-          }
-        },
-        "required" : [ "months", "originalUpb" ]
-      },
-      "TrajectoryScoreResponse" : {
-        "type" : "object",
-        "properties" : {
-          "probability" : {
-            "type" : "number",
-            "format" : "double"
-          }
-        }
       },
       "UpdateCaseRequest" : {
         "type" : "object",

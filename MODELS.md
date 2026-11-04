@@ -17,14 +17,23 @@ Governance page.
 | Macro regime (`hmm_regime.json`) | Calm / stressed regime and its transition matrix | 1 | Yes, and it is not stable out of time (see below) |
 | Portfolio loss distribution | Value at risk, expected shortfall, tail contributions | 1 | No (analytical; see below) |
 | Early warning (`early_warning_model.onnx`) | Flags performing loans drifting toward delinquency; analyst decision support | 2 | Yes |
-| Delinquency trajectory (`lstm_model.onnx`) | Sequence model over a loan's payment history; analyst decision support | 2 | Yes |
 | Segment graph (`segment_graph.json`) | Which states' macro drivers move together; the Segment Graph page and its neighbour queries | 2 | Yes |
 
 "Validated" means the model ships a card with an out-of-time validation and the card's checksum matches the artifact. It
-does not mean the model passed: a validated model's findings are in its gaps, and three of them are not flattering. The others are listed with their
+does not mean the model passed: a validated model's findings are in its gaps, and some of them are not flattering. The models that are not validated are listed with their
 checksum and a plain statement of what is missing, because an inventory that lists only the
 well-documented models is not an inventory. At start-up the service hashes each artifact and refuses to
 run one that does not match the checksum its card declares.
+
+### Retired: results only
+
+Only models that hold up out of time are served. Two that did not were taken out of production on 2026-11-04; their cards, scripts and
+results are kept in `backend/experiments/retired/` and below, and the service neither loads nor serves them.
+
+| Model | Why it was retired | What replaced it |
+|---|---|---|
+| Loss given default, a Beta regression on five origination features | Out of time (fit on 2020-2021, judged on 2022-2024) no better than a constant: it over-predicted 1.9 times, mean absolute error 0.0134 against 0.0123 for the mean, rank correlation 0.10 (table under *Loss given default*) | A constant, 0.76%, the mean realized loss over the 2,746 defaulted loans: the floor under the collateral-based LGD |
+| Delinquency trajectory, an LSTM over a loan's monthly payment history | The weakest ranking of the served models (out-of-time ROC-AUC 0.676, PR-AUC 0.192) on a label that is right-censored, so later vintages look safer than they are; it was never validated by the registry's own standard, and the early-warning model answers the same question with a better ranking (0.71) | Nothing: the Trajectory page, the loan-detail trajectory score and `POST /v1/trajectory-score`, `GET /v1/trajectory-loans` are removed |
 
 ## Data
 
@@ -788,12 +797,11 @@ were regenerated from the trimmed chain (as of 2025-09). The survival ONNX is bi
 sha256), so only the regime chain in the card moved. Sampling error is larger than that correction: from 1 + 1 observed regime
 switches, a 90% interval on the stress spell is 6 to 73 months.
 
-**Trajectory LSTM.** Retrained with a vintage split (fit on 2020-2021 originations, judged on 2022-2023),
-standardisation from real months only, and Platt calibration folded into the final layer (card:
-`lstm_card.json`). Before this, the served probability averaged 0.54 against an actual default rate of
-2.2% (25 times too high) because the loss is class-weighted. Out-of-time now: ROC-AUC 0.676, PR-AUC 0.192,
-predicted / actual 0.97. The 0.713 AUC quoted by the notebook came from a random split. "Ever defaulted" is
-right-censored, so later vintages look safer than they are; the registry entry stays unvalidated.
+**Trajectory LSTM (retired, see the inventory).** The last version served was retrained with a vintage split (fit on 2020-2021
+originations, judged on 2022-2023), with standardisation from real months only and Platt calibration folded into the final layer
+(card: `backend/experiments/retired/lstm/lstm_card.json`). Before that, the served probability averaged 0.54 against an actual default rate of
+2.2% (25 times too high) because the loss is class-weighted. Out of time: ROC-AUC 0.676, PR-AUC 0.192, predicted / actual 0.97. The 0.713 AUC
+quoted by the notebook came from a random split. "Ever defaulted" is right-censored, so later vintages look safer than they are.
 
 ## How the numbers are checked
 

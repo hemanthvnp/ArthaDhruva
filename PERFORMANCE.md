@@ -138,7 +138,7 @@ without projecting again.
 | `GET /admin/users`: eager `loanIds` collection loaded per user (N+1) | 1 + N queries (15 for 14 users) | 1 + 1 (subselect) |
 | Rate limiting, rules, metering: plan lookup per request | DB round trip | cached 60 s per tenant |
 
-Other places checked and found already fine: the early-warning and trajectory catalogs are map-backed
+Other places checked and found already fine: the early-warning catalog is map-backed
 O(1) lookups; the isotonic calibrator binary-searches its breakpoints.
 
 ## 3. Index review (EXPLAIN ANALYZE at 200,000 rows in one tenant, as the app role under RLS)

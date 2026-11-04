@@ -14,13 +14,13 @@ import java.util.Collections;
 /**
  * Template Method (design decision 8) for the load-model / build-feature-vector /
  * run-ONNX-inference / calibrate skeleton shared by {@code score.ModelService}, {@code
- * earlywarning.EarlyWarningModelService}, and {@code trajectory.TrajectoryModelService} -- this
- * used to be three near-identical copies of {@link #score}'s try/finally/exception-wrapping and
+ * earlywarning.EarlyWarningModelService} -- this
+ * used to be near-identical copies of {@link #score}'s try/finally/exception-wrapping and
  * session lifecycle. Each subclass supplies only what's genuinely specific to its model: how to
  * turn its own feature type into a flat vector, what tensor shape that vector represents, how to
- * pull a raw probability out of that model's particular ONNX output shape, and (for the two
+ * pull a raw probability out of that model's particular ONNX output shape, and (for the
  * PD-style models) an isotonic calibration correction -- {@link #calibrate} defaults to the
- * identity function for models (like the trajectory LSTM) that don't calibrate at all.
+ * identity function for models that don't calibrate at all.
  *
  * @param <TFeatures> the model-specific input type
  * @param <TResponse> the model-specific response type
@@ -36,7 +36,7 @@ public abstract class AbstractOnnxModelService<TFeatures, TResponse> {
     }
 
     /**
-     * Single-threaded, non-spinning inference. These are tiny tree/LSTM models (microseconds of
+     * Single-threaded, non-spinning inference. These are tiny tree models (microseconds of
      * work per call), so parallelising one inference across cores buys nothing, while ONNX Runtime's
      * default is an intra-op pool sized to the HOST's core count whose idle threads spin-wait: in a
      * container limited to ~1.5 CPUs that is dozens of threads burning the whole quota doing nothing
@@ -138,7 +138,7 @@ public abstract class AbstractOnnxModelService<TFeatures, TResponse> {
     }
 
     /** Available to subclasses for their own extra classpath resources (category mappings,
-     * feature order, calibration breakpoints, LSTM normalization stats, ...). */
+     * feature order, calibration breakpoints, ...). */
     protected final byte[] readResource(String name) throws IOException {
         try (InputStream is = getClass().getClassLoader().getResourceAsStream(name)) {
             if (is == null) {

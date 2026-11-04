@@ -14,7 +14,6 @@ const AssistantPage = lazy(() => import('./pages/AssistantPage'));
 const ExpectedLossPage = lazy(() => import('./pages/ExpectedLossPage'));
 const RegimeForecastPage = lazy(() => import('./pages/RegimeForecastPage'));
 const CvarPage = lazy(() => import('./pages/CvarPage'));
-const TrajectoryPage = lazy(() => import('./pages/TrajectoryPage'));
 const EarlyWarningPage = lazy(() => import('./pages/EarlyWarningPage'));
 const SegmentGraphPage = lazy(() => import('./pages/SegmentGraphPage'));
 const AuditLogPage = lazy(() => import('./pages/AuditLogPage'));
@@ -167,14 +166,6 @@ function AppRoutes() {
           element={
             <RoleRoute allow={['ANALYST', 'ADMIN']}>
               <CvarPage />
-            </RoleRoute>
-          }
-        />
-        <Route
-          path="/trajectory"
-          element={
-            <RoleRoute allow={['ANALYST', 'ADMIN']}>
-              <TrajectoryPage />
             </RoleRoute>
           }
         />

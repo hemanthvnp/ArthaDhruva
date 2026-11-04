@@ -1,4 +1,7 @@
-"""Retrain the same LSTM trajectory model as lstm_trajectory_model.ipynb and export it to ONNX
+"""RETIRED: the service no longer serves this model (see MODELS.md). Kept as the record of how it was built; outputs land beside
+this script, not in the service resources.
+
+Retrain the same LSTM trajectory model as lstm_trajectory_model.ipynb and export it to ONNX
 for backend serving: near-term default probability from a loan's first up to 12 months of
 actual performance (delinquency status, UPB paydown ratio, modification flag) -- not a static
 origination-time snapshot.
@@ -219,7 +222,7 @@ print("Parity confirmed -- exporting.")
 
 dummy_input = torch.zeros(1, 6, N_FEATURES, dtype=torch.float32)
 torch.onnx.export(
-    onnx_model, dummy_input, "risk-engine/src/main/resources/lstm_model.onnx",
+    onnx_model, dummy_input, "experiments/retired/lstm/lstm_model.onnx",
     input_names=["input"], output_names=["logit"],
     dynamic_axes={"input": {1: "seq_len"}},
     opset_version=15,
@@ -234,11 +237,11 @@ export_meta = {
     "feat_std": feat_std.tolist(),
     "max_seq_len": INPUT_CUTOFF,
 }
-with open("risk-engine/src/main/resources/lstm_meta.json", "w") as f:
+with open("experiments/retired/lstm/lstm_meta.json", "w") as f:
     json.dump(export_meta, f, indent=2)
 card = {
     "model": "trajectory_lstm",
-    "artifact_sha256": hashlib.sha256(Path("risk-engine/src/main/resources/lstm_model.onnx").read_bytes()).hexdigest(),
+    "artifact_sha256": hashlib.sha256(Path("experiments/retired/lstm/lstm_model.onnx").read_bytes()).hexdigest(),
     "input": f"first {INPUT_CUTOFF} months of status, UPB ratio, modification flag",
     "target": "ever reaches 90+ days past due after month 12 (loans already adverse in the window are excluded)",
     "protocol": f"fit on vintages < {TEST_FROM_VINTAGE} (85%), Platt-calibrated on the other 15%, judged on vintages >= {TEST_FROM_VINTAGE}",
@@ -251,6 +254,6 @@ card = {
         "The Java feature code is pinned to backend/golden_lstm.py by TrajectoryParityTest (regenerate it after any re-export)",
     ],
 }
-with open("risk-engine/src/main/resources/lstm_card.json", "w") as f:
+with open("experiments/retired/lstm/lstm_card.json", "w") as f:
     json.dump(card, f, indent=2)
-print("Saved risk-engine/src/main/resources/lstm_model.onnx, lstm_meta.json and lstm_card.json")
+print("Saved experiments/retired/lstm/lstm_model.onnx, lstm_meta.json and lstm_card.json")

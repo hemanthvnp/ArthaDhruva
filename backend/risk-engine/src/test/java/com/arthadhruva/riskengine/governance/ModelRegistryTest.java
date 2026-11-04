@@ -90,16 +90,6 @@ class ModelRegistryTest {
     }
 
     @Test
-    void startsAndListsTheTrajectoryModelFromItsCard() throws Exception {
-        ModelRegistry registry = registry(new SegmentGraphArtifact());
-        ModelRegistry.Entry lstm = registry.entries().stream().filter(e -> e.id().equals("trajectory_lstm")).findFirst().orElseThrow();
-        assertTrue(lstm.validated());
-        assertEquals(Boolean.TRUE, lstm.checksumVerified());
-        assertTrue(registry.card("trajectory_lstm").isPresent());
-        assertTrue((double) lstm.headline().get("outOfTimeAuc") > 0.6);
-    }
-
-    @Test
     void listsTheSegmentGraphAsAValidatedTierTwoModel() throws Exception {
         ModelRegistry.Entry graph = registry(new SegmentGraphArtifact()).entries().stream()
                 .filter(e -> e.id().equals("segment_graph")).findFirst().orElseThrow();

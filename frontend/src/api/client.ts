@@ -80,9 +80,6 @@ import type {
   SegmentNeighbor,
   TotpSetupResponse,
   TotpStatusResponse,
-  TrajectoryCatalogEntry,
-  TrajectoryRequest,
-  TrajectoryScoreResponse,
   UserStatusResponse,
   UserSummary,
 } from './types';
@@ -320,10 +317,6 @@ export function expectedLoss(loan: LoanFeatures): Promise<ExpectedLossResponse> 
   return request('/expected-loss', { method: 'POST', body: JSON.stringify(loan) });
 }
 
-export function trajectoryScore(req: TrajectoryRequest): Promise<TrajectoryScoreResponse> {
-  return request('/trajectory-score', { method: 'POST', body: JSON.stringify(req) });
-}
-
 // ---- lifetime risk ---------------------------------------------------------------------------
 
 export function listScenarios(): Promise<Scenario[]> {
@@ -459,11 +452,6 @@ export function earlyWarningScore(loan: EarlyWarningFeatures): Promise<EarlyWarn
  * real, later-observed outcome attached for comparison against the prediction. */
 export function listEarlyWarningCatalog(): Promise<EarlyWarningCatalogEntry[]> {
   return request('/early-warning-loans');
-}
-
-/** Real loans' actual observed first-up-to-12-months trajectories (backend/export_trajectory_catalog.py). */
-export function listTrajectoryCatalog(): Promise<TrajectoryCatalogEntry[]> {
-  return request('/trajectory-loans');
 }
 
 /** Every state and every correlation edge (each once), in one request. */
