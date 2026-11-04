@@ -56,13 +56,13 @@
 
 ## 5. tenant-ops server (gate: cross-tenant leak test passes; pause for review)
 
-- [ ] 5.1 Postgres adapter: read-only transactions, tenant set first via `set_config`, refuse the worker role
-- [ ] 5.2 Fixed parameterised queries for run detail, run list and webhook-outbox status with allowlisted filters and bounded limits
-- [ ] 5.3 `audit_query` and `usage` via `/admin/audit-log` and `/admin/usage`
-- [ ] 5.4 Run diagnosis with the documented heartbeat-staleness threshold
-- [ ] 5.5 Untrusted-data fencing for tenant-written fields
-- [ ] 5.6 Testcontainers Postgres test: apply migrations, create two tenants, prove isolation and pool-reuse safety; skip loudly when Docker is down
-- [ ] 5.7 Protocol tests for each scenario in `specs/tenant-ops-mcp`
+- [x] 5.1 Postgres adapter: read-only transactions, tenant set first via `set_config`, refuse the worker role (done 2026-11-04: tools/mcp/tenant-ops/src/store.ts: BEGIN READ ONLY, tenant set first with transaction-local set_config, always ROLLBACK; refuses the worker role, a superuser and BYPASSRLS at startup)
+- [x] 5.2 Fixed parameterised queries for run detail, run list and webhook-outbox status with allowlisted filters and bounded limits (done 2026-11-04: fixed statements with bound parameters; status and sort column from allowlists, limits bounded; unknown values are InvalidInput before any query. Run list and detail, webhook outbox counts and rows)
+- [x] 5.3 `audit_query` and `usage` via `/admin/audit-log` and `/admin/usage` (done 2026-11-04: `audit_query` and `usage`. /admin/audit-log takes only `limit`, so actor, path and time are filtered on the fetched page and the result reports `mayBeTruncated`; request/response bodies and client addresses are not returned)
+- [x] 5.4 Run diagnosis with the documented heartbeat-staleness threshold (done 2026-11-04: `run_detail` and `run_list` diagnose with the application's 120 s threshold by the database's clock; up to 3 attempts)
+- [x] 5.5 Untrusted-data fencing for tenant-written fields (done 2026-11-04: src/fence.ts: structured `untrusted` objects with `flagged` and reasons, fenced text, forged fence markers defused)
+- [x] 5.6 Testcontainers Postgres test: apply migrations, create two tenants, prove isolation and pool-reuse safety; skip loudly when Docker is down (done 2026-11-04: test/postgres.test.ts: Postgres 16 in Testcontainers with all Flyway migrations, as the application role; skipped loudly on stderr when Docker is down. Mutation-checked: dropping READ ONLY, dropping the role check, and a tenant setting that survives the call each fail a test)
+- [x] 5.7 Protocol tests for each scenario in `specs/tenant-ops-mcp` (done 2026-11-04: test/tenant-ops.test.ts covers every scenario of specs/tenant-ops-mcp (23 protocol tests); the database ones are in postgres.test.ts)
 
 ## 6. Analyst agent (gate: deterministic suite green; pause for review)
 
