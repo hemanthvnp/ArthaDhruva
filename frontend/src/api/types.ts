@@ -480,6 +480,10 @@ export interface ScenarioRisk {
   states: StateRisk[];
   topLoans: LoanRisk[];
   extrapolatedLoans: Record<string, number>;
+  /** Loans projected by each model, by the model's id and version; absent in a result stored before portfolios could use the delinquency model. */
+  modelLoans?: Record<string, number> | null;
+  /** For the loans on the survival model, how many for each reason the delinquency model was not used. */
+  fallbackReasons?: Record<string, number> | null;
   eclRelativeStandardError: number | null;
   /** The one-year loss distribution around the 12-month ECL; on the baseline only, null if it could not be simulated. */
   lossDistribution: CvarResult | null;

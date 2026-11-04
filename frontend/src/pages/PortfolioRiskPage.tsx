@@ -363,6 +363,9 @@ function WeightedAllowance({ scenarios, asOf }: { scenarios: string[]; asOf: str
   );
 }
 
+/** What the engine says of a loan that was given no status: the usual case, and not worth a banner. */
+const NO_STATUS_DATA = 'no delinquency data supplied';
+
 function Results({ snapshots, portfolioLoans }: { snapshots: PortfolioSnapshot[]; portfolioLoans: number }) {
   const ordered = useMemo(() => [...snapshots].sort((a, b) => ORDER.indexOf(a.scenario) - ORDER.indexOf(b.scenario)), [snapshots]);
   const details = ordered.map((s) => s.detail).filter((d): d is ScenarioRisk => d !== null);
@@ -370,6 +373,10 @@ function Results({ snapshots, portfolioLoans }: { snapshots: PortfolioSnapshot[]
   const base = head.detail!;
   const stageExposure = base.stages.map((s) => s.exposure);
   const extrapolated = Object.entries(details[details.length - 1].extrapolatedLoans);
+  const modelLoans = Object.entries(base.modelLoans ?? {});
+  const fallbacks = Object.entries(base.fallbackReasons ?? {});
+  // Worth saying only when it is not the plain case of every loan on the survival model for want of status data.
+  const mixedModels = modelLoans.length > 1 || fallbacks.some(([reason]) => reason !== NO_STATUS_DATA);
   const regionSummary = ordered.find((s) => s.decision)?.decision;
   const [region, setRegion] = useState<DecisionRegion | undefined>(undefined);
 
@@ -387,6 +394,22 @@ function Results({ snapshots, portfolioLoans }: { snapshots: PortfolioSnapshot[]
         {head.projectedLoans < head.loans - head.loansExcluded && ` (a sample of ${count(head.projectedLoans)} was projected and scaled up)`}
         {' '}&middot; {head.modelVersion}
       </p>
+      {mixedModels && (
+        <>
+          <div className="chips" aria-label="Loans by model">
+            {modelLoans.map(([model, loans]) => (
+              <span key={model} className="chip" style={{ cursor: 'default' }}>
+                {count(loans)} {loans === 1 ? 'loan' : 'loans'}: {model.startsWith('delinquency@') ? 'projected from its status (delinquency model)' : 'survival model'}
+              </span>
+            ))}
+          </div>
+          {fallbacks.length > 0 && (
+            <p className="page-subtitle">
+              Loans on the survival model: {fallbacks.map(([reason, loans]) => `${count(loans)} (${reason})`).join('; ')}.
+            </p>
+          )}
+        </>
+      )}
 
       <div className="kpi-row">
         <div className="kpi">
