@@ -40,4 +40,4 @@ export = {
 }
 with open(str(Path(__file__).with_name("lgd_model.json")), "w") as f:
     json.dump(export, f, indent=2)
-print("\nSaved risk-engine/src/main/resources/lgd_model.json")
+print("\nSaved experiments/retired/lgd/lgd_model.json")
