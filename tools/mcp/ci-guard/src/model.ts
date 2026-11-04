@@ -152,7 +152,8 @@ export interface Platform {
  */
 export function allowlist(p: Platform): AllowedCommand[] {
   const npm = p.windows ? 'npm.cmd' : 'npm';
-  const mvnw = p.windows ? 'mvnw.cmd' : './mvnw';
+  // a relative path: cmd.exe does not search the current directory for a bare name when NoDefaultCurrentDirectoryInExePath is set
+  const mvnw = p.windows ? '.\\mvnw.cmd' : './mvnw';
   const promtool = (args: string[]) => ['run', '--rm', '-v', `${p.rootForDocker}/observability:/w:ro`, '--entrypoint', 'promtool', 'prom/prometheus:v2.55.1', ...args];
   const min = 60_000;
   return [
