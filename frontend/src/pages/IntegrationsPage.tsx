@@ -231,7 +231,8 @@ export default function IntegrationsPage() {
       }
       const loans = Array.isArray(parsed) ? parsed : (parsed as { loans?: unknown })?.loans;
       if (!Array.isArray(loans)) throw new Error('Expected a JSON array of loans, or an object with a "loans" array.');
-      return uploadPortfolio(loans);
+      const statuses = Array.isArray(parsed) ? undefined : (parsed as { statuses?: unknown })?.statuses;
+      return uploadPortfolio(loans, statuses);
     },
     onSuccess: (r) => { setPortfolioNote(null); setUploaded(r); portfolioChanged(); },
   });

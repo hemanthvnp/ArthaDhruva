@@ -820,8 +820,12 @@ export interface PortfolioUploadResult {
   results: { index: number; loanId: string | null; ok: boolean; error: string | null }[];
 }
 
-export function uploadPortfolio(loans: unknown[]): Promise<PortfolioUploadResult> {
-  return request('/admin/portfolio', { method: 'POST', body: JSON.stringify({ loans }) });
+/**
+ * `statuses` is optional: where some of the loans stand now, by loan id (`{ daysPastDue, history }`). A loan with one is
+ * projected from where it is in a portfolio run; the rest are projected as before.
+ */
+export function uploadPortfolio(loans: unknown[], statuses?: unknown): Promise<PortfolioUploadResult> {
+  return request('/admin/portfolio', { method: 'POST', body: JSON.stringify(statuses ? { loans, statuses } : { loans }) });
 }
 
 export function clearPortfolio(): Promise<{ removed: number }> {
