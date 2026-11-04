@@ -12,6 +12,9 @@
     },
     {
       "path": "tenant-ops"
+    },
+    {
+      "path": "deploy-ops"
     }
   ]
 }
