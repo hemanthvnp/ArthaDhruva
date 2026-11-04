@@ -8,7 +8,8 @@
     "ci-guard",
     "risk-engine",
     "tenant-ops",
-    "deploy-ops"
+    "deploy-ops",
+    "model-validation"
   ],
   "engines": {
     "node": ">=22"
