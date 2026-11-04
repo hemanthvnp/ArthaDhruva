@@ -3,7 +3,7 @@
   "version": "2026.11.03",
   "validated_at": "2026-11-03T22:29:34+00:00",
   "artifact": "hmm_regime.json",
-  "artifact_sha256": "b5229c186033ab4d13a3e93a87537be73d4bd67fe6ef963a6d2684f0f93a749f",
+  "artifact_sha256": "edf4a480905b3ca75afd287b7a811acb2e133ca6cc391a718c51af0d691b65c0",
   "algorithm": "Two-state Gaussian hidden Markov model, full covariance, on the standardized monthly share of loans 90+ days past due and average note rate",
   "inputs": [
     "delinquency_rate_90",
