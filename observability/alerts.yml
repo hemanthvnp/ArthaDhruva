@@ -86,6 +86,17 @@ groups:
           summary: "Requests are failing to get a database connection on {{ $labels.instance }}"
           description: "Connection pool timeouts in the last 5 minutes: {{ $value | humanize }}."
 
+      # The database cancelled statements for running past statement_timeout, or they gave up waiting for a
+      # lock (lock_timeout, deadlock). Each one reached its caller as a 503. A few in a burst are the limit
+      # doing its job; a steady stream is a slow query or lock contention to find (the log has the SQL).
+      - alert: DatabaseStatementTimeouts
+        expr: sum by (instance, kind) (increase(db_timeouts_total{job="risk-engine"}[10m])) > 5
+        labels:
+          severity: warning
+        annotations:
+          summary: "Database {{ $labels.kind }} timeouts on {{ $labels.instance }}"
+          description: "{{ $value | humanize }} {{ $labels.kind }} timeouts in the last 10 minutes, each answered with 503."
+
       # What is still live after a collection is what the heap cannot get back. Heap *used* is not
       # alerted on: it sits high between collections on a healthy JVM.
       - alert: HeapNearlyFull

@@ -1,0 +1,14 @@
+{
+  "name": "@arthadhruva/deploy-ops-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "MCP server for the deployed stack: health (an asleep VM is a normal state), Prometheus metrics and alerts, and the one action, wake.",
+  "main": "dist/index.js",
+  "bin": { "deploy-ops-mcp": "dist/cli.js" },
+  "dependencies": {
+    "@arthadhruva/mcp-kit": "0.1.0",
+    "@modelcontextprotocol/sdk": "1.32.0",
+    "zod": "4.6.6"
+  }
+}

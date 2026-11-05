@@ -42,6 +42,8 @@ The model SHALL be fitted on loan-months before 2023-01 and evaluated on all lat
 ### Requirement: Validation gates
 The model SHALL pass the gates frozen before the production fit: among delinquent loan-months its out-of-time log loss is lower than the existing survival model's; predicted over realized 12-month default and cure rates by starting state are within the frozen tolerance; and the projection is monotone, so a worse starting state never has lower lifetime PD with all else equal.
 
+The tolerances, frozen from the pilot fit on 2026-11-03 before the production fit: predicted over realized within 1 +/- 0.40 for a 12-month default rate and 1 +/- 0.15 for a 12-month cure rate, each judged only where at least 200 realized events stand behind it; the log-loss gate has no margin (strictly lower). Reasoning in `design.md` D7.
+
 #### Scenario: Gate failure
 - **WHEN** any gate fails on the production fit
 - **THEN** the export refuses to write the artifact and reports which gate failed

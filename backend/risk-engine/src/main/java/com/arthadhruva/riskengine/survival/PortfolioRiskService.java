@@ -8,6 +8,7 @@ import com.arthadhruva.riskengine.roughset.PortfolioDecisionEngine;
 import com.arthadhruva.riskengine.roughset.Region;
 import com.arthadhruva.riskengine.scheduling.WorkerDb;
 import com.arthadhruva.riskengine.score.LoanFeatures;
+import com.arthadhruva.riskengine.score.PortfolioLoan;
 import com.arthadhruva.riskengine.tenant.TenantContext;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
@@ -337,6 +338,15 @@ public class PortfolioRiskService {
      */
     public Run start(Long tenantId, String requestedBy, List<LoanFeatures> loans, List<Scenario> scenarios, DecisionPlan decision,
                      boolean deferred) {
+        return startPortfolio(tenantId, requestedBy, PortfolioLoan.all(loans), scenarios, decision, deferred);
+    }
+
+    /**
+     * As above, for loans that may carry where they stand now: those with days past due and a payment history are projected
+     * from there by the delinquency model, the rest as ever, and the stored result says how many of each.
+     */
+    public Run startPortfolio(Long tenantId, String requestedBy, List<PortfolioLoan> loans, List<Scenario> scenarios,
+                              DecisionPlan decision, boolean deferred) {
         failStaleRuns(tenantId);
         UUID id = UUID.randomUUID();
         List<String> scenarioNames = scenarios.stream().map(Scenario::name).toList();
@@ -365,7 +375,7 @@ public class PortfolioRiskService {
      * Starts a run just recorded on one of this replica's own workers, if one is free, with the loans already
      * in hand: the usual case, and it costs the request no wait for the next look at the queue.
      */
-    private boolean takeNow(Long tenantId, UUID id, List<LoanFeatures> loans, List<Scenario> scenarios, DecisionPlan decision) {
+    private boolean takeNow(Long tenantId, UUID id, List<PortfolioLoan> loans, List<Scenario> scenarios, DecisionPlan decision) {
         if (!slots.tryAcquire()) {
             return false;
         }
@@ -401,7 +411,7 @@ public class PortfolioRiskService {
      * @return false when no worker would take it, which happens only while shutting down: the run is back in
      *         the queue and the slot is still the caller's
      */
-    private boolean launch(Active run, List<LoanFeatures> loans, List<Scenario> scenarios, DecisionPlan decision) {
+    private boolean launch(Active run, List<PortfolioLoan> loans, List<Scenario> scenarios, DecisionPlan decision) {
         active.put(run.id, run);
         try {
             runs.execute(() -> {
@@ -430,7 +440,7 @@ public class PortfolioRiskService {
      * @param portfolio the loans of the organization whose tenant context is set when it is called
      * @return the runs taken
      */
-    public List<UUID> claimQueued(Supplier<List<LoanFeatures>> portfolio, boolean mayStartDeferred) {
+    public List<UUID> claimQueued(Supplier<List<PortfolioLoan>> portfolio, boolean mayStartDeferred) {
         List<UUID> taken = new ArrayList<>();
         while (slots.tryAcquire()) {
             boolean handed = false;
@@ -463,11 +473,11 @@ public class PortfolioRiskService {
      * Rebuilds a claimed run from its stored request and hands it to a worker. False when it was not handed
      * over: it could not be rebuilt (and is failed), or no worker would take it (and is back in the queue).
      */
-    private boolean dispatch(Claimed claimed, Supplier<List<LoanFeatures>> portfolio) {
+    private boolean dispatch(Claimed claimed, Supplier<List<PortfolioLoan>> portfolio) {
         Long callerTenant = TenantContext.getOptional().orElse(null);
         TenantContext.set(claimed.tenantId());
         try {
-            List<LoanFeatures> loans;
+            List<PortfolioLoan> loans;
             List<Scenario> scenarios;
             DecisionPlan plan;
             try {
@@ -557,7 +567,7 @@ public class PortfolioRiskService {
     }
 
     /** The work of one attempt, on a run worker; the row is already RUNNING under {@code run.attempt}. */
-    private void execute(Active run, List<LoanFeatures> loans, List<Scenario> scenarios, DecisionPlan decision) {
+    private void execute(Active run, List<PortfolioLoan> loans, List<Scenario> scenarios, DecisionPlan decision) {
         Long tenantId = run.tenantId;
         UUID id = run.id;
         int attempt = run.attempt;
@@ -571,7 +581,7 @@ public class PortfolioRiskService {
             LocalDate asOf = LocalDate.now(ZoneOffset.UTC);
             AtomicLong lastProgress = new AtomicLong(System.currentTimeMillis());
             PortfolioRiskEngine.Checkpoints checkpoints = checkpoints(run);
-            PortfolioRiskEngine.PortfolioRisk result = engine.run(loans, scenarios, seed(tenantId, asOf), done -> {
+            PortfolioRiskEngine.PortfolioRisk result = engine.runPortfolio(loans, scenarios, seed(tenantId, asOf), done -> {
                 long now = System.currentTimeMillis();
                 if (now - lastProgress.get() >= PROGRESS_EVERY_MILLIS) {
                     lastProgress.set(now);
@@ -581,7 +591,8 @@ public class PortfolioRiskService {
             }, checkpoints);
             // The projection is finished and loans_done stays where it is; the timer heartbeat says the region analysis is alive.
             PortfolioDecisionEngine.Result regions = decision == null ? null
-                    : decisionEngine.run(loans, decision.target(), decision.options(), done -> { }, checkpoints, engine.modelKey());
+                    : decisionEngine.run(loans.stream().map(PortfolioLoan::loan).toList(), decision.target(), decision.options(), done -> { }, checkpoints,
+                            engine.modelKey());
             transactions.executeWithoutResult(tx -> {
                 // First, and under this attempt only: it locks the row until commit, so a restart cannot
                 // slip in between this check and the results, and a superseded attempt stores nothing.

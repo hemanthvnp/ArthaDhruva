@@ -3,17 +3,22 @@ import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { compareScenarios, getLoan, termStructure } from '../api/client';
+import DelinquencyFields from '../components/DelinquencyFields';
 import ErrorBanner from '../components/ErrorBanner';
+import IntervalRange, { FallbackNote } from '../components/IntervalRange';
 import LoanFeaturesForm from '../components/LoanFeaturesForm';
 import { DEFAULT_LOAN } from '../components/loanDefaults';
 import LoanPicker from '../components/LoanPicker';
 import RegionPanel from '../components/RegionPanel';
 import RiskMeter from '../components/RiskMeter';
 import ScenarioWeightsForm from '../components/ScenarioWeightsForm';
+import StartStateComparison from '../components/StartStateComparison';
+import { EMPTY_DRAFT, checkDelinquency, withDelinquency } from '../components/delinquency';
+import type { DelinquencyDraft } from '../components/delinquency';
 import { AXIS, GRID, LEGEND, SCENARIO_STYLE, TOOLTIP, scenarioLabel, yearOf, yearTicks } from '../components/chartTheme';
 import { axisMoney, compactMoney, duration, money, monthLabel, pct } from '../format';
 import { WEIGHTED_METHOD_NOTE, weightsLabel } from '../components/weights';
-import type { Extrapolation, LifetimeRiskInput, LoanFeatures, TermStructure } from '../api/types';
+import type { Extrapolation, LifetimeRiskInput, LoanFeatures, TermStructure, TermStructureResponse } from '../api/types';
 
 const DRIVER: Record<string, string> = {
   loan_age: 'Loan age',
@@ -176,6 +181,43 @@ function Detail({ t }: { t: TermStructure }) {
   );
 }
 
+/** The projection from the loan's own status and history, when the delinquency model ran: its figures with their ranges. */
+function DelinquencyResult({ response }: { response: TermStructureResponse }) {
+  const t = response.termStructure;
+  const ranges = response.intervals;
+  const allowance = t.ecl.stage === 1 ? ranges?.ecl12m : ranges?.eclLifetime;
+  return (
+    <div className="card" data-testid="delinquency-result">
+      <div className="card-head">
+        <h3>Projected from the loan&apos;s status</h3>
+        <span className="badge">{response.modelUsed}</span>
+      </div>
+      <div className="kpi-row">
+        <div className="kpi">
+          <div className="label">Default within 12 months</div>
+          <div className="value">{pct(t.summary.pd12m)}</div>
+          {ranges?.pd12m && <IntervalRange label="Default within 12 months" interval={ranges.pd12m} intervals={ranges} format={(n) => pct(n)} />}
+        </div>
+        <div className="kpi">
+          <div className="label">Default over its life</div>
+          <div className="value">{pct(t.summary.pdLifetime)}</div>
+          {ranges?.pdLifetime && <IntervalRange label="Default over its life" interval={ranges.pdLifetime} intervals={ranges} format={(n) => pct(n)} />}
+        </div>
+        <div className="kpi accent">
+          <div className="label">Expected credit loss</div>
+          <div className="value">{compactMoney(t.ecl.eclIfrs9)}</div>
+          <div className="hint">IFRS 9 stage {t.ecl.stage} &middot; CECL {compactMoney(t.ecl.eclCecl)}</div>
+          {allowance && ranges && <IntervalRange label="Expected credit loss" interval={allowance} intervals={ranges} format={compactMoney} />}
+        </div>
+      </div>
+      <p className="chart-caption">
+        The scenario table below is the existing model&apos;s, which does not condition on whether a loan is already late. This card
+        starts from the status and history above and follows how a late loan cures, rolls or defaults.
+      </p>
+    </div>
+  );
+}
+
 export default function LifetimeRiskPage() {
   const [params] = useSearchParams();
   const linkedLoanId = params.get('loanId') ?? '';
@@ -183,6 +225,10 @@ export default function LifetimeRiskPage() {
   const [manual, setManual] = useState<LoanFeatures>(DEFAULT_LOAN);
   const [balance, setBalance] = useState('');
   const [daysPastDue, setDaysPastDue] = useState('');
+  const [draft, setDraft] = useState<DelinquencyDraft>(EMPTY_DRAFT);
+  const [compareStates, setCompareStates] = useState(false);
+  const check = useMemo(() => checkDelinquency(daysPastDue, draft), [daysPastDue, draft]);
+  const invalid = Object.keys(check.errors).length > 0;
   const [chosen, setChosen] = useState<LifetimeRiskInput | null>(null);
   const [scenario, setScenario] = useState('BASELINE');
   const [weights, setWeights] = useState<Record<string, number> | null>(null);
@@ -196,12 +242,14 @@ export default function LifetimeRiskPage() {
   const input = useMemo<LifetimeRiskInput | null>(() => chosen ?? (linked.data ? { loan: linked.data } : null), [chosen, linked.data]);
 
   const project = (loan: LoanFeatures) => {
+    if (invalid) return;
     setScenario('BASELINE');
-    setChosen({
+    setCompareStates(false);
+    setChosen(withDelinquency({
       loan,
       currentBalance: balance ? Number(balance) : undefined,
       daysPastDue: daysPastDue ? Number(daysPastDue) : undefined,
-    });
+    }, check));
   };
 
   const key = input ? JSON.stringify(input) : '';
@@ -212,7 +260,15 @@ export default function LifetimeRiskPage() {
     enabled: compared !== null,
     retry: false,
   });
-  const detail = useQuery({ queryKey: ['term-structure', key, scenario], queryFn: () => termStructure(input!, scenario), enabled: input !== null, retry: false });
+  const detail = useQuery({
+    queryKey: ['term-structure', key, scenario],
+    queryFn: () => termStructure({ ...input!, intervals: {} }, scenario),
+    enabled: input !== null,
+    retry: false,
+  });
+  const delinquencyUsed = detail.data?.modelUsed.startsWith('delinquency@') ?? false;
+  // the note is for a loan whose status was supplied; a request that carried none is the existing one and needs no explaining
+  const suppliedStatus = input !== null && (input.delinquency !== undefined || (input.daysPastDue ?? 0) >= 30);
 
   const curves = useMemo(() => {
     const c = comparison.data;
@@ -251,12 +307,12 @@ export default function LifetimeRiskPage() {
           </div>
         </div>
         {mode === 'portfolio' ? (
-          <LoanPicker initialId={linkedLoanId} action="Project" busy={comparison.isFetching} onPick={project} />
+          <LoanPicker initialId={linkedLoanId} action="Project" busy={comparison.isFetching || invalid} onPick={project} />
         ) : (
           <>
             <LoanFeaturesForm value={manual} onChange={setManual} showOrigination />
             <div className="actions">
-              <button onClick={() => project(manual)} disabled={comparison.isFetching}>
+              <button onClick={() => project(manual)} disabled={comparison.isFetching || invalid}>
                 {comparison.isFetching ? 'Projecting...' : 'Project'}
               </button>
             </div>
@@ -275,6 +331,7 @@ export default function LifetimeRiskPage() {
             </div>
           </div>
         </div>
+        <DelinquencyFields draft={draft} check={check} onChange={setDraft} />
         {input && <LoanFacts loan={input.loan} />}
         <ErrorBanner error={comparison.error ?? detail.error ?? linked.error} />
         {linkedLoanId && linked.data === null && <p className="error-banner">Loan {linkedLoanId} is not in the portfolio.</p>}
@@ -286,8 +343,11 @@ export default function LifetimeRiskPage() {
         </div>
       )}
 
+      <FallbackNote reason={suppliedStatus ? detail.data?.fallbackReason : undefined} />
+
       {baseline && selected && comparison.data && (
         <>
+          {delinquencyUsed && detail.data && <div style={{ marginTop: '1.25rem' }}><DelinquencyResult response={detail.data} /></div>}
           <div className="kpi-row" style={{ marginTop: '1.25rem' }}>
             <div className="kpi">
               <div className="label">Default within 12 months</div>
@@ -299,6 +359,9 @@ export default function LifetimeRiskPage() {
               <div className="label">Default over its life</div>
               <div className="value">{pct(selected.summary.pdLifetime)}</div>
               <div className="hint">prepays {pct(selected.summary.prepayLifetime, 0)}, runs to term {pct(selected.summary.maturityProbability, 0)}</div>
+              {!delinquencyUsed && detail.data?.intervals?.pdLifetime && (
+                <IntervalRange label="Default over its life" interval={detail.data.intervals.pdLifetime} intervals={detail.data.intervals} format={(n) => pct(n)} />
+              )}
             </div>
             <div className="kpi">
               <div className="label">Expected time on book</div>
@@ -397,6 +460,15 @@ export default function LifetimeRiskPage() {
             </ResponsiveContainer>
             <p className="chart-caption">Cumulative probability of default over the next ten years, by scenario. Select a row to see that scenario in detail below.</p>
           </div>
+
+          {input && (
+            <div style={{ marginTop: '1.25rem' }}>
+              <button type="button" onClick={() => setCompareStates((v) => !v)} aria-expanded={compareStates}>
+                {compareStates ? 'Hide the comparison of starting statuses' : 'Compare from current, 30 and 60 days past due'}
+              </button>
+              {compareStates && <StartStateComparison input={input} scenario={scenario} history={input.delinquency} />}
+            </div>
+          )}
 
           {input && <RegionPanel input={input} scenario={scenario} />}
 

@@ -28,10 +28,15 @@ count is given.
 | ... on 4 threads | 53 ms |
 | ... with the tail attributed to loans (the replay pass), 1 thread / 4 threads | 212 ms / 68 ms |
 
+These figures are from early October, with the survival model of that date (596 boosting rounds). The
+model was re-exported on 2026-10-13 (1,392 rounds) and the term-structure rows are 1.65 times larger since,
+measured back to back on one machine; [PERFORMANCE.md](../../PERFORMANCE.md) section 1a has both models under
+the same conditions.
+
 What the numbers say:
 
 - **A projection costs about 73 microseconds per model row**, almost all of it inside ONNX Runtime
-  (the survival model is 596 boosting rounds of three trees). Five scenarios in one call cost five times
+  (the survival model was 596 boosting rounds of three trees at the time, 1,392 now). Five scenarios in one call cost five times
   one scenario: batching removes call overhead, not tree evaluation. That cost is why a portfolio run is
   a background job with progress, and why portfolios above 5,000 loans are sampled.
 - **The explanation is 220 times the cost of the score it explains**, and still under 7 ms, because

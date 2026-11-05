@@ -49,7 +49,7 @@ class PortfolioRunSupervisor {
     @Scheduled(fixedDelayString = "${risk.runs.poll-ms:2000}")
     void poll() {
         try {
-            service.claimQueued(catalog::all, inWindow(offPeakHours, LocalTime.now(clock.withZone(ZoneOffset.UTC)).getHour()));
+            service.claimQueued(catalog::allWithStatus, inWindow(offPeakHours, LocalTime.now(clock.withZone(ZoneOffset.UTC)).getHour()));
         } catch (Exception e) {
             log.warn("Could not look for waiting portfolio runs; will look again: {}", e.toString());
         }

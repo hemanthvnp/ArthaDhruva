@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { listModels, modelCard, pdDrift, survivalBacktest, survivalDrift } from '../api/client';
 import ErrorBanner from '../components/ErrorBanner';
+import RealizedOutcomes from '../components/RealizedOutcomes';
 import { AXIS, GRID, LEGEND, TOOLTIP, yearOf, yearTicks } from '../components/chartTheme';
 import { count, dateTime, monthLabel, pct } from '../format';
 import { featureLabel } from '../labels';
@@ -19,6 +20,17 @@ const HEADLINE: Record<string, string> = {
   ageOnlyBaselineLogLoss: 'Log loss of an age-only table',
   loanMonths: 'Loan-months fitted',
   defaultAssetCorrelation: 'Default asset correlation',
+  learnedThrough: 'Learned through',
+  testedOn: 'Tested on',
+  linkedMinusUnlinked: 'Linked minus other pairs',
+  pAgainstRandomGraphs: 'p against random graphs',
+  linkedMinusSameDivision: 'Linked minus same division',
+  pAgainstSameDivision: 'p against same division',
+  robustAgainstRandomGraphs: 'Robust against random graphs',
+  robustAgainstSameDivision: 'Robust against same division',
+  leadsShipped: 'Lead links shipped',
+  links: 'Links',
+  regions: 'Regions',
 };
 
 const DRIFT_BADGE: Record<FeatureDrift['status'], string> = { STABLE: 'badge-low', MODERATE: 'badge-medium', SIGNIFICANT: 'badge-high', NO_DATA: '' };
@@ -41,8 +53,9 @@ const ENVELOPE: Record<string, (lo: number, hi: number) => string> = {
   mtm_ltv: (lo, hi) => `${lo.toFixed(1)}% to ${hi.toFixed(1)}%`,
 };
 
-function figure(value: number | string): string {
+function figure(value: number | string | boolean): string {
   if (typeof value === 'string') return value;
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   return value >= 1000 ? count(value) : String(Number(value.toPrecision(4)));
 }
 
@@ -579,6 +592,7 @@ export default function ModelGovernancePage() {
       {selected === 'survival' && <MacroDrift />}
       {selected === 'pd_24m' && card.data && <PdEvidence card={card.data as PdCard} />}
       {selected === 'pd_24m' && <Drift />}
+      {selected === 'pd_24m' && <RealizedOutcomes />}
     </div>
   );
 }

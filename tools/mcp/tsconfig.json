@@ -1,4 +1,26 @@
 {
   "files": [],
-  "references": [{ "path": "kit" }, { "path": "ci-guard" }, { "path": "risk-engine" }]
+  "references": [
+    {
+      "path": "kit"
+    },
+    {
+      "path": "ci-guard"
+    },
+    {
+      "path": "risk-engine"
+    },
+    {
+      "path": "tenant-ops"
+    },
+    {
+      "path": "deploy-ops"
+    },
+    {
+      "path": "model-validation"
+    },
+    {
+      "path": "agent"
+    }
+  ]
 }

@@ -1,0 +1,153 @@
+{
+  "model": "lgd_beta_regression",
+  "version": "2026.11.03",
+  "validated_at": "2026-11-03T22:29:19+00:00",
+  "artifact": "lgd_model.json",
+  "artifact_sha256": "aa3c7e4791006e0691f790b9681bc5e96ed98366a4e1a8c2b19d5ecd425a66f3",
+  "algorithm": "Beta regression, logit link; the mean equation is exported",
+  "features_in_order": [
+    "credit_score",
+    "original_dti",
+    "original_upb",
+    "original_cltv",
+    "original_interest_rate"
+  ],
+  "target": "realized loss over the balance removed at liquidation, clipped to [0, 1.5] (the Beta fit bounds it to [0.0001, 0.9999])",
+  "population": "Freddie Mac defaults with a recorded loss and a positive removal balance, vintages 2020 to 2024",
+  "training": {
+    "loans": 2746,
+    "vintages": [
+      2020,
+      2024
+    ],
+    "by_vintage": {
+      "2020": {
+        "loans": 808,
+        "mean_actual": 0.011208041257096145,
+        "mean_predicted_by_shipped_model": 0.008655902560843646
+      },
+      "2021": {
+        "loans": 1031,
+        "mean_actual": 0.006862794011149878,
+        "mean_predicted_by_shipped_model": 0.00860184950818041
+      },
+      "2022": {
+        "loans": 719,
+        "mean_actual": 0.005092789940147921,
+        "mean_predicted_by_shipped_model": 0.008645198682395234
+      },
+      "2023": {
+        "loans": 173,
+        "mean_actual": 0.006418931340222764,
+        "mean_predicted_by_shipped_model": 0.008773342184643297
+      },
+      "2024": {
+        "loans": 15,
+        "mean_actual": 0.0,
+        "mean_predicted_by_shipped_model": 0.008944271766242812
+      }
+    }
+  },
+  "validation": {
+    "protocol": "refit the same specification on vintages up to 2021 and judge it on 2022 to 2024; out of time by origination vintage, the only time axis in the data (no liquidation date is recorded)",
+    "out_of_time": {
+      "loans": 907,
+      "mean_actual": 0.005261511674558868,
+      "mean_predicted": 0.01002526505538216,
+      "balance_weighted_actual": 0.0052556343634984175,
+      "balance_weighted_predicted": 0.010040389318154756,
+      "mae": 0.013407609007920837,
+      "rmse": 0.028136277208364466,
+      "benchmark_mae": 0.012342170597566844,
+      "benchmark_rmse": 0.027945385783466968,
+      "spearman": 0.10256154761555109,
+      "share_with_no_loss": 0.8732083792723263,
+      "by_predicted_quintile": [
+        {
+          "quintile": 1,
+          "loans": 182,
+          "predicted": 0.009402621003721806,
+          "actual": 0.0056410462692409805
+        },
+        {
+          "quintile": 2,
+          "loans": 182,
+          "predicted": 0.009867458175293487,
+          "actual": 0.005794264518888075
+        },
+        {
+          "quintile": 3,
+          "loans": 181,
+          "predicted": 0.010082704018519972,
+          "actual": 0.003990508536744859
+        },
+        {
+          "quintile": 4,
+          "loans": 181,
+          "predicted": 0.010276392773586954,
+          "actual": 0.006981724933823118
+        },
+        {
+          "quintile": 5,
+          "loans": 181,
+          "predicted": 0.010501461189389397,
+          "actual": 0.0038949738520033207
+        }
+      ]
+    },
+    "shipped_model_all_vintages": {
+      "loans": 2746,
+      "mean_actual": 0.007612465058286273,
+      "mean_predicted": 0.008641779402467142,
+      "balance_weighted_actual": 0.006774634126180538,
+      "balance_weighted_predicted": 0.008705132865263858,
+      "mae": 0.014731786487605519,
+      "rmse": 0.04096244397129439,
+      "benchmark_mae": 0.01387347647965924,
+      "benchmark_rmse": 0.04096325859518288,
+      "spearman": 0.1383665783779063,
+      "share_with_no_loss": 0.8874726875455208,
+      "by_predicted_quintile": [
+        {
+          "quintile": 1,
+          "loans": 550,
+          "predicted": 0.008116376873063474,
+          "actual": 0.004558926254659064
+        },
+        {
+          "quintile": 2,
+          "loans": 549,
+          "predicted": 0.008490375737355173,
+          "actual": 0.0068919700138986685
+        },
+        {
+          "quintile": 3,
+          "loans": 549,
+          "predicted": 0.008669376995289734,
+          "actual": 0.005791198080982875
+        },
+        {
+          "quintile": 4,
+          "loans": 549,
+          "predicted": 0.008896414803107672,
+          "actual": 0.014046899734784523
+        },
+        {
+          "quintile": 5,
+          "loans": 549,
+          "predicted": 0.009037309620877405,
+          "actual": 0.006778893208570034
+        }
+      ]
+    },
+    "benchmark": "the mean LGD of the fitting vintages, applied to every loan"
+  },
+  "use": "the fitted LGD is the floor of the engine's collateral-based LGD (survival.TermStructureEngine): LGD = min(1, max(fitted, collateral shortfall)), so it only matters where the shortfall is small",
+  "limitations": [
+    "Only 2,746 liquidations from 2020 to 2024 vintages, and 89% of them lost nothing: the fitted LGD is near zero for almost every loan (mean 0.76%). That is what defaults looked like while house prices rose, not a constant of nature.",
+    "No housing downturn is in the data: the model says nothing about severity when prices fall, which is why the engine floors it with the collateral shortfall under the scenario's house-price path.",
+    "The five features include the raw note rate, which moves with the rate cycle rather than with borrower risk; the survival model uses the spread to the market rate for this reason and this model does not.",
+    "The realized loss is clipped to [0, 1.5] and the Beta likelihood needs it inside (0, 1); a loss above the balance is treated as a total loss.",
+    "Exposure at default is the original balance, a stated simplification: the dataset has the balance at liquidation only for loans that already defaulted."
+  ]
+}

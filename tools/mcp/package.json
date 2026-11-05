@@ -6,7 +6,11 @@
   "workspaces": [
     "kit",
     "ci-guard",
-    "risk-engine"
+    "risk-engine",
+    "tenant-ops",
+    "deploy-ops",
+    "model-validation",
+    "agent"
   ],
   "engines": {
     "node": ">=22"

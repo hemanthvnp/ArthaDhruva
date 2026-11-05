@@ -11,16 +11,29 @@ Governance page.
 | Model | Used for | Tier | Validated |
 |---|---|---|---|
 | Competing-risks survival (`survival_model.onnx`) | Monthly default and prepayment hazards behind PD term structures, lifetime ECL and stress scenarios | 1 | Yes |
+| Delinquency transitions (`delinquency_model.onnx`) | Month-to-month moves between current, 30 and 60 days past due, default and prepaid; projections of loans whose status and history are known, with ranges | 1 | Yes |
 | Origination PD (`model.onnx`) | Default within 24 months of origination; explanations and reason codes | 1 | Yes |
-| Loss given default (`lgd_model.json`) | Fitted LGD, the floor of the collateral-based LGD | 1 | No |
-| Macro regime (`hmm_regime.json`) | Calm / stressed regime and its transition matrix | 1 | No |
+| Loss given default (a constant, 0.76%) | The floor of the collateral-based LGD | 1 | No: a constant, not a model. The fitted model it replaced was retired (see below) |
+| Macro regime (`hmm_regime.json`) | Calm / stressed regime and its transition matrix | 1 | Yes, and it is not stable out of time (see below) |
 | Portfolio loss distribution | Value at risk, expected shortfall, tail contributions | 1 | No (analytical; see below) |
-| Early warning, delinquency trajectory | Analyst decision support | 2 | No |
+| Early warning (`early_warning_model.onnx`) | Flags performing loans drifting toward delinquency; analyst decision support | 2 | Yes |
+| Segment graph (`segment_graph.json`) | Which states' macro drivers move together; the Segment Graph page and its neighbour queries | 2 | Yes |
 
-"Validated" means the model ships a card with out-of-time validation. The others are listed with their
+"Validated" means the model ships a card with an out-of-time validation and the card's checksum matches the artifact. It
+does not mean the model passed: a validated model's findings are in its gaps, and some of them are not flattering. The models that are not validated are listed with their
 checksum and a plain statement of what is missing, because an inventory that lists only the
 well-documented models is not an inventory. At start-up the service hashes each artifact and refuses to
 run one that does not match the checksum its card declares.
+
+### Retired: results only
+
+Only models that hold up out of time are served. Two that did not were taken out of production on 2026-11-04; their cards, scripts and
+results are kept in `backend/experiments/retired/` and below, and the service neither loads nor serves them.
+
+| Model | Why it was retired | What replaced it |
+|---|---|---|
+| Loss given default, a Beta regression on five origination features | Out of time (fit on 2020-2021, judged on 2022-2024) no better than a constant: it over-predicted 1.9 times, mean absolute error 0.0134 against 0.0123 for the mean, rank correlation 0.10 (table under *Loss given default*) | A constant, 0.76%, the mean realized loss over the 2,746 defaulted loans: the floor under the collateral-based LGD |
+| Delinquency trajectory, an LSTM over a loan's monthly payment history | The weakest ranking of the served models (out-of-time ROC-AUC 0.676, PR-AUC 0.192) on a label that is right-censored, so later vintages look safer than they are; it was never validated by the registry's own standard, and the early-warning model answers the same question with a better ranking (0.71) | Nothing: the Trajectory page, the loan-detail trajectory score and `POST /v1/trajectory-score`, `GET /v1/trajectory-loans` are removed |
 
 ## Data
 
@@ -234,15 +247,241 @@ excluded, so its base row differs from the results above.)
   for nine), and 99.5% of the training months lie within 107 months of origination; beyond that the
   dependence on loan age is held at its last fitted level.
 - The model is about twice the size of the previous one (1,392 boosting rounds against 596, ONNX 34.8 MB
-  against 16.4 MB) and a projection costs about twice as much; see PERFORMANCE.md.
+  against 16.4 MB) and a projection costs about 1.65 times as much, measured back to back on one
+  machine; see PERFORMANCE.md.
 - One stress episode (2020-06 to 2022-06) defines the stressed regime, and the regime chain is estimated
   from 99 months. An expected stress spell of 25 months and a long-run stressed share of 26% are
   uncertain, and the baseline lifetime PD inherits that uncertainty.
-- The model conditions on origination attributes and macro drivers, not on current delinquency status,
-  so it understates the risk of a loan that is already past due.
+- The model conditions on origination attributes and macro drivers, not on current delinquency status, so it
+  understates the risk of a loan that is already past due. For a loan whose status (`daysPastDue`) and recent history
+  are supplied, the delinquency model below projects it instead; a status without a history still runs this model and
+  the response says why (`fallbackReason`). The caveat stands for those.
 - The property's state is a feature. Geography can stand in for protected characteristics; a lender
   using these figures in credit decisions must test for disparate impact on its own portfolio.
 - Trained on agency-conforming fixed-rate mortgages; not validated for other products.
+
+## Delinquency transition model
+
+The survival model above gives every loan the same projection whether or not it is already late, and every lifetime
+figure is a point estimate. This model is the move between delinquency states: from current, 30 or 60 days past due,
+the probability of each next state (current, 30, 60, default, prepaid), conditioned on the source state, the loan's
+history up to the previous month, its origination attributes, loan age, the macro regime, the rate incentive and the state
+macro drivers. `survival.MultiStateEngine` projects it exactly over the regime chain (the same recursion, carrying the
+joint probability of a regime and a state, no sampling), reusing the existing engine's scenario path, exposure, loss given
+default and discounting; with delinquent transitions switched off it equals the existing engine to 1e-9
+(`MultiStateEquivalenceTest`). It is its own artifact, card and checksum; the survival model is untouched.
+
+Default is the survival model's definition (first month 90+ days past due, REO, or an adverse zero-balance termination);
+default and prepayment are absorbing, and a loan that cures after reaching 90 days does not re-enter, as in the survival
+data. Features: the survival model's 23, then the source state and three history features computed from months strictly
+before the one predicted (spells of 30+ days that began in the last 12 months, months since the latest cure, the worst
+state in the window; a test alters every later record and asserts the features do not move). One LightGBM multiclass model
+with the source state as a feature, 799 rounds.
+
+### Protocol and results
+
+The same sample as the survival model (40,000 loans per origination quarter, 2017 to 2026): 874,134 loans and 3,857,204
+loan-months fitted, with stay-current months subsampled at 10% and weighted 10. Validation fit on loan-buckets 3 to 9 before
+2023-01; evaluation on loan-buckets 0 and 1, which are in no fit, from 2023-01 (527,886 loan-months: 488,144 from current,
+33,035 from 30 days past due, 6,707 from 60). Log loss on the survival model's three classes (continue, default, prepay),
+on the same loan-months, for the survival model refit by its own protocol and for a roll-rate table (state by loan-age
+bucket, no loan or macro conditioning):
+
+| Loan-months starting | Delinquency model | Survival model | Roll-rate table |
+|---|---|---|---|
+| All | 0.0334 | 0.0362 | 0.0854 |
+| Current | 0.0315 | 0.0318 | 0.0841 |
+| 30 days past due | 0.0756 | 0.0730 | 0.1254 |
+| 60 days past due | 1.085 | 2.753 | 0.802 |
+| **Delinquent (30 and 60)** | **0.246** | **0.525** | **0.240** |
+
+The model beats the survival model, which cannot know a loan is late, and is level with a plain roll-rate table on
+delinquent loan-months: better from 30 days, worse from 60, where the table wins and the model is the weakest. The
+production fit (every month of buckets 3 to 9) scores 0.262 on delinquent loan-months for the same loans.
+
+The projection is judged on 12-month default and cure rates by starting state, from 82,161 starts with fully observed
+paths (60,000 from current; all 18,547 and 3,614 from 30 and 60 days), predicted with the realized macro and regime path:
+
+| Start | Rate | Predicted | Realized | Ratio | Events |
+|---|---|---|---|---|---|
+| Current | default | 0.36% | 0.52% | 0.70 | 737 |
+| 30 days | default | 15.7% | 21.2% | 0.74 | 3,933 |
+| 30 days | cure | 87.0% | 78.4% | 1.11 | 14,548 |
+| 60 days | default | 61.4% | 64.9% | 0.95 | 2,346 |
+| 60 days | cure | 40.6% | 34.8% | 1.17 | 1,258 |
+
+The survival model predicts 1.2% and 1.5% default from 30 and 60 days; the roll-rate table 29.9% and 72.7% from 30 and
+60 days and 5.8% from current (eleven times what happened). Out of time the model under-predicts default from current and
+from 30 days by about a quarter to a third: 2023 to 2025 conversion of delinquency into default was higher than the 2017
+to 2022 behaviour it learned, which includes pandemic forbearance. The production fit, which saw 2023 and 2024 for the
+fitted loans, is closer (0.85, 0.81, 0.97 default; 1.09, 1.10 cure), and is what is judged against the gates below.
+
+**Gates**, frozen from a pilot fit before the production fit (`design.md` D7 in the change): log loss on delinquent
+loan-months below the survival model's; predicted over realized 12-month default within 1 +/- 0.40 and cure within
+1 +/- 0.15 for every starting state with at least 200 events; lifetime PD non-decreasing in the starting state on a grid of
+five loans, two scenarios and two histories. The export refuses to write the artifact if any fails and names it. All three
+hold for the shipped artifact. The tolerances are the pilot's worst deviation rounded up, not what the final fit happened
+to achieve.
+
+### How a projection uses it
+
+Four rules, each in the reference (`golden_multistate.py`, `delinquency_history.py`), the evaluation and the Java engine:
+
+- **History is aged with the projection**, not held and not followed. The history features depend on the path, which would
+  make the exact recursion over states impossible. On a path with no new spell the history is exactly clean once the
+  12-month window has passed, so a cure that is `n` months old is clean `12 - n` months on; a spell with no cure in the
+  window is taken to end at the start (the most recent a cure can be). A spell that begins during the projection is
+  represented only by rule 2. Holding the history fixed, the first rule tried, made a loan with a cure three months ago
+  look like a permanent recent offender for the whole 360 months (lifetime PD 9.7% against 1.0% for a clean history).
+- **A delinquent row carries its own spell:** at least one spell and a worst state at least the source, as every training
+  row from a late state does.
+- **A floor of 0.1%** on every probability from a delinquent state. Boosted trees grow pure leaves for near-deterministic
+  cells, and a loan that does the unexpected was given a probability near 1e-200 (the first pilot's log loss on delinquent
+  loan-months was 1.14, worse than the survival model, for that reason). 0.1% is below the sparsest observed cell from a
+  delinquent state (30 days to default, 0.15%). It is not applied from current, whose real transitions are rarer.
+- **Stochastic ordering by starting state.** Each month's three source rows are made stochastically ordered (with the classes
+  ordered prepaid < current < 30 < 60 < default, each upper-tail probability is replaced by its running maximum over source
+  states). Valid probabilities result, unchanged where the order holds, and lifetime default then cannot fall as the
+  starting state worsens (a chain whose steps are all stochastically ordered keeps the order of its starting states, on each
+  regime path and so for the expectation the engine takes). The raw output broke the order for a few grid loans (a loan 30
+  days late judged safer than a current one with a recent history), so this guarantee is by construction and not a property
+  the model learned. **It changes most of the months it is applied to:** on the 12-month evaluation grid 98% of the
+  (start, month) triples moved by more than 1e-12 and the largest moved probability averaged 1.5 percentage points
+  (4.4 for the production fit, at most 99), mostly prepaid against current for a late loan, and in rows for brand-new loans
+  at age 1 that are 60 days late, which are out of the model's range (the raw cure probability there is 98%). The 12-month
+  rates above are with the repair applied; the one-step log losses are on single rows and are not repaired.
+
+### Intervals
+
+A range is the spread the figures take when the regime chain is not known exactly, widened by how far past predictions have
+been from realized incidence. The chain (calm, stressed) is estimated from 99 months containing one stress episode: 73
+months from calm with one move to stressed, 25 from stressed with one move back. Each draw replaces its two rows with a
+Dirichlet sample whose pseudo-counts are `n_i P[i][j]` (centred on the chain of record), and is projected exactly by the same
+recursion, so a draw is an exact expectation. The 5th to 95th percentile of the draws is widened by `exp(-sigma)` below and
+`exp(+sigma)` above, where `sigma` is the standard deviation of log(realized / predicted cumulative incidence) across the
+survival model's vintage backtests that reach the horizon (0.083 at 12 months over 10 vintages; 0.088, 0.054 and 0.037 at 24,
+36 and 48 months over 9, 8 and 7). Draws are seeded from the request, so the same request gives bit-identical bounds on any
+thread count or replica. The interval is labelled "regime uncertainty plus historical calibration error": it is not a
+confidence interval, the hazard model's own parameters are not resampled, and the band alone contained the realized incidence
+for 6 of 10, 7 of 9, 6 of 8 and 3 of 7 vintages when each was left out (leave-one-out, small samples that share one macro
+cycle). It is bounded by a configured draw cap and time budget; past either the response is the point estimate with the
+reason.
+
+### Limitations
+
+- Loan-months starting 60 days past due are 1.46% of the fitted rows (and far less of loan-months once the subsampled
+  stay-current rows are weighted back; 6,707 in the evaluation), so transitions from that state are noisier than the others,
+  and a rate with fewer than 200 events is reported but not judged.
+- Cure behaviour reflects 2017 to 2026, including forbearance, and out of time the model under-predicts default from current
+  and 30 days by about a quarter to a third.
+- The data contains no housing downturn: unlike the survival model this one is not fitted on the 2006 to 2008 vintages
+  (their history features were scoped out), so its response to falling prices rests on 2017 to 2026 alone.
+- History ageing and the stochastic ordering are approximations to the exact path-dependent model, described above; a spell
+  that begins during a projection is not followed.
+- No drift overlay: the held-out ratios of realized to predicted default and prepayment from current (1.01 and 0.98) are in the
+  card and not applied.
+- The ONNX graph differs from the float64 booster by up to 1.8e-4 relative on 3 of 50,000 sampled loan-months (all from 60
+  days past due); the shared export check allows 1e-4, and this export allows 3e-4, recorded in the card. The graph is the
+  model of record in the service and the fixtures.
+- In a portfolio run the model projects only the loans that carry both days past due and a payment history. They are stored
+  with the loan (`statuses`, keyed by loan id, in `POST /v1/admin/portfolio` and `POST /v1/ingest/loans`; an impossible one
+  refuses that loan with the reason, and a loan uploaded again without one loses the old: it described the loan as it was). Every
+  other loan, and the whole demo catalog, runs on the survival model exactly as before: a portfolio with no statuses gives the
+  same figures to the byte as the engine did before they existed. The stored result says how many loans ran on each model
+  (`modelLoans`) and why the rest did not (`fallbackReasons`), and the Portfolio risk page shows it when the run was mixed. A
+  status the router would refuse that reaches a run some other way is not dropped: the loan runs on the survival model and is
+  counted under that reason. The three-way region analysis (rough set) and the ranges around lifetime figures are not
+  available for these loans: regions are judged on the survival model for every loan, whatever its status, and ranges are
+  single-loan only. A loan with a status costs about three times a loan without (see `PERFORMANCE.md`).
+- `POST /v1/expected-loss/from-status` gives a loan's expected loss from where it stands, by the same routing as the
+  term-structure endpoint (the figures agree with it to 1e-12) and says which model ran. `POST /v1/expected-loss` takes the
+  bare loan as before and its response is unchanged.
+- Agency-conforming fixed-rate mortgages only. The property's state is a feature, and geography can stand in for protected
+  characteristics: a lender using these figures in credit decisions must test for disparate impact on its own portfolio.
+
+Rebuild (owner-run, about an hour with the data on disk): `build_delinquency_dataset.py` then `export_delinquency_model.py`
+(`--pilot` runs the protocol and the benchmarks only), then `golden_multistate.py`; `DelinquencyGoldenTest` holds the engine
+to the reference to 1e-6.
+
+## The loss, regime and early-warning models: validation
+
+These had no card and no out-of-time result. The regime and early-warning models now have one (`hmm_regime_card.json`,
+`early_warning_card.json`) whose checksum of the artifact the service verifies at start-up, and a script that produced it
+(`validate_regime_model.py`, `validate_early_warning_model.py`, owner-run). The loss-given-default model was validated the same way, found
+no better than a constant, and retired; its results are kept below and its card and scripts in `backend/experiments/retired/lgd`. None of the scripts
+rewrites an artifact: each reads the shipped one as the model of record and refits its specification on earlier data to judge
+it on later data. The results below are what the validation found, not what the models were hoped to be.
+
+### Loss given default (retired: the service uses a constant)
+
+A Beta regression (logit link) of realized loss over the balance removed, on credit score, DTI, original balance, CLTV and
+note rate, fitted on the 2,746 defaulted loans with a recorded loss (vintages 2020 to 2024). The dataset has no liquidation
+date, so out of time here is by origination vintage: refit on 2020 and 2021 (1,839 loans), judged on 2022 to 2024 (907).
+
+| Out of time (907 loans) | Model | Constant (fitting vintages' mean) |
+|---|---|---|
+| Mean LGD predicted / realized | 1.00% / 0.53% | 0.88% / 0.53% |
+| Mean absolute error | 0.0134 | 0.0123 |
+| Root mean square error | 0.0281 | 0.0279 |
+| Rank correlation, predicted with realized | 0.10 | |
+
+It over-predicts by 1.9 times, ranks loans barely better than chance, and is no better than a constant on error. That is a
+fair description of the data: about 88% of these defaulted loans lost nothing, because house prices were rising, so there is
+little for a model to learn. The fitted LGD is only the floor of the engine's LGD (`LGD = min(1, max(fitted, collateral shortfall))`),
+which is why the model can be this weak without moving a lifetime figure much, and why a scenario with falling prices is
+driven by the shortfall and not by this model.
+
+**What the service does now.** It no longer loads this model. The fitted LGD under the collateral shortfall is one number for every
+loan, 0.76%, the mean realized loss over all 2,746 defaulted loans (`LgdPredictor.HISTORICAL_MEAN_LGD`, held to the same figure in
+`golden_term_structure.py`). A constant does as well as the regression did out of time, has no coefficients that can drift or be
+misread, and costs nothing to load; the regression predicted 0.87% on average, so an expected loss that the floor decided moves by
+about a seventh. Lifetime and portfolio ECL under falling prices are unchanged in kind, since the shortfall decides them. The
+registry lists `lgd` as a constant with this finding as its gap; the old card (checksum included) and scripts are in
+`backend/experiments/retired/lgd`, and the figures in the table above are from them. The limits (no downturn, the raw note rate, a total-loss clip, the
+original balance as exposure) are in the card.
+
+### Macro regime
+
+A two-state Gaussian hidden Markov model on the monthly share of loans 90+ days past due and the average note rate, 99 months
+(2017-07 to 2025-09). Its transition matrix is the survival model's regime chain, and the survival model reads its stressed
+periods from the labels it decodes (one: 2020-06 to 2022-06). A refit with the shipped settings reproduces the shipped matrix
+exactly. Refit on shortened histories and judged on the months after the cut:
+
+| Fitted through | Fitting months | Later months | Stress spell / long-run stressed share | Later months labelled stressed (full fit) | Log-likelihood per later month against one regime |
+|---|---|---|---|---|---|
+| 2020-12 | 42 | 57 | 11.6 months / 28% | 57 (18) | +4.4 |
+| 2022-12 | 66 | 33 | stressed is absorbing / 100% | 17 (0) | -11.3 |
+| Full (shipped) | 99 | | 25 months / 26% | | |
+
+**The chain is not stable out of time.** Fitted through 2022-12, with the whole stress episode in the fitting months, the
+stressed state becomes absorbing (stress-to-calm probability 5e-36), the model labels 17 of the 33 later calm months
+stressed, and it explains them far worse than a single regime does. Fitted through 2020-12 it labels every later month
+stressed. The shipped chain rests on one entry into stress and one exit (one transition each way in 99 months), and a refit
+with a few months more or less could land on a different chain. Two consequences: the survival model's baseline lifetime PD
+inherits that, which is one reason the delinquency model's ranges draw the chain from a Dirichlet posterior, and the regime
+should be refit and re-examined whenever months are added. There is no ground truth for a regime; agreement between fits
+measures stability, not accuracy.
+
+### Early warning
+
+LightGBM (300 trees) on loan-months, answering: for a performing loan (0 days past due, never late before), the chance of
+30+ days past due within three months. Trained on a 10:1 downsampled target and calibrated to real rates by an isotonic map
+fitted on a separate holdout of four origination quarters. Refit on loans' rows before 2023-01 and judged on the months from
+2023-01 (for loans it never saw):
+
+| Out of time | Refit (the same specification) | Shipped artifact (not out of time) |
+|---|---|---|
+| ROC-AUC, downsampled rows (608,153) | 0.70 | |
+| ROC-AUC, natural-rate holdout from 2023-01 (1,004,752 rows, base rate 0.93%) | 0.71 | 0.75 |
+| PR-AUC | 0.025 | 0.037 |
+| Predicted over actual, raw / calibrated | 11.0 / 1.39 | 8.1 / 0.96 |
+| Top decile, predicted / actual (calibrated) | 5.3% / 2.6% | 3.2% / 3.3% |
+
+Out of time the ranking holds (AUC 0.71) but the calibrated rates are too high by 39%, worst in the top decile (5.3% against
+2.6%). The map was fitted on the earlier months, and the model and map learned a period (2020 to 2022, with pandemic
+forbearance) when first delinquencies were more common; that explanation was not tested separately. The shipped artifact scores better (AUC 0.75, 0.96) on the same holdout, but its fitting rows run to 2025 and
+its calibration was fitted on half of this holdout, so that is out of sample and not out of time. The target counts the first
+30+ day delinquency, much of which in 2020 and 2021 was forbearance and not distress.
 
 ## Origination PD model
 
@@ -292,6 +531,32 @@ writes no loan-weighted macro reference, so the distribution check describes the
 contained rather than how many loans lived through each. A projection from a state outside the envelope
 is still made, and its response already lists the drivers it extrapolates.
 
+### Stored scores against what happened
+
+The model's validation above is on historical data; this is the same question asked of an organization's own loans, which
+the exports cannot answer. There is no servicing feed in this deployment, so the outcome source is the organization's own: an
+administrator records, per loan, that it `DEFAULTED`, `PREPAID` or is `ACTIVE` (last seen performing) and the date
+(`POST /v1/admin/outcomes`, up to 5,000 a call, replacing an earlier record of the same loan). A comparison then sets each
+loan's stored score against its outcome:
+
+- a default after the score and within 24 months is a default; a default after that, a prepayment, or being seen performing
+  through the 24 months is not (the label rules the model was trained with: a loan that left the book without defaulting is not a
+  default);
+- a default or prepayment on or before the day the loan was scored, or being last seen performing before the horizon has ended,
+  cannot resolve the score. These are counted in the report and not guessed.
+
+The report gives the resolved and default counts, mean predicted against the realized rate and their ratio, the AUC of the
+stored scores, and a table by decile of predicted risk (deciles and AUC only where there are at least 100 resolved loans and 5
+of each class; below that the report says so). `loan_score` keeps only a loan's latest score, so this is each loan's most
+recent score against what followed it, not a record of every score issued.
+
+It is deferred work: a daily job (once across all replicas, `governance.realized.cron`) inserts a QUEUED row for each
+organization that has outcomes and no report this month and hands it to the compute pool, so the scheduler thread only
+inserts; a request for one now (`POST /v1/admin/models/pd_24m/realized`, 202) does the same. One report is in flight per
+organization (a unique index), a report whose worker died is closed as stale after 30 minutes, and each report records the
+thread that computed it. The result is on the governance page under the Origination PD model
+(`GET /v1/models/pd_24m/realized`).
+
 ## From hazards to expected credit loss
 
 `survival.TermStructureEngine` projects one loan month by month under a scenario.
@@ -309,8 +574,8 @@ a_k(r)    = b_k(r) (1 - h_d(k, r) - h_p(k, r))
 
 That is the exact expectation over all 2^T regime paths in O(T), with no simulation noise.
 
-**Loss.** Exposure is the scheduled balance at the start of each month. Loss given default is the fitted
-LGD, floored each month by the shortfall a forced sale would leave:
+**Loss.** Exposure is the scheduled balance at the start of each month. Loss given default is the historical mean
+LGD (a constant, see above), floored each month by the shortfall a forced sale would leave:
 `1 - (1 - haircut) x 100 / LTV - mortgage insurance`, with LTV re-marked along the scenario's house-price
 path and a 15% liquidation haircut. A price shock therefore raises severity as well as frequency. Losses
 are discounted at the note rate.
@@ -424,8 +689,12 @@ lifetime PD spreads about ±7% around its unperturbed value and the 12-month PD 
 SEVERELY_ADVERSE -12% to +24% and -14% to +35% (seed 11; other seeds move an end by up to ten points). Under
 the previous survival model the same loan gave ±7% and ±25%, then ±22% and ±43%: the 12-month figure is now
 steadier and the severe lifetime figure is skewed upward. The table in
-`openspec/changes/rough-set-boundary-regions/design.md` and the charts in the notebook were produced with the
-previous model.
+`openspec/changes/archive/2026-10-15-rough-set-boundary-regions/design.md` and the charts in the notebook were
+re-run on this model on 2026-11-03; the table's 12-month rows for the prime loan under SEVERELY_ADVERSE are
+about half what the previous model gave.
+The notebook was run again on 2026-11-04, after the loss given default became a constant: the expected-loss dollars in its tables
+moved (the prime loan's unperturbed severe figure from $997 to $990, the 400-loan high-risk loss range from $187,620 to
+$407,416 down to $169,550 to $386,880) and no probability, region or count did.
 
 **What it does not do.**
 - It is not a probability and carries no coverage guarantee: "boundary" means the answer depends on the details
@@ -440,6 +709,89 @@ previous model.
   because of it. Loan age beyond the 96-month training window and amortisation taking mark-to-market LTV below its
   floor occur for every long-dated loan in every scenario, the baseline included, so they do not set the flag.
 - It adds nothing to the model's validation: it relies on the survival model and inherits its limitations.
+
+## Segment graph
+
+Which states' mortgage risk drivers move together, learned instead of cut from a correlation table
+(`openspec/changes/archive/2026-10-19-segment-graph-models`; card: `segment_graph_card.json`). It replaced
+one Pearson table over 15 states cut at r >= 0.95, which mostly drew the national cycle: one factor explains
+89.5% of its series, and its edges are not stable between the two halves of the sample
+(`backend/experiments/segment_baseline.py` reproduces all 18 baseline figures). The service checks the file
+against its card at start-up, replaces whatever graph Neo4j holds with it, and the Segment Graph page draws it
+with the validation figures below (`openspec/changes/archive/2026-10-19-serve-learned-segment-graph`).
+
+### Method
+
+- **Learned from macro data, validated on delinquency.** State unemployment (monthly) and house prices
+  (quarterly), 1995-02 to 2026-08, each state's change regressed on the mean of the other 50 places
+  (`build_macro_panel.py`). That takes the first principal component from 88% to 32% (unemployment) and from 72%
+  to 26% (house prices).
+- **Two kinds of link.** "Moves with": graphical lasso, partial correlations. "Leads": lasso on six monthly or
+  two quarterly lags of every state.
+- **Stability selection.** 200 half-size subsamples of 12-month blocks in complementary pairs; a link is kept if
+  selected in 80% of them. The penalty bounds the expected number of false links at one per kind of link and
+  source; a cross-validated penalty kept a spurious link on a synthetic chain in 94% of resamples.
+  Residuals are winsorised at four standard deviations (April 2020 reaches 16, Katrina 14).
+- **The delinquency series.** For each state and month, observed loans 90+ days past due against the number
+  expected if each loan-age x credit-score x LTV cell were delinquent at the national rate without that state
+  (`build_state_panel.py`, the full panel: 2,264 slices). Only the 2017 and later vintages exist, so the
+  series is usable from 2019-01 (40 of 51 states with 90% of months) to 2025-09.
+
+### Results
+
+The shipped graph has 7 moves-with links (CT-NJ, IN-KY, IN-OH, MA-NH, MD-VA, NC-TN, OR-WA), one region (Indiana,
+Kentucky, Ohio; stability 0.85) and no leads. Validation learns a graph on data through 2016-12 and tests it on
+3-month changes in the delinquency ratio from 2019-01:
+
+| | All months | Without forbearance | Without disaster-flagged | Both |
+|---|---|---|---|---|
+| Linked minus unlinked correlation | 0.32 | 0.26 | 0.23 | 0.18 |
+| p against 2,000 degree-preserving rewirings | 0.0005 | 0.0005 | 0.003 | 0.0055 |
+| Learned minus same-Census-division grouping | 0.21 | 0.22 | 0.15 | 0.12 |
+| p (moving-block bootstrap) | < 0.001 | < 0.001 | 0.0025 | 0.0025 |
+
+The links are real: pairs the 2016 graph links moved together in delinquency two to nine years later, more
+than random graphs with the same degrees and more than states in the same division. That favours a few
+strong links over a grouping of 135 pairs, so it does not show the graph is a better partition of the country,
+and pairs without a link are not shown to be unrelated.
+
+### What was tried and rejected
+
+- **Leads.** Three survived stability selection; on the delinquency data the forward lagged correlation beat
+  the reverse for two of three (binomial p = 0.50). They are left out of the file.
+- **Comparisons that could not be made.** Against the old 0.95 graph only one learned link falls among its 15
+  states, and a graph learned the same way from the delinquency series (19 complete months for 51 states)
+  has no links at all. Both are reported as not comparable rather than won.
+- **Regional loss factors.** A regional factor for the loss simulation needs at least two regions; the graph
+  has one, so `regionCorrelation` and `regionalShare` are absent. The estimator itself
+  (`segment_regional.py`) passed its recovery test: on portfolios simulated at the real data's size, the
+  known regional share is inside its 95% interval in 89-94% of simulations. A block bootstrap interval,
+  which the design first named, covered it in only 82-88%.
+- **A three-month outlook.** `backend/experiments/segment_outlook.py`, under a rule fixed before the backtest
+  (design decision 7), 55 monthly origins from 2021-01. No candidate beat the no-change forecast or an
+  autoregression; graph features did not help either model; the same holds without forbearance. No forecast
+  ships.
+
+  | Model | RMSE | Rank IC | p vs no change |
+  |---|---|---|---|
+  | No change | 0.0622 | 0.00 | |
+  | Autoregression | 0.0626 | 0.17 | |
+  | Ridge, state effects | 0.0674 | 0.00 | 1.00 |
+  | Ridge with graph | 0.0675 | 0.01 | 1.00 |
+  | LightGBM | 0.0712 | 0.18 | 0.97 |
+  | LightGBM with graph | 0.0712 | 0.20 | 0.97 |
+
+  Split-conformal 80% intervals from earlier origins' errors covered 78-81% of outcomes for every model.
+
+### Known limitations
+
+- A lead would be predictive precedence in macro data, not cause; none ship.
+- The delinquency data covers 2019 to 2025: one benign period and one pandemic with forbearance. Freddie Mac
+  flagged COVID hardship as a disaster, so the series without disaster-flagged delinquencies also leaves out
+  most of 2020.
+- State can stand in for protected characteristics: portfolio-level analysis only, never an individual
+  credit decision.
+- The territories are not covered (too few loans, no state macro series).
 
 ## Time-series and sequence diagnostics
 
@@ -459,12 +811,11 @@ were regenerated from the trimmed chain (as of 2025-09). The survival ONNX is bi
 sha256), so only the regime chain in the card moved. Sampling error is larger than that correction: from 1 + 1 observed regime
 switches, a 90% interval on the stress spell is 6 to 73 months.
 
-**Trajectory LSTM.** Retrained with a vintage split (fit on 2020-2021 originations, judged on 2022-2023),
-standardisation from real months only, and Platt calibration folded into the final layer (card:
-`lstm_card.json`). Before this, the served probability averaged 0.54 against an actual default rate of
-2.2% (25 times too high) because the loss is class-weighted. Out-of-time now: ROC-AUC 0.676, PR-AUC 0.192,
-predicted / actual 0.97. The 0.713 AUC quoted by the notebook came from a random split. "Ever defaulted" is
-right-censored, so later vintages look safer than they are; the registry entry stays unvalidated.
+**Trajectory LSTM (retired, see the inventory).** The last version served was retrained with a vintage split (fit on 2020-2021
+originations, judged on 2022-2023), with standardisation from real months only and Platt calibration folded into the final layer
+(card: `backend/experiments/retired/lstm/lstm_card.json`). Before that, the served probability averaged 0.54 against an actual default rate of
+2.2% (25 times too high) because the loss is class-weighted. Out of time: ROC-AUC 0.676, PR-AUC 0.192, predicted / actual 0.97. The 0.713 AUC
+quoted by the notebook came from a random split. "Ever defaulted" is right-censored, so later vintages look safer than they are.
 
 ## How the numbers are checked
 
@@ -491,6 +842,9 @@ python export_survival_model.py    # survival model, card, backtest, macro snaps
 python export_model.py             # PD model, calibration, card, drift reference
 python golden_term_structure.py    # reference outputs for the Java golden test
 python golden_rough_set.py         # reference for the region layer (needs no model artifact)
+python build_state_panel.py        # segment graph: state delinquency ratio (resumable, a few minutes)
+python build_macro_panel.py        # segment graph: macro panel
+python export_segment_graph.py     # segment graph, its validation and card (about 30 minutes)
 ```
 
 Exports are reproducible bit for bit: LightGBM runs with `deterministic=True, force_row_wise=True` on

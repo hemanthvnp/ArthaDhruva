@@ -1,0 +1,130 @@
+{
+  "model": "regime_hmm",
+  "version": "2026.11.03",
+  "validated_at": "2026-11-03T22:29:34+00:00",
+  "artifact": "hmm_regime.json",
+  "artifact_sha256": "edf4a480905b3ca75afd287b7a811acb2e133ca6cc391a718c51af0d691b65c0",
+  "algorithm": "Two-state Gaussian hidden Markov model, full covariance, on the standardized monthly share of loans 90+ days past due and average note rate",
+  "inputs": [
+    "delinquency_rate_90",
+    "avg_interest_rate"
+  ],
+  "training": {
+    "months": 99,
+    "first_month": "2017-07",
+    "last_month": "2025-09",
+    "window": "from the first month the oldest loan is 6 months old to the month before the panel's coverage cliff (export_hmm.py)",
+    "stressed_periods_decoded": [
+      [
+        "2020-06",
+        "2022-06"
+      ]
+    ],
+    "decoded_transition_counts": [
+      [
+        72,
+        1
+      ],
+      [
+        1,
+        24
+      ]
+    ]
+  },
+  "shipped_chain": {
+    "transition_matrix": [
+      [
+        0.986281156539917,
+        0.013718867674469948
+      ],
+      [
+        0.040068864822387695,
+        0.9599311947822571
+      ]
+    ],
+    "expected_stress_spell_months": 24.957033458089622,
+    "long_run_stressed_share": 0.25505569834667086
+  },
+  "reproduction": {
+    "refit_reproduces_shipped_matrix": true,
+    "max_abs_difference": 0.0
+  },
+  "validation": {
+    "protocol": "refit on the history through a cut month with its own standardization, then decode the whole series and score the months after the cut; two cuts: 2020-12 (the onset of the one stress episode is in the fitting months) and 2022-12 (the whole episode is)",
+    "out_of_time": {
+      "2020-12": {
+        "fitting_months": 42,
+        "held_out_months": 57,
+        "fitted_on_history_through": "2020-12",
+        "held_out": [
+          "2021-01",
+          "2025-09"
+        ],
+        "chain": {
+          "transition_matrix": [
+            [
+              0.9658417105674744,
+              0.03415834158658981
+            ],
+            [
+              0.08585318177938461,
+              0.9141468405723572
+            ]
+          ],
+          "expected_stress_spell_months": 11.647791862487793,
+          "long_run_stressed_share": 0.28462550044059753
+        },
+        "agreement_with_full_fit_on_held_out_months": 0.3157894736842105,
+        "stressed_months_labelled_held_out": 57,
+        "stressed_months_in_full_fit_held_out": 18,
+        "agreement_with_full_fit_on_fitting_months": 0.8571428571428571,
+        "held_out_log_likelihood": {
+          "months": 57,
+          "chain_per_month": -11.227547160366125,
+          "single_regime_per_month": -15.669766455270558,
+          "chain_minus_single_per_month": 4.442219294904434
+        }
+      },
+      "2022-12": {
+        "fitting_months": 66,
+        "held_out_months": 33,
+        "fitted_on_history_through": "2022-12",
+        "held_out": [
+          "2023-01",
+          "2025-09"
+        ],
+        "chain": {
+          "transition_matrix": [
+            [
+              0.9714281558990479,
+              0.028571829199790955
+            ],
+            [
+              5.0053111232962156e-36,
+              1.0
+            ]
+          ],
+          "expected_stress_spell_months": 1.9978777574336067e+35,
+          "long_run_stressed_share": 1.0
+        },
+        "agreement_with_full_fit_on_held_out_months": 0.48484848484848486,
+        "stressed_months_labelled_held_out": 17,
+        "stressed_months_in_full_fit_held_out": 0,
+        "agreement_with_full_fit_on_fitting_months": 0.9090909090909091,
+        "held_out_log_likelihood": {
+          "months": 33,
+          "chain_per_month": -13.298476016882693,
+          "single_regime_per_month": -1.9882596977054052,
+          "chain_minus_single_per_month": -11.310216319177288
+        }
+      }
+    }
+  },
+  "limitations": [
+    "One stress episode (2020-06 to 2022-06) in 99 months. The chain's stress spell and long-run stressed share rest on a single observed entry into stress and a single exit (1 and 1 transitions), so they are uncertain by more than any figure here shows; the survival model's intervals draw the chain from a Dirichlet posterior for that reason.",
+    "There is no ground truth for a regime: the labels are the model's own decoding, so agreement between fits measures stability, not accuracy.",
+    "Every month after 2022-12 is decoded calm, so the held-out result for the later cut says the model does not invent stress where there was none; it cannot say how it would call a new stress episode.",
+    "The two series are portfolio aggregates of the Freddie Mac sample; a different lender's portfolio is not described by this regime.",
+    "The panel's coverage falls in the last months (vintage files were pulled at different times), so the series is cut before it, and the chain's as-of month is 2025-09."
+  ]
+}

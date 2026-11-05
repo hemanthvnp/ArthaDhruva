@@ -46,14 +46,16 @@ public class SurvivalController {
     private final LoanInputValidator validator;
     private final DecisionService decisions;
     private final UsageService usage;
+    private final RiskProjectionService projections;
 
     public SurvivalController(TermStructureEngine engine, SurvivalModel model, LoanInputValidator validator,
-                              DecisionService decisions, UsageService usage) {
+                              DecisionService decisions, UsageService usage, RiskProjectionService projections) {
         this.engine = engine;
         this.model = model;
         this.validator = validator;
         this.decisions = decisions;
         this.usage = usage;
+        this.projections = projections;
     }
 
     /**
@@ -64,6 +66,10 @@ public class SurvivalController {
      *                       always cover the loan's whole remaining life.
      * @param decision       asks for a rough-set three-way decision (certain high, certain low, boundary) of a stressed
      *                       metric against a threshold, over variants of the scenario; omitted, nothing changes
+     * @param delinquency    the loan's recent payment history; with {@code daysPastDue} it selects the delinquency model
+     *                       (see {@link DelinquencyRouter}); omitted, or incomplete, the existing engine runs and the
+     *                       response says why
+     * @param intervals      asks for ranges around the lifetime figures ({@link IntervalService}); omitted, none are computed
      */
     public record TermStructureRequest(
             @NotNull @Valid LoanFeatures loan,
@@ -74,12 +80,26 @@ public class SurvivalController {
             @Min(0) @Max(3650) Integer daysPastDue,
             @DecimalMin("0") @DecimalMax("1") Double originationPd12m,
             @Min(1) @Max(480) Integer months,
-            @Valid DecisionOptions decision
+            @Valid DecisionOptions decision,
+            @Valid DelinquencyHistory delinquency,
+            @Valid IntervalRequest intervals
     ) {
     }
 
+    /** @param draws regime-chain draws to use (default and cap are configured; see {@link IntervalService}) */
+    public record IntervalRequest(@Min(1) @Max(5000) Integer draws) {
+    }
+
+    /**
+     * @param modelUsed      the id and version of the model that produced the figures
+     * @param fallbackReason why the existing engine ran when delinquency data was supplied or implied
+     * @param intervals      ranges around the lifetime figures, when {@code intervals} was asked for
+     */
     public record TermStructureResponse(TermStructureEngine.TermStructure termStructure, List<String> warnings,
-                                        @JsonInclude(JsonInclude.Include.NON_NULL) DecisionService.Decision decision) {
+                                        @JsonInclude(JsonInclude.Include.NON_NULL) DecisionService.Decision decision,
+                                        String modelUsed,
+                                        @JsonInclude(JsonInclude.Include.NON_NULL) String fallbackReason,
+                                        @JsonInclude(JsonInclude.Include.NON_NULL) IntervalService.Intervals intervals) {
     }
 
     /**
@@ -137,20 +157,28 @@ public class SurvivalController {
             throw new TermStructureEngine.InvalidProjectionException("Give a scenario name or a customScenario, not both");
         }
         LoanFeatures loan = request.loan().normalized();
-        List<String> warnings = check(loan, request.currentBalance(), request.daysPastDue());
+        DelinquencyRouter.Route route = projections.route(request.daysPastDue(), request.delinquency());
+        List<String> warnings = check(loan, request.currentBalance(), request.daysPastDue(), route.useDelinquencyModel());
         Scenario scenario = request.customScenario() != null ? request.customScenario() : scenario(request.scenario());
         DecisionOptions.Resolved options = resolve(request.decision());
-        AuditContext.modelVersion(model.version());
+        if (options != null && route.useDelinquencyModel()) {
+            throw new DelinquencyRouter.InvalidDelinquencyInputException("decision", "decision is not available with the "
+                    + "delinquency model: omit decision, or omit the delinquency fields to use the existing engine");
+        }
+        AuditContext.modelVersion(projections.modelUsed(route));
         TermStructureEngine.Request base = new TermStructureEngine.Request(loan, scenario, request.monthsOnBook(),
                 request.currentBalance(), request.daysPastDue(), request.originationPd12m());
-        TermStructureEngine.TermStructure result = engine.project(base,
-                request.months() == null ? TermStructureEngine.MAX_MONTHS : request.months());
+        RiskProjectionService.IntervalOptions asked = request.intervals() == null ? RiskProjectionService.IntervalOptions.NONE
+                : new RiskProjectionService.IntervalOptions(true, request.intervals().draws());
+        RiskProjectionService.Result projected = projections.project(base,
+                request.months() == null ? TermStructureEngine.MAX_MONTHS : request.months(), request.delinquency(), asked);
         DecisionService.Decision decision = null;
         if (options != null) {
             decision = decisions.decide(base, options);
             meterDecision(decision.members());
         }
-        return new TermStructureResponse(result, warnings, decision);
+        return new TermStructureResponse(projected.termStructure(), warnings, decision, projected.modelUsed(),
+                projected.fallbackReason(), projected.intervals());
     }
 
     /** The same loan under several scenarios, evaluated in one batched model call. */
@@ -158,7 +186,7 @@ public class SurvivalController {
     @PostMapping("/risk/term-structure/compare")
     public CompareResponse compare(@Valid @RequestBody CompareRequest request) {
         LoanFeatures loan = request.loan().normalized();
-        List<String> warnings = check(loan, request.currentBalance(), request.daysPastDue());
+        List<String> warnings = check(loan, request.currentBalance(), request.daysPastDue(), false);
         List<Scenario> scenarios = request.scenarios() == null ? Scenario.BUILT_IN
                 : request.scenarios().stream().distinct().map(SurvivalController::scenario).toList();
         DecisionOptions.Resolved options = resolve(request.decision());
@@ -236,13 +264,13 @@ public class SurvivalController {
         TenantContext.getOptional().ifPresent(tenantId -> usage.record(tenantId, "DECISION_MEMBER", members));
     }
 
-    private List<String> check(LoanFeatures loan, Double currentBalance, Integer daysPastDue) {
+    private List<String> check(LoanFeatures loan, Double currentBalance, Integer daysPastDue, boolean delinquencyModel) {
         List<String> warnings = new ArrayList<>(validator.check(loan).warnings());
         if (currentBalance != null && currentBalance > MAX_BALANCE_MULTIPLE * loan.originalUpb()) {
             throw new TermStructureEngine.InvalidProjectionException(
                     "currentBalance is more than " + MAX_BALANCE_MULTIPLE + " times the original balance");
         }
-        if (daysPastDue != null && daysPastDue >= 30) {
+        if (daysPastDue != null && daysPastDue >= 30 && !delinquencyModel) {
             warnings.add("The loan is " + daysPastDue + " days past due. The survival model conditions on origination "
                     + "attributes and macro drivers, not on delinquency status, so its curve understates the risk of a "
                     + "loan that is already delinquent; the staging reflects the delinquency.");
@@ -256,6 +284,11 @@ public class SurvivalController {
         } catch (IllegalArgumentException e) {
             throw new TermStructureEngine.InvalidProjectionException(e.getMessage());
         }
+    }
+
+    @ExceptionHandler(DelinquencyRouter.InvalidDelinquencyInputException.class)
+    public ResponseEntity<Map<String, String>> onInvalidDelinquencyInput(DelinquencyRouter.InvalidDelinquencyInputException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage(), "field", e.field()));
     }
 
     @ExceptionHandler(TermStructureEngine.InvalidProjectionException.class)
