@@ -10,12 +10,13 @@ how much worse than expected a bad year can be.
 | | |
 |---|---|
 | **Default risk score** | Probability of default within 24 months of origination, a Shapley explanation that adds up exactly to the score, and adverse-action reason codes |
-| **Lifetime risk** | One loan month by month to maturity: the probability it is still on the book, has prepaid or has defaulted, under a baseline, two stress scenarios and two rate shocks |
+| **Lifetime risk** | One loan month by month to maturity: the probability it is still on the book, has prepaid or has defaulted, under a baseline, two stress scenarios and two rate shocks. Given its current status and recent payment history, a late loan is projected from where it is (cure, roll or default) instead of as a current one (in a portfolio run too, for the loans that carry their status), and lifetime PD and expected loss come with a range (regime uncertainty plus historical calibration error) |
 | **Portfolio risk** | Every loan projected and added up: the loss allowance, IFRS 9 staging, the response to stress, a ten-year run-off, and the allowance loan by loan |
 | **Probability-weighted allowance** | One figure across the scenarios, each weighted by the probability the user gives it, for one loan or from the latest portfolio run without projecting again |
 | **Region analysis** | Whether a loan's stressed figure is high under every variant of the stress, under none, or on the boundary where the answer turns on the details, for one loan or the whole book (rough-set three-way decision) |
+| **Segment graph** | Which states' unemployment and house prices move together beyond the national cycle, learned and checked out of time against mortgage delinquency, drawn on a map with the figures that validate it (Neo4j) |
 | **Loss distribution** | Value at risk and expected shortfall of the portfolio, and the loans that drive the tail |
-| **Model governance** | Every model with its checksum, validation, backtests and limitations, population drift against the training data, and today's macro conditions against the survival model's training window |
+| **Model governance** | Every model with its checksum, validation, backtests and limitations, population drift against the training data, today's macro conditions against the survival model's training window, and the PD model's stored scores against the outcomes the organization has recorded for its loans |
 | **Workflow** | Cases with enforced transitions, a four-eyes rule and an immutable history; notes, documents, automation rules, notifications, webhooks |
 | **Borrower portal** | A borrower's own loan as a status band and a sentence on how it moved (never the probability), the open review and who to contact, their documents, and a safety assistant that checks whether a message they received looks like a scam |
 | **Platform** | Multi-tenant, with single sign-on, API keys, usage metering, an audit trail and rate limits |
@@ -72,7 +73,21 @@ How the models were built, validated and where they should not be trusted: [MODE
   the application connects as a role that does not own them. The integration tests run as that role.
 - **An audit trail the application cannot rewrite.** Every API call is recorded with who, what, the
   outcome and the model version; the application's role has no `UPDATE` or `DELETE` on it, and
-  credentials are redacted before an entry is written.
+  credentials are redacted before an entry is written. It is partitioned by month, so retention drops
+  a month whole (never under a year, enforced in the database) and a time-window query reads only its
+  months; the other tables that only grow are trimmed daily in short batches
+  ([`RetentionJob`](backend/risk-engine/src/main/java/com/arthadhruva/riskengine/retention/RetentionJob.java)).
+- **Bounded waits on the database.** Statement, lock and idle-in-transaction timeouts on every pooled
+  connection, so one slow query cannot hold a connection for as long as it likes; a timeout reaches
+  the client as 503 with `Retry-After`, and a stream of them raises an alert.
+- **Conditional requests.** Polled reads (a run's status, the model inventory) carry an `ETag` and
+  answer an unchanged `If-None-Match` with 304; a case's version is its `ETag`, and an update may name
+  it in `If-Match` (412 if someone changed the case meanwhile).
+- **An API contract both sides are held to.** The backend publishes its OpenAPI description
+  (`GET /v1/api-docs`, signed-in staff only); a test fails when it differs from the committed copy
+  ([`frontend/src/api/openapi.json`](frontend/src/api/openapi.json)), and the frontend's build fails
+  when a field its hand-written types expect is not in it
+  ([`contract.ts`](frontend/src/api/contract.ts)).
 - **A borrower sees a band, not a score.** The borrower API's response types have no field for the
   probability, the model version, an explanation or a case note (a unit test fails if one is added), and
   every borrower endpoint resolves the caller's own loans on the server, so a loan id sent by the client
@@ -94,7 +109,10 @@ How the models were built, validated and where they should not be trusted: [MODE
 - **Operations that were rehearsed.** Prometheus alert rules with unit tests, including two that are
   about integrity rather than uptime: a decision served without its audit record, and replicas serving
   different binaries of one model. Nightly backups, and a restore that was run end to end onto an empty
-  stack ([DEPLOY.md](DEPLOY.md)).
+  stack ([DEPLOY.md](DEPLOY.md)). Postgres archives its write-ahead log, so the database can be
+  restored to any moment since the last nightly base backup; CI deletes rows and gets them back
+  ([`scripts/pitr-test.sh`](scripts/pitr-test.sh)). A release that never reports healthy is rolled
+  back to the previous image and build by the deploy script.
 - **A demo that costs nothing while nobody is looking.** On Azure the VM deallocates itself after 30
   idle minutes and a serverless page starts it again on a click, about a minute later
   ([`deploy/azure/`](deploy/azure/)). Each side holds a managed identity that can do exactly one thing.
@@ -175,6 +193,10 @@ python build_survival_dataset.py      # the sample and its loan-month rows
 python export_survival_model.py       # survival model, model card, backtests
 python export_model.py                # PD model, calibration, model card, drift reference
 python golden_term_structure.py       # reference outputs for the Java golden test
+python build_state_panel.py           # segment graph: state delinquency ratio from the full panel (resumable)
+python build_macro_panel.py           # segment graph: state macro panel, national movement removed
+python export_segment_graph.py        # segment graph and card, validated out of time (about 30 minutes)
+python export_regional_factors.py     # regional loss factors (needs two or more regions in the graph)
 ```
 
 The model artifacts the service needs are committed under
@@ -184,7 +206,7 @@ The model artifacts the service needs are committed under
 
 ```
 backend/risk-engine/   Spring Boot service: the engines, the API, migrations, tests
-backend/*.py           training and export scripts; experiments/ keeps the rejected ones
+backend/*.py           training and export scripts; experiments/ keeps rejected approaches and evidence checks
 frontend/              React console
 pipeline/              data pipeline from the raw archives
 MODELS.md, PERFORMANCE.md, DEPLOY.md, DEPLOYMENT.md   the models, the measurements, deployment

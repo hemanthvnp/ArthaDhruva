@@ -1,0 +1,794 @@
+{
+  "model": "delinquency_state_transitions",
+  "version": "2026.11.03-2148",
+  "trained_at": "2026-11-03T21:48:47+00:00",
+  "features_in_order": [
+    "credit_score",
+    "original_dti",
+    "original_upb",
+    "original_cltv",
+    "original_ltv",
+    "rate_spread",
+    "original_loan_term",
+    "number_of_borrowers",
+    "number_of_units",
+    "mi_percent",
+    "occupancy_status",
+    "property_type",
+    "loan_purpose",
+    "channel",
+    "first_time_homebuyer_flag",
+    "property_state",
+    "loan_age",
+    "regime_stressed",
+    "rate_incentive",
+    "unemployment",
+    "unemployment_change_12m",
+    "hpi_change_12m",
+    "mtm_ltv",
+    "source_state",
+    "hist_episodes_12m",
+    "hist_months_since_cure",
+    "hist_max_state_12m"
+  ],
+  "numeric_features": [
+    "credit_score",
+    "original_dti",
+    "original_upb",
+    "original_cltv",
+    "original_ltv",
+    "rate_spread",
+    "original_loan_term",
+    "number_of_borrowers",
+    "number_of_units",
+    "mi_percent"
+  ],
+  "categorical_features": [
+    "occupancy_status",
+    "property_type",
+    "loan_purpose",
+    "channel",
+    "first_time_homebuyer_flag",
+    "property_state"
+  ],
+  "time_varying_features": [
+    "loan_age",
+    "regime_stressed",
+    "rate_incentive",
+    "unemployment",
+    "unemployment_change_12m",
+    "hpi_change_12m",
+    "mtm_ltv"
+  ],
+  "history_features": {
+    "hist_episodes_12m": "30+ day episodes that began in the 12 months before the month predicted",
+    "hist_months_since_cure": "months from the latest cure to the previous month; 13 = none in 12 months",
+    "hist_max_state_12m": "worst state (0 current, 1 30 days, 2 60 days) in the 12 months before the month predicted"
+  },
+  "feature_decimals": {
+    "credit_score": 0,
+    "original_dti": 0,
+    "original_upb": 0,
+    "original_cltv": 0,
+    "original_ltv": 0,
+    "rate_spread": 3,
+    "original_loan_term": 0,
+    "number_of_borrowers": 0,
+    "number_of_units": 0,
+    "mi_percent": 0,
+    "loan_age": 0,
+    "regime_stressed": 0,
+    "rate_incentive": 3,
+    "unemployment": 2,
+    "unemployment_change_12m": 2,
+    "hpi_change_12m": 4,
+    "mtm_ltv": 2
+  },
+  "classes": [
+    "current",
+    "d30",
+    "d60",
+    "default",
+    "prepaid"
+  ],
+  "source_states": [
+    "current",
+    "d30",
+    "d60"
+  ],
+  "probability_floor": {
+    "value": 0.001,
+    "from_source_states": [
+      "d30",
+      "d60"
+    ],
+    "reason": "pure leaves give out-of-sample transitions probabilities near 1e-200; see export_delinquency_model.py"
+  },
+  "history_rule": "the history features are aged with the projection month by the rule in delinquency_history.py: exactly clean 12 months in on a path with no new spell; from a delinquent source state the current spell is part of the history (episodes >= 1, worst state >= the source)",
+  "monotone_repair": "each month's three source rows are made stochastically ordered (delinquency_history.monotone_repair) before use",
+  "no_cure_months": 13,
+  "rate_lock_lag_months": 2,
+  "regimes": {
+    "labels": [
+      "calm",
+      "stressed"
+    ],
+    "transition_matrix": [
+      [
+        0.986281156539917,
+        0.013718867674469948
+      ],
+      [
+        0.040068864822387695,
+        0.9599311947822571
+      ]
+    ],
+    "as_of_month": "2025-09",
+    "note": "the survival model's chain, read from its card by the engine"
+  },
+  "training": {
+    "rows": 3857204,
+    "loans": 874134,
+    "months": [
+      "2017-02",
+      "2026-02"
+    ],
+    "months_left_out": [
+      "2025-09",
+      "2026-03"
+    ],
+    "all_vintages_through": "2025-08",
+    "held_out_loans": 250037,
+    "case_control_note": "stay-current loan-months subsampled at 10% with weight 10; every other loan-month kept",
+    "envelope": {
+      "loan_age": [
+        1.0,
+        96.0
+      ],
+      "rate_incentive": [
+        -4.745,
+        2.566
+      ],
+      "unemployment": [
+        2.2,
+        16.1
+      ],
+      "unemployment_change_12m": [
+        -8.9,
+        12.2
+      ],
+      "hpi_change_12m": [
+        -0.0109,
+        0.2803
+      ],
+      "mtm_ltv": [
+        12.7139,
+        95.149
+      ]
+    }
+  },
+  "hyperparameters": {
+    "objective": "multiclass",
+    "num_class": 5,
+    "learning_rate": 0.05,
+    "num_leaves": 63,
+    "min_child_samples": 500,
+    "subsample": 0.8,
+    "subsample_freq": 1,
+    "colsample_bytree": 0.9,
+    "reg_lambda": 5.0,
+    "n_estimators": 800,
+    "random_state": 7,
+    "deterministic": true,
+    "force_row_wise": true,
+    "best_iteration": 799,
+    "rounds_shipped": 799
+  },
+  "validation": {
+    "protocol": "fit on loan-buckets 3 to 9, months before 2023-01; evaluated on loan-buckets 0 and 1 (in no fit), months from 2023-01",
+    "validation_fit_best_iteration": 522,
+    "pilot_gate_failures": [
+      "gate 2 (12-month cure rate, starting d60): predicted over realized 1.167 is outside 1 +/- 0.15 (1258 events)"
+    ],
+    "out_of_time": {
+      "one_step": {
+        "delinquency model": {
+          "all_rows": 0.033413008131942104,
+          "delinquent_rows": 0.2459063565364751,
+          "current": 0.03153376504158974,
+          "d30": 0.07560906009271649,
+          "d60": 1.084697349233592,
+          "next_state_all_rows": 0.06510465209509125,
+          "next_state_by_source": {
+            "current": 0.05537633843425687,
+            "d30": 1.0508505363180278,
+            "d60": 1.7279666265129623
+          }
+        },
+        "survival model": {
+          "all_rows": 0.036172594000654396,
+          "delinquent_rows": 0.525321503069888,
+          "current": 0.03184667173332874,
+          "d30": 0.07304853764978683,
+          "d60": 2.7529698425142057
+        },
+        "roll-rate table": {
+          "all_rows": 0.08541442044433392,
+          "delinquent_rows": 0.23959046074419696,
+          "current": 0.08405092243083458,
+          "d30": 0.12542601090998104,
+          "d60": 0.8019018667786865,
+          "next_state_all_rows": 0.2172310623099954,
+          "next_state_by_source": {
+            "current": 0.2084577355913402,
+            "d30": 1.162382255417015,
+            "d60": 1.4401857063308918
+          }
+        },
+        "rows": {
+          "all": 527886,
+          "by_source": {
+            "current": 488144,
+            "d30": 33035,
+            "d60": 6707
+          },
+          "events_by_source": {
+            "current": {
+              "current": 445071,
+              "d30": 19887,
+              "d60": 130,
+              "default": 329,
+              "prepaid": 22727
+            },
+            "d30": {
+              "current": 14996,
+              "d30": 12959,
+              "d60": 4670,
+              "default": 51,
+              "prepaid": 359
+            },
+            "d60": {
+              "current": 1169,
+              "d30": 853,
+              "d60": 2035,
+              "default": 2565,
+              "prepaid": 85
+            }
+          }
+        }
+      },
+      "twelve_month": {
+        "delinquency model": {
+          "current": {
+            "starts": 60000,
+            "default_events": 737,
+            "default_predicted": 0.0036363990981118713,
+            "default_realized": 0.005230692247739696,
+            "default_ratio": 0.6952041767862072
+          },
+          "d30": {
+            "starts": 18547,
+            "default_events": 3933,
+            "default_predicted": 0.1573978060710794,
+            "default_realized": 0.21205585809025718,
+            "default_ratio": 0.7422469130944087,
+            "cure_events": 14548,
+            "cure_predicted": 0.8698081253753732,
+            "cure_realized": 0.7843856149242465,
+            "cure_ratio": 1.1089037188161293
+          },
+          "d60": {
+            "starts": 3614,
+            "default_events": 2346,
+            "default_predicted": 0.6140280417659935,
+            "default_realized": 0.6491422246817931,
+            "default_ratio": 0.9459067957980819,
+            "cure_events": 1258,
+            "cure_predicted": 0.4062073832145709,
+            "cure_realized": 0.34809075816270063,
+            "cure_ratio": 1.166958253527392
+          }
+        },
+        "survival model": {
+          "current": {
+            "starts": 60000,
+            "default_events": 737,
+            "default_predicted": 0.005316917704363114,
+            "default_realized": 0.005230692247739696,
+            "default_ratio": 1.0164845210804894
+          },
+          "d30": {
+            "starts": 18547,
+            "default_events": 3933,
+            "default_predicted": 0.012410022108603255,
+            "default_realized": 0.21205585809025718,
+            "default_ratio": 0.0585224205563856
+          },
+          "d60": {
+            "starts": 3614,
+            "default_events": 2346,
+            "default_predicted": 0.015226243911710777,
+            "default_realized": 0.6491422246817931,
+            "default_ratio": 0.02345594437208983
+          }
+        },
+        "roll-rate table": {
+          "current": {
+            "starts": 60000,
+            "default_events": 737,
+            "default_predicted": 0.05787490337898741,
+            "default_realized": 0.005230692247739696,
+            "default_ratio": 11.064482603425292
+          },
+          "d30": {
+            "starts": 18547,
+            "default_events": 3933,
+            "default_predicted": 0.299152860016361,
+            "default_realized": 0.21205585809025718,
+            "default_ratio": 1.4107266958361169,
+            "cure_events": 14548,
+            "cure_predicted": 0.6752685057862733,
+            "cure_realized": 0.7843856149242465,
+            "cure_ratio": 0.8608884366798193
+          },
+          "d60": {
+            "starts": 3614,
+            "default_events": 2346,
+            "default_predicted": 0.7270344785467825,
+            "default_realized": 0.6491422246817931,
+            "default_ratio": 1.119992585451011,
+            "cure_events": 1258,
+            "cure_predicted": 0.2520980254706209,
+            "cure_realized": 0.34809075816270063,
+            "cure_ratio": 0.7242307345396055
+          }
+        }
+      },
+      "monotone_repair": {
+        "month_triples": 985932,
+        "changed": 975129,
+        "share_changed": 0.9890428548824868,
+        "mean_largest_change": 0.01513544971289442,
+        "largest_change": 0.4292217357717418,
+        "note": "on the 12-month evaluation grid; one-step metrics are on single rows and are not repaired"
+      }
+    },
+    "production_fit_on_held_out_loans": {
+      "one_step": {
+        "delinquency model": {
+          "all_rows": 0.03312691289762303,
+          "delinquent_rows": 0.26218333315390496,
+          "current": 0.0311011897477012,
+          "d30": 0.07050693114590467,
+          "d60": 1.206276063187346,
+          "next_state_all_rows": 0.06498123993604824,
+          "next_state_by_source": {
+            "current": 0.054714858033886975,
+            "d30": 1.012359168918422,
+            "d60": 2.2773358812819864
+          }
+        },
+        "survival model": {
+          "all_rows": 0.036172594000654396,
+          "delinquent_rows": 0.525321503069888,
+          "current": 0.03184667173332874,
+          "d30": 0.07304853764978683,
+          "d60": 2.7529698425142057
+        },
+        "roll-rate table": {
+          "all_rows": 0.08541442044433392,
+          "delinquent_rows": 0.23959046074419696,
+          "current": 0.08405092243083458,
+          "d30": 0.12542601090998104,
+          "d60": 0.8019018667786865,
+          "next_state_all_rows": 0.2172310623099954,
+          "next_state_by_source": {
+            "current": 0.2084577355913402,
+            "d30": 1.162382255417015,
+            "d60": 1.4401857063308918
+          }
+        },
+        "rows": {
+          "all": 527886,
+          "by_source": {
+            "current": 488144,
+            "d30": 33035,
+            "d60": 6707
+          },
+          "events_by_source": {
+            "current": {
+              "current": 445071,
+              "d30": 19887,
+              "d60": 130,
+              "default": 329,
+              "prepaid": 22727
+            },
+            "d30": {
+              "current": 14996,
+              "d30": 12959,
+              "d60": 4670,
+              "default": 51,
+              "prepaid": 359
+            },
+            "d60": {
+              "current": 1169,
+              "d30": 853,
+              "d60": 2035,
+              "default": 2565,
+              "prepaid": 85
+            }
+          }
+        }
+      },
+      "twelve_month": {
+        "delinquency model": {
+          "current": {
+            "starts": 60000,
+            "default_events": 737,
+            "default_predicted": 0.004432073041667089,
+            "default_realized": 0.005230692247739696,
+            "default_ratio": 0.8473205518031176
+          },
+          "d30": {
+            "starts": 18547,
+            "default_events": 3933,
+            "default_predicted": 0.17111313865372085,
+            "default_realized": 0.21205585809025718,
+            "default_ratio": 0.8069248366668093,
+            "cure_events": 14548,
+            "cure_predicted": 0.8576515437580752,
+            "cure_realized": 0.7843856149242465,
+            "cure_ratio": 1.093405497805954
+          },
+          "d60": {
+            "starts": 3614,
+            "default_events": 2346,
+            "default_predicted": 0.6301827379639039,
+            "default_realized": 0.6491422246817931,
+            "default_ratio": 0.9707930157721861,
+            "cure_events": 1258,
+            "cure_predicted": 0.38234135176286876,
+            "cure_realized": 0.34809075816270063,
+            "cure_ratio": 1.0983955844761586
+          }
+        },
+        "survival model": {
+          "current": {
+            "starts": 60000,
+            "default_events": 737,
+            "default_predicted": 0.005316917704363114,
+            "default_realized": 0.005230692247739696,
+            "default_ratio": 1.0164845210804894
+          },
+          "d30": {
+            "starts": 18547,
+            "default_events": 3933,
+            "default_predicted": 0.012410022108603255,
+            "default_realized": 0.21205585809025718,
+            "default_ratio": 0.0585224205563856
+          },
+          "d60": {
+            "starts": 3614,
+            "default_events": 2346,
+            "default_predicted": 0.015226243911710777,
+            "default_realized": 0.6491422246817931,
+            "default_ratio": 0.02345594437208983
+          }
+        },
+        "roll-rate table": {
+          "current": {
+            "starts": 60000,
+            "default_events": 737,
+            "default_predicted": 0.05787490337898741,
+            "default_realized": 0.005230692247739696,
+            "default_ratio": 11.064482603425292
+          },
+          "d30": {
+            "starts": 18547,
+            "default_events": 3933,
+            "default_predicted": 0.299152860016361,
+            "default_realized": 0.21205585809025718,
+            "default_ratio": 1.4107266958361169,
+            "cure_events": 14548,
+            "cure_predicted": 0.6752685057862733,
+            "cure_realized": 0.7843856149242465,
+            "cure_ratio": 0.8608884366798193
+          },
+          "d60": {
+            "starts": 3614,
+            "default_events": 2346,
+            "default_predicted": 0.7270344785467825,
+            "default_realized": 0.6491422246817931,
+            "default_ratio": 1.119992585451011,
+            "cure_events": 1258,
+            "cure_predicted": 0.2520980254706209,
+            "cure_realized": 0.34809075816270063,
+            "cure_ratio": 0.7242307345396055
+          }
+        }
+      },
+      "monotone_repair": {
+        "month_triples": 985932,
+        "changed": 970569,
+        "share_changed": 0.9844177894621535,
+        "mean_largest_change": 0.04416359221728805,
+        "largest_change": 0.9946275081511493,
+        "note": "on the 12-month evaluation grid; one-step metrics are on single rows and are not repaired"
+      }
+    },
+    "gates": {
+      "frozen": {
+        "min_events": 200,
+        "default_rel": 0.4,
+        "cure_rel": 0.15,
+        "log_loss_margin": 0.0
+      },
+      "failures_at_export": [],
+      "monotonicity": {
+        "cases": 20,
+        "violations": []
+      }
+    }
+  },
+  "overlay": {
+    "applied": false,
+    "drift_from_current": {
+      "default": {
+        "actual_over_predicted": 1.01410285550653,
+        "events": 238,
+        "standard_error": 0.06573452470042151
+      },
+      "prepay": {
+        "actual_over_predicted": 0.9795904203935374,
+        "events": 18784,
+        "standard_error": 0.007147439528130544
+      }
+    },
+    "note": "reported, not applied"
+  },
+  "uncertainty": {
+    "regime_counts": {
+      "months": 99,
+      "from_state_months": [
+        73,
+        25
+      ],
+      "transition_counts": [
+        [
+          72,
+          1
+        ],
+        [
+          1,
+          24
+        ]
+      ],
+      "first_month": "2017-07",
+      "last_month": "2025-09"
+    },
+    "dirichlet": "pseudo-counts n_i * P[i][j]; mean equals the chain of record",
+    "calibration_band": {
+      "source": "survival_backtest.json (held-out loans, predicted with the macro path that happened)",
+      "horizons": {
+        "default": {
+          "12": {
+            "sigma": 0.08268398260456752,
+            "vintages": 10,
+            "vintage_years": [
+              2006,
+              2007,
+              2008,
+              2017,
+              2018,
+              2019,
+              2020,
+              2021,
+              2022,
+              2023
+            ],
+            "mean_log_ratio": -0.021986383266599102,
+            "leave_one_out_coverage": {
+              "covered": 6,
+              "of": 10
+            }
+          },
+          "24": {
+            "sigma": 0.08801054031128414,
+            "vintages": 9,
+            "vintage_years": [
+              2006,
+              2007,
+              2008,
+              2017,
+              2018,
+              2019,
+              2020,
+              2021,
+              2022
+            ],
+            "mean_log_ratio": -0.025562348427713558,
+            "leave_one_out_coverage": {
+              "covered": 7,
+              "of": 9
+            }
+          },
+          "36": {
+            "sigma": 0.054098686126996386,
+            "vintages": 8,
+            "vintage_years": [
+              2006,
+              2007,
+              2008,
+              2017,
+              2018,
+              2019,
+              2020,
+              2021
+            ],
+            "mean_log_ratio": -0.050030073306916445,
+            "leave_one_out_coverage": {
+              "covered": 6,
+              "of": 8
+            }
+          },
+          "48": {
+            "sigma": 0.03743018029300488,
+            "vintages": 7,
+            "vintage_years": [
+              2006,
+              2007,
+              2008,
+              2017,
+              2018,
+              2019,
+              2020
+            ],
+            "mean_log_ratio": -0.056577292303441044,
+            "leave_one_out_coverage": {
+              "covered": 3,
+              "of": 7
+            }
+          },
+          "60": {
+            "sigma": 0.03976618218280121,
+            "vintages": 6,
+            "vintage_years": [
+              2006,
+              2007,
+              2008,
+              2017,
+              2018,
+              2019
+            ],
+            "mean_log_ratio": -0.061441716770204796,
+            "leave_one_out_coverage": {
+              "covered": 1,
+              "of": 6
+            }
+          }
+        },
+        "prepay": {
+          "12": {
+            "sigma": 0.03775140168681923,
+            "vintages": 10,
+            "vintage_years": [
+              2006,
+              2007,
+              2008,
+              2017,
+              2018,
+              2019,
+              2020,
+              2021,
+              2022,
+              2023
+            ],
+            "mean_log_ratio": -0.019100589062644613,
+            "leave_one_out_coverage": {
+              "covered": 6,
+              "of": 10
+            }
+          },
+          "24": {
+            "sigma": 0.03008804515287993,
+            "vintages": 9,
+            "vintage_years": [
+              2006,
+              2007,
+              2008,
+              2017,
+              2018,
+              2019,
+              2020,
+              2021,
+              2022
+            ],
+            "mean_log_ratio": -0.007496529247581324,
+            "leave_one_out_coverage": {
+              "covered": 7,
+              "of": 9
+            }
+          },
+          "36": {
+            "sigma": 0.017069597067920585,
+            "vintages": 8,
+            "vintage_years": [
+              2006,
+              2007,
+              2008,
+              2017,
+              2018,
+              2019,
+              2020,
+              2021
+            ],
+            "mean_log_ratio": -0.007708224737977991,
+            "leave_one_out_coverage": {
+              "covered": 5,
+              "of": 8
+            }
+          },
+          "48": {
+            "sigma": 0.013315475553364077,
+            "vintages": 7,
+            "vintage_years": [
+              2006,
+              2007,
+              2008,
+              2017,
+              2018,
+              2019,
+              2020
+            ],
+            "mean_log_ratio": -0.008078391851554269,
+            "leave_one_out_coverage": {
+              "covered": 3,
+              "of": 7
+            }
+          },
+          "60": {
+            "sigma": 0.012766410508954608,
+            "vintages": 6,
+            "vintage_years": [
+              2006,
+              2007,
+              2008,
+              2017,
+              2018,
+              2019
+            ],
+            "mean_log_ratio": -0.007192451295246508,
+            "leave_one_out_coverage": {
+              "covered": 5,
+              "of": 6
+            }
+          }
+        }
+      },
+      "caveat": "A handful of vintages stands behind each figure, and the vintages overlap in time and share one macro cycle; coverage is the share of vintages whose realized incidence fell within the band built from the others."
+    }
+  },
+  "scenario_defaults": {
+    "hpi_annual_growth": 0.03,
+    "unemployment": "flat at latest",
+    "market_rate": "flat at latest"
+  },
+  "limitations": [
+    "Sparse deep-delinquency data: loan-months that start 60 days past due are 1.46% of the training rows (6,707 in the out-of-time evaluation), so transitions out of that state are noisier than the others; the 12-month rates by starting state carry the event counts shown in this card, and a rate with fewer than the gate's minimum events is reported but not judged.",
+    "Cure behaviour reflects 2017 to 2026, including pandemic forbearance, when many loans were allowed to miss payments and return to current; it may not carry to another period or to a downturn.",
+    "The data contains no housing downturn: unlike the survival model, this one is not fitted on the 2006-2008 vintages (its history features need the monthly status those files carry, but the change that builds it scopes them out), so its response to falling prices and to loans under water rests on 2017 to 2026 alone.",
+    "A projection ages the loan's history by a fixed rule instead of following it: the features (months since the last cure, spells and the worst state in the last 12 months) depend on the path, which would make the exact recursion over states impossible. On a path with no new spell the history is exactly clean 12 months in, and the rule uses that; a spell that begins during the projection is represented only by the model seeing, from a late state, at least one spell and a worst state at least the source, and a spell that ends during it is taken to have ended at the start. The 12-month rates by starting state below were checked under this same rule.",
+    "The model carries no drift overlay: the survival model's overlay scales its own hazards and is not transferred. The held-out drift of this model's default and prepayment probabilities from current is reported in this card.",
+    "A projection's transition probabilities are made stochastically ordered by starting state before they are used (delinquency_history.monotone_repair): a worse state is never given a smaller chance of landing at or above any class than a better one. It leaves the model's output unchanged where it already respects that order and is what guarantees lifetime default does not fall as the starting state worsens; the share of months it changed on the evaluation grid is in this card. One-step metrics are on single rows and are not repaired.",
+    "Trained on agency-conforming fixed-rate mortgages; not validated for other products. The property's state is a feature, and geography can stand in for protected characteristics: a lender using these figures in credit decisions must test for disparate impact on its own portfolio."
+  ],
+  "target": "next delinquency state of an active loan-month: current, 30 or 60 days past due, default (90+ days past due, REO or adverse zero-balance termination, as in the survival model) or prepaid",
+  "population": "Freddie Mac single-family fixed-rate loans, the survival model's 2017-2026 sample (40,000 loans per origination quarter)",
+  "algorithm": "LightGBM multiclass gradient-boosted trees on loan-months, source state as a feature",
+  "onnx_check": {
+    "relative_tolerance": 0.0003,
+    "default_elsewhere": 0.0001,
+    "note": "the graph differs from the float64 booster by at most 2.8e-5 absolute (1.8e-4 relative) on 50,000 sampled loan-months, in 3 rows from 60 days past due; the graph is the model of record in the service and the fixtures"
+  },
+  "artifact_sha256": "2c7a40ac1adc9a7e5407f1bf8ebf0b99ef485fab4f9d512e5e66bd7f882acda9"
+}

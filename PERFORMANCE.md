@@ -58,30 +58,40 @@ Roughly 3.6x throughput and 13x lower average latency from one setting. Two more
 
 ## 1a. The cost of the risk engines
 
-Measured with JMH on the real model artifacts (one idle desktop core, full tiered JIT):
+Measured with JMH on the real model artifacts (single fork, 3 warm-up and 5 measured iterations, full
+tiered JIT, one core unless a thread count is given). The survival model was re-exported with the 2006 to
+2008 vintages on 2026-10-13: 1,392 boosting rounds against 596, a 34.8 MB ONNX file against 16.4 MB. The
+columns are the earlier model on an idle machine in early October, then the earlier and the current model
+back to back on 2026-11-03 on a host that was not idle (24 containers from other projects running, about
+37% CPU in use):
 
-| Computation | Time |
-|---|---|
-| PD score | 0.030 ms |
-| Shapley explanation of that score | 6.6 ms |
-| One loan's term structure to maturity (720 model rows) | 52.6 ms |
-| Loss simulation, 1,000 loans x 20,000 scenarios, 1 thread / 4 threads | 145 ms / 53 ms |
+| Computation | Earlier model, idle (Oct) | Earlier model, 2026-11-03 | Current model, 2026-11-03 |
+|---|---|---|---|
+| PD score | 0.030 ms | 0.092 ms | 0.089 ms |
+| Shapley explanation of that score | 6.6 ms | 16.0 ms | 13.5 ms |
+| One loan's term structure to maturity (720 model rows) | 52.6 ms | 136.7 ms | 224.8 ms |
+| The same loan under all five scenarios, one model call | 258.8 ms | 682.1 ms | 1,142.9 ms |
+| Loss simulation, 1,000 loans x 20,000 scenarios, 1 thread / 4 threads | 145 ms / 53 ms | 224.5 ms / 75.5 ms | 248.2 ms / 77.3 ms |
 
-These were measured before the survival model was re-exported with the 2006 to 2008 vintages
-(2026-10-13). That model has 1,392 boosting rounds against 596 and its ONNX file is 34.8 MB against
-16.4 MB, and the time is inside ONNX Runtime, so every term-structure figure in this section should be
-read as roughly doubled until the benchmark is rerun: the engine test classes took 2.0 to 2.2 times as
-long on the same machine (`TermStructureEngineTest` 1.8 s to 4.0 s, `PortfolioRiskEngineTest` 10.5 s to
-21.9 s), and the region tests about three times (`DecisionServiceTest` 22 s to 68 s). The JMH benchmark
-and the k6 smoke test have not been rerun against it.
+Read across a row, not down a column. The PD score, the explanation and the simulation did not change in
+the re-export, so their 1.6 to 3 times slower figures on 2026-11-03 are the host, not the code. The two
+survival models were measured under the same conditions, and the re-export cost a term structure **1.65
+times** as much (136.7 to 224.8 ms) and five scenarios 1.67 times (682.1 to 1,142.9 ms), as it should: the
+time is inside ONNX Runtime, in proportion to the trees. Applied to the idle October figure, that would put
+one loan's term structure near 87 ms on a quiet machine, but that is an estimate and was not measured. The
+engine test classes took 2.0 to 2.2 times as long after the re-export (`TermStructureEngineTest` 1.8 s to
+4.0 s, `PortfolioRiskEngineTest` 10.5 s to 21.9 s), and the region tests about three times
+(`DecisionServiceTest` 22 s to 68 s). The k6 smoke test was rerun against the current model on 2026-11-03
+(section 5): p95 65 ms over the three call types, no failures in the measured phase.
 
-A projection is about 73 microseconds per model row, nearly all inside ONNX Runtime, so a new 30-year
-loan under three scenarios costs around 150 ms and a portfolio of thousands costs minutes of CPU. That
+With the earlier model a projection was about 73 microseconds per model row, nearly all inside ONNX
+Runtime, so a new 30-year loan under three scenarios cost around 150 ms and a portfolio of thousands
+minutes of CPU; with the current model each of those is about 1.65 times larger. That
 arithmetic is the design: a portfolio run is a background job with a progress row and a heartbeat, a
 worker pool bounded below the core count keeps it from starving request threads, portfolios above 5,000
 loans are sampled with a reported standard error, and the rate limiter charges twenty tokens to start
-one. In the 1.5-CPU container, 400 loans under three scenarios (1,200 projections) take 48 s on its
-single worker.
+one. In the 1.5-CPU container, 400 loans under three scenarios (1,200 projections) took 48 s on its
+single worker with the earlier model; that run was not repeated with the current one.
 
 Three things follow from runs being that expensive, and each is a setting:
 
@@ -128,7 +138,7 @@ without projecting again.
 | `GET /admin/users`: eager `loanIds` collection loaded per user (N+1) | 1 + N queries (15 for 14 users) | 1 + 1 (subselect) |
 | Rate limiting, rules, metering: plan lookup per request | DB round trip | cached 60 s per tenant |
 
-Other places checked and found already fine: the early-warning and trajectory catalogs are map-backed
+Other places checked and found already fine: the early-warning catalog is map-backed
 O(1) lookups; the isotonic calibrator binary-searches its breakpoints.
 
 ## 3. Index review (EXPLAIN ANALYZE at 200,000 rows in one tenant, as the app role under RLS)
@@ -154,6 +164,23 @@ index on undelivered rows), primary-key lookups.
   and ~20 ms that is ~4, so `maximum-pool-size=10` per replica leaves headroom while N replicas x 10
   stays well under Postgres' 100 connections. Tomcat threads are capped at 60 (`TOMCAT_MAX_THREADS`)
   so overload queues briefly and then fails fast instead of piling up threads on a 10-connection pool.
+- **Server-side limits on every connection:** `statement_timeout` 30 s (`DB_STATEMENT_TIMEOUT`),
+  `lock_timeout` 5 s (`DB_LOCK_TIMEOUT`) and `idle_in_transaction_session_timeout` 60 s
+  (`DB_IDLE_IN_TRANSACTION_TIMEOUT`), on both the app's pool and the worker pool, sent as connection
+  startup options so a `RESET` returns to them. Without them one runaway query, one wait on a row lock
+  or one transaction left open holds a connection out of ten for as long as it lasts. A statement or
+  lock timeout is answered with 503 and `Retry-After: 2`, counted as `db_timeouts_total{kind}`, and
+  more than five in ten minutes raises `DatabaseStatementTimeouts`. Flyway migrates on its own
+  connection and is not bound by them.
+- **Tables that only grow:** the audit trail is partitioned by month (V31), so a query for a time
+  window reads only its months and retention drops a month whole at a cost independent of its size;
+  partitions are made three months ahead, and a row whose month has none yet goes to a default
+  partition and is moved when it gets one. Retention (`RetentionJob`, daily, one replica): audit 84
+  months (`RETENTION_AUDIT_MONTHS`, never under 12), delivered webhooks 30 days, failed ones 90,
+  read notifications 90 days and all notifications 365, login attempts 365, the job ledger 30. Rows
+  go in batches of 5,000 per table, each batch its own statement well inside the statement timeout.
+  The work is done by owner-defined database functions with floors under each period, because the
+  app role may not delete from the audit trail or create tables.
 - **Footprint:** a backend replica idles at ~485 MiB of its 1 GiB limit; Postgres ~100 MiB, Redis ~5
   MiB, Neo4j ~385 MiB. The whole stack fits in ~2.5 GiB. Everything runs under CPU and memory limits
   so it cannot starve its neighbours.
@@ -163,3 +190,81 @@ index on undelivered rows), primary-key lookups.
   [model-serving-extraction.md](openspec/changes/saas-platform-expansion/model-serving-extraction.md).
 - **Caveats:** short 25 s runs on a shared desktop host; not a steady-state or soak result. The CI
   load test gates on latency thresholds and error rate, not on these absolute throughput numbers.
+
+## 5. Finding the ceiling, and what only shows with time
+
+Two k6 scripts beside the CI smoke test share its traffic mix ([loadtest/lib.js](loadtest/lib.js)):
+
+- **Capacity** ([loadtest/capacity.js](loadtest/capacity.js)): the mix offered at rising fixed rates
+  (`STEPS`, each held `STEP_SECONDS`), with a table of achieved rate, p95, failures and 429s per step,
+  and the highest step that met the target (rate achieved, p95 under 400 ms, under 1% failures other
+  than the rate limiter's). Run it under an account whose plan allows the top step, or the table
+  measures the limiter, not the service.
+- **Soak** ([loadtest/soak.js](loadtest/soak.js)): a steady rate for `DURATION` (30 minutes by
+  default). Fails on any real error rate or on the last quarter missing the smoke test's latency
+  targets, and reports whether p95 drifted between the first and last quarters. Watch the JVM and
+  connection-pool panels in Grafana alongside.
+
+```bash
+docker run --rm --network <project>_edge -v "$PWD/loadtest:/work" -e TOKEN=... -e BASE=http://backend:8080/v1   -e STEPS=25,50,100,150,200,300 grafana/k6 run /work/capacity.js
+docker run --rm --network <project>_edge -v "$PWD/loadtest:/work" -e TOKEN=... -e BASE=http://backend:8080/v1   -e RATE=30 -e DURATION=30m grafana/k6 run /work/soak.js
+```
+
+**Measured 2026-11-03** on commit `44a2d8b`: one backend replica (1.5 CPU, 1 GiB) with Postgres, Redis
+and Neo4j, the survival model re-exported on 2026-10-13, and the demo plan's rate limit raised in the
+throwaway database so the limiter never answered (no 429s). **This host was not quiet:** 24 containers
+from other projects were running, as on 2026-10-15, so read the absolute figures as a floor and take the
+ratios and the shape.
+
+| Offered req/s | Achieved | p95 | Failed | Meets target |
+|---|---|---|---|---|
+| 25 | 25 | 54 ms | 0% | yes |
+| 50 | 50 | 44 ms | 0% | yes |
+| 100 | 99.3 | 1,468 ms | 0% | no |
+| 150 | 102.8 | 8,790 ms | 0% | no |
+| 200 | 104.8 | 8,380 ms | 0% | no |
+| 300 | 91.6 | 13,469 ms | 0% | no |
+
+One replica meets the target up to 50 req/s and saturates at about 100 req/s; past that it queues, so
+latency climbs while throughput stays flat and then falls, and nothing fails outright. Which call
+saturates first was not separated out.
+
+The soak ran 30 minutes at 30 req/s (54,300 iterations): p95 46 ms in the first quarter and 45 ms in
+the last, no drift, no errors. The backend container stood at 896 MiB of its 1 GiB limit at the end, with
+Postgres at 147 MiB and Neo4j at 447 MiB; heap growth was not separated from the JVM's habit of keeping
+what it has claimed, so a longer run with the JVM panels in Grafana is what would settle that. The CI
+smoke test (40 req/s for 30 s) on the same stack: p95 65 ms overall, 65 ms for scoring and 35 ms for
+search and catalog, with no failures in the measured phase.
+
+Still to do on a quiet machine or the 1.5-CPU VM: repeat the capacity table, and with two replicas,
+which is what section 1 measured (109 req/s achieved of 120 offered, against two).
+
+## 6. Ranges around lifetime figures
+
+A request for an interval (`intervals` on `POST /v1/risk/term-structure`) reruns the exact regime recursion once per draw,
+with no further model call: the transition probabilities are computed once and each draw only changes the regime chain, so a
+request costs its draw count times one pass of the recursion (about 360 months x 2 regimes x 15 products), not times the cost
+of a projection's model call. That cost was not timed separately. Settings (`application.properties`, environment variable in brackets):
+
+- `risk.interval.default-draws` 200 (`RISK_INTERVAL_DEFAULT_DRAWS`): draws when the request names none.
+- `risk.interval.max-draws` 400 (`RISK_INTERVAL_MAX_DRAWS`): the cap per request; the response says when it applied.
+- `risk.interval.budget-ms` 2000 (`RISK_INTERVAL_BUDGET_MS`): past it the response is the point estimate with the reason, never
+  a partial interval.
+
+The delinquency model evaluates each model row from three source states, so a projection builds three times the rows of the
+existing engine (about 2,160 for a 30-year loan) and its artifact is 33.6 MB, loaded beside the survival model's 34.8 MB.
+Measured on 2026-11-04 on the shared development host (one thread per session, warm, 40 repetitions of a new 30-year loan): a
+survival projection takes about 250 ms and a delinquency-aware one about 750 ms, three times the rows at the same cost per row;
+loading the delinquency model takes about 3.4 s at start-up. Requests that do not send `delinquency` never reach it, and a
+portfolio run reaches it only for the loans that carry a status. In a run, a loan with a status costs about three times a loan
+without: 80 loans under two scenarios on one worker thread took 27 to 29 s without statuses and 78 to 89 s with them (three
+rounds each, 2026-11-04, on the shared development host with Docker and an editor running, so take the ratio, about 3.0, and not
+the seconds). A portfolio with no statuses costs what it did. A smaller model (fewer rounds) would cut this in proportion but means a re-export that passes the same
+gates; it has not been tried. An interval request adds only the recursion, not model calls.
+
+## 7. The monthly comparison of stored scores with outcomes
+
+`governance.realized.cron` (default `0 10 4 * * *`, daily, once across all replicas) queues a report row per organization that has
+recorded outcomes and has none this month; the arithmetic runs on `riskComputeExecutor`, one report per organization at a time. The
+comparison reads each matched score and outcome once (one indexed join per organization) and sorts the resolved scores; it holds
+two arrays of the resolved loans in memory and refuses more than 2,000,000. Not timed on a large portfolio.

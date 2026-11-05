@@ -11,7 +11,7 @@ import com.arthadhruva.riskengine.cvar.CvarEngine;
 import com.arthadhruva.riskengine.cvar.CvarRequest;
 import com.arthadhruva.riskengine.export.CsvWriter;
 import com.arthadhruva.riskengine.score.LoanCatalogService;
-import com.arthadhruva.riskengine.score.LoanFeatures;
+import com.arthadhruva.riskengine.score.PortfolioLoan;
 import com.arthadhruva.riskengine.tenant.TenantContext;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
@@ -144,7 +144,7 @@ public class PortfolioRiskController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT).body(Map.of("error", e.getMessage()));
         }
-        List<LoanFeatures> loans = catalog.all();
+        List<PortfolioLoan> loans = catalog.allWithStatus();
         if (loans.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT).body(Map.of("error", "The portfolio has no loans"));
         }
@@ -158,7 +158,7 @@ public class PortfolioRiskController {
         }
         AuditContext.modelVersion(model.version());
         try {
-            PortfolioRiskService.Run run = service.start(TenantContext.get(), authentication.getName(), loans, scenarios, plan,
+            PortfolioRiskService.Run run = service.startPortfolio(TenantContext.get(), authentication.getName(), loans, scenarios, plan,
                     request != null && Boolean.TRUE.equals(request.defer()));
             if (plan != null) {
                 usage.record(TenantContext.get(), "DECISION_MEMBER", (long) loans.size() * plan.options().members());

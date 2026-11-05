@@ -24,6 +24,8 @@ tests:
         values: '0+0x30'
       - series: 'hikaricp_connections_timeout_total{job="risk-engine", instance="10.0.0.2:8080"}'
         values: '0+0x30'
+      - series: 'db_timeouts_total{job="risk-engine", instance="10.0.0.2:8080", kind="statement"}'
+        values: '0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2'
       - series: 'jvm_memory_usage_after_gc{job="risk-engine", instance="10.0.0.2:8080", area="heap", pool="long-lived"}'
         values: '0.24+0x30'
       - series: 'jvm_gc_overhead{job="risk-engine", instance="10.0.0.2:8080"}'
@@ -56,6 +58,7 @@ tests:
       - { eval_time: 30m, alertname: ErrorLogBurst }
       - { eval_time: 30m, alertname: DatabasePoolExhausted }
       - { eval_time: 30m, alertname: DatabaseConnectionTimeouts }
+      - { eval_time: 30m, alertname: DatabaseStatementTimeouts }
       - { eval_time: 30m, alertname: HeapNearlyFull }
       - { eval_time: 30m, alertname: GarbageCollectionOverhead }
       - { eval_time: 30m, alertname: CircuitBreakerOpen }
@@ -176,6 +179,8 @@ tests:
         values: '0 0 4 4 4 4 4'
       - series: 'hikaricp_connections_timeout_total{job="risk-engine", instance="a", pool="HikariPool-1"}'
         values: '0 0 0 0 3 3 3'
+      - series: 'db_timeouts_total{job="risk-engine", instance="a", kind="lock"}'
+        values: '0+2x10'
       - series: 'jvm_memory_usage_after_gc{job="risk-engine", instance="a", area="heap", pool="long-lived"}'
         values: '0.95+0x10'
       - series: 'jvm_gc_overhead{job="risk-engine", instance="a"}'
@@ -196,6 +201,13 @@ tests:
             exp_annotations:
               summary: "Requests are failing to get a database connection on a"
               description: "Connection pool timeouts in the last 5 minutes: 3."
+      - eval_time: 10m
+        alertname: DatabaseStatementTimeouts
+        exp_alerts:
+          - exp_labels: { severity: warning, instance: a, kind: lock }
+            exp_annotations:
+              summary: "Database lock timeouts on a"
+              description: "20 lock timeouts in the last 10 minutes, each answered with 503."
       - eval_time: 6m
         alertname: HeapNearlyFull
         exp_alerts:

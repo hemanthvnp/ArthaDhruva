@@ -1,7 +1,10 @@
 package com.arthadhruva.riskengine.governance;
 
 import com.arthadhruva.riskengine.cvar.CvarRequest;
+import com.arthadhruva.riskengine.graph.SegmentGraphArtifact;
 import com.arthadhruva.riskengine.score.ModelService;
+import com.arthadhruva.riskengine.survival.DelinquencyModel;
+import com.arthadhruva.riskengine.survival.LgdPredictor;
 import com.arthadhruva.riskengine.survival.SurvivalModel;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -27,7 +30,7 @@ import java.util.Optional;
  * classpath are hashed and compared, and a mismatch stops the application. A card describing one model
  * while another one answers requests is the failure this exists to make impossible.
  *
- * <p><b>Honest tiers.</b> Only the two models that carry a card with out-of-time validation are listed
+ * <p><b>Honest tiers.</b> Only the models that carry a card with out-of-time validation are listed
  * as validated. The others are in the inventory with their checksum and a plain statement of what is
  * missing, because an inventory that only lists the well-documented models is not an inventory.
  *
@@ -53,7 +56,8 @@ public class ModelRegistry {
     private final Map<String, JsonNode> cards = new LinkedHashMap<>();
     private final JsonNode survivalBacktest;
 
-    public ModelRegistry(ModelService pd, SurvivalModel survival, MeterRegistry meters) throws IOException {
+    public ModelRegistry(ModelService pd, SurvivalModel survival, DelinquencyModel delinquency, SegmentGraphArtifact segmentGraph,
+                         MeterRegistry meters) throws IOException {
         ObjectMapper mapper = new ObjectMapper();
 
         JsonNode pdCard = mapper.readTree(read("pd_model_card.json"));
@@ -88,33 +92,63 @@ public class ModelRegistry {
         cards.put("survival", survivalCard);
         this.survivalBacktest = mapper.readTree(read("survival_backtest.json"));
 
-        entries.add(unvalidated("lgd", "Loss given default", "Fitted LGD by origination features; floor of the collateral-based "
-                + "LGD in the ECL engine", 1, "lgd_model.json", "Beta regression (logit link)",
-                List.of("No model card or out-of-time validation", "Fitted on 2017-2025 defaults only, a period of rising house prices",
-                        "Uses the raw note rate, which moves with the rate cycle")));
-        entries.add(unvalidated("regime_hmm", "Macro regime", "Calm / stressed regime and its transition matrix, a driver of the "
-                + "survival model and of the regime forecast", 1, "hmm_regime.json", "Two-state hidden Markov model",
-                List.of("No model card", "Estimated from 99 months containing a single stress episode")));
-        entries.add(unvalidated("early_warning", "Early warning", "Flags performing loans drifting toward delinquency from "
-                + "their payment history", 2, "early_warning_model.onnx", "LightGBM with isotonic calibration",
-                List.of("No model card or out-of-time validation in this release")));
-        JsonNode lstmCard = mapper.readTree(read("lstm_card.json"));
-        String lstmSha = sha256(read("lstm_model.onnx"));
-        if (!lstmSha.equals(lstmCard.get("artifact_sha256").asString())) {
-            throw new IllegalStateException("lstm_model.onnx does not match the checksum in lstm_card.json");
+        // DelinquencyModel has already refused to load an artifact that does not match its card.
+        JsonNode delinquencyCard = delinquency.card();
+        JsonNode held = delinquencyCard.get("validation").get("production_fit_on_held_out_loans").get("one_step");
+        Map<String, Object> delinquencyHeadline = new LinkedHashMap<>();
+        delinquencyHeadline.put("delinquentLogLoss", held.get("delinquency model").get("delinquent_rows").asDouble());
+        delinquencyHeadline.put("survivalModelDelinquentLogLoss", held.get("survival model").get("delinquent_rows").asDouble());
+        delinquencyHeadline.put("rollRateDelinquentLogLoss", held.get("roll-rate table").get("delinquent_rows").asDouble());
+        delinquencyHeadline.put("failedGates", delinquencyCard.get("validation").get("gates").get("failures_at_export").size());
+        delinquencyHeadline.put("loanMonths", delinquencyCard.get("training").get("rows").asLong());
+        List<String> delinquencyGaps = new ArrayList<>();
+        delinquencyCard.get("limitations").forEach(l -> {
+            String text = l.asString();
+            if (text.contains("no housing downturn") || text.contains("Sparse deep-delinquency") || text.contains("forbearance")) {
+                delinquencyGaps.add(text);
+            }
+        });
+        entries.add(new Entry(DelinquencyModel.ID, "Delinquency transitions", "Month-to-month moves between current, 30 and 60 days "
+                + "past due, default and prepaid; projections of loans whose payment status and history are known, with ranges",
+                1, true, delinquencyCard.get("version").asString(), "delinquency_model.onnx", delinquency.artifactSha256(), true,
+                delinquencyCard.get("trained_at").asString(), delinquencyCard.get("algorithm").asString(), delinquencyHeadline,
+                delinquencyGaps));
+        cards.put(DelinquencyModel.ID, delinquencyCard);
+
+        addLgd();
+        addRegime(mapper);
+        addEarlyWarning(mapper);
+        if (!segmentGraph.sha256().equals(segmentGraph.declaredSha256())) {
+            throw new IllegalStateException(SegmentGraphArtifact.FILE + " does not match the checksum in "
+                    + SegmentGraphArtifact.CARD);
         }
-        JsonNode lstmOot = lstmCard.get("out_of_time_calibrated");
-        Map<String, Object> lstmHeadline = new LinkedHashMap<>();
-        lstmHeadline.put("outOfTimeAuc", lstmOot.get("roc_auc").asDouble());
-        lstmHeadline.put("outOfTimePrAuc", lstmOot.get("pr_auc").asDouble());
-        lstmHeadline.put("predictedOverActual", lstmOot.get("predicted_over_actual").asDouble());
-        lstmHeadline.put("outOfTimeLoans", lstmOot.get("n").asLong());
-        List<String> lstmGaps = new ArrayList<>();
-        lstmCard.get("limitations").forEach(l -> lstmGaps.add(l.asString()));
-        entries.add(new Entry("trajectory_lstm", "Delinquency trajectory", "Sequence model over a loan's monthly payment "
-                + "history", 2, true, "unversioned", "lstm_model.onnx", lstmSha, true, null, "LSTM, Platt-calibrated",
-                lstmHeadline, lstmGaps));
-        cards.put("trajectory_lstm", lstmCard);
+        JsonNode graphCard = segmentGraph.card();
+        Map<String, Object> graphHeadline = new LinkedHashMap<>(segmentGraph.validationHeadline());
+        graphHeadline.remove("leadsNote");  // a sentence, and the same text is in the limitations below
+        graphHeadline.values().removeIf(java.util.Objects::isNull);
+        // A bootstrap p of 0 means no resample at or below zero: an upper bound, not zero.
+        java.util.regex.Matcher leading = java.util.regex.Pattern.compile("^(\\d+) ")
+                .matcher(graphCard.get("validation").get("protocol").get("versus").asString());
+        int draws = leading.find() ? Integer.parseInt(leading.group(1)) : 0;
+        if (draws > 0 && Double.valueOf(0.0).equals(graphHeadline.get("pAgainstSameDivision"))) {
+            graphHeadline.put("pAgainstSameDivision", "< " + java.math.BigDecimal.valueOf(1.0 / draws).stripTrailingZeros().toPlainString());
+        }
+        graphHeadline.put("links", segmentGraph.graph().movesWith().size());
+        graphHeadline.put("regions", segmentGraph.graph().regions().size());
+        // What this release does not have, not the general limitations (the card lists those).
+        List<String> graphGaps = new ArrayList<>();
+        graphCard.get("limitations").forEach(l -> {
+            String text = l.asString();
+            if (text.contains("omitted") || text.contains("absent")) {
+                graphGaps.add(text);
+            }
+        });
+        entries.add(new Entry("segment_graph", "Segment graph", "Which states' unemployment and house prices move "
+                + "together beyond the national cycle; portfolio-level analysis only", 2, true, segmentGraph.version(),
+                SegmentGraphArtifact.FILE, segmentGraph.sha256(), true, graphCard.get("trained_at").asString(),
+                graphCard.get("algorithm").asString(), graphHeadline, graphGaps));
+        cards.put("segment_graph", graphCard);
+
         Map<String, Object> copula = new LinkedHashMap<>();
         copula.put("defaultAssetCorrelation", CvarRequest.DEFAULT_ASSET_CORRELATION);
         entries.add(new Entry("portfolio_copula", "Portfolio loss distribution", "Value-at-Risk, expected shortfall and tail "
@@ -132,10 +166,97 @@ public class ModelRegistry {
         }
     }
 
-    private static Entry unvalidated(String id, String name, String purpose, int tier, String artifact, String algorithm,
-                                     List<String> gaps) throws IOException {
-        return new Entry(id, name, purpose, tier, false, "unversioned", artifact, sha256(read(artifact)), null, null,
-                algorithm, Map.of(), gaps);
+    /**
+     * A card declares the checksum of the artifact it describes, and the artifact on the classpath must match it: a card for one
+     * model while another answers requests is what the registry exists to prevent.
+     */
+    public static void verifyChecksum(String artifactName, byte[] artifact, String declaredSha256, String cardName) {
+        if (!sha256(artifact).equals(declaredSha256)) {
+            throw new IllegalStateException(artifactName + " does not match the checksum in " + cardName);
+        }
+    }
+
+    /**
+     * Loss given default is a constant, not a model: the fitted regression that used to stand here was no better than the mean out of
+     * time, so the service no longer loads it. The entry says so, with the retired model's results, instead of omitting the floor.
+     */
+    private void addLgd() {
+        Map<String, Object> headline = new LinkedHashMap<>();
+        headline.put("fixedFloor", LgdPredictor.HISTORICAL_MEAN_LGD);
+        headline.put("retiredModelOutOfTimeOverPrediction", 1.9);
+        headline.put("retiredModelRankCorrelation", 0.10);
+        entries.add(new Entry("lgd", "Loss given default", "A fixed floor under the collateral-based LGD in the ECL engine: the mean "
+                + "realized loss on defaulted loans", 1, false, "constant", null, null, null, null,
+                "Historical mean of realized loss (2,746 defaulted loans, vintages 2020 to 2024)", headline,
+                List.of("A constant, not a fitted model: a Beta regression on origination features was no better than it out of time "
+                        + "(it over-predicted 1.9 times, rank correlation 0.10), so it was retired; see MODELS.md",
+                        "The data has no housing downturn and about 88% of these defaulted loans lost nothing; severity in a falling-price "
+                        + "scenario comes from the collateral shortfall, not from this floor",
+                        "Exposure at default is the original balance, a stated simplification")));
+    }
+
+    private void addRegime(ObjectMapper mapper) throws IOException {
+        JsonNode card = mapper.readTree(read("hmm_regime_card.json"));
+        byte[] artifact = read("hmm_regime.json");
+        verifyChecksum("hmm_regime.json", artifact, card.get("artifact_sha256").asString(), "hmm_regime_card.json");
+        JsonNode shipped = card.get("shipped_chain");
+        Map<String, Object> headline = new LinkedHashMap<>();
+        headline.put("months", card.get("training").get("months").asLong());
+        headline.put("refitReproducesShippedChain", card.get("reproduction").get("refit_reproduces_shipped_matrix").asBoolean());
+        headline.put("expectedStressSpellMonths", shipped.get("expected_stress_spell_months").asDouble());
+        headline.put("longRunStressedShare", shipped.get("long_run_stressed_share").asDouble());
+        List<String> gaps = new ArrayList<>();
+        for (Map.Entry<String, JsonNode> cut : card.get("validation").get("out_of_time").properties()) {
+            JsonNode r = cut.getValue();
+            double toCalm = r.get("chain").get("transition_matrix").get(1).get(0).asDouble();
+            int heldOut = r.get("held_out_months").asInt();
+            int labelled = r.get("stressed_months_labelled_held_out").asInt();
+            int reference = r.get("stressed_months_in_full_fit_held_out").asInt();
+            double agreement = r.get("agreement_with_full_fit_on_held_out_months").asDouble();
+            if (toCalm < 1e-6) {
+                gaps.add(String.format("Refit on the history through %s the stressed state is absorbing (stress-to-calm probability %.0e): the chain "
+                        + "is not stable out of time", cut.getKey(), toCalm));
+            }
+            if (agreement < 0.9) {
+                gaps.add(String.format("Refit on the history through %s it labels %d of the %d later months stressed where the full fit labels %d "
+                        + "(agreement %.0f%%)", cut.getKey(), labelled, heldOut, reference, 100 * agreement));
+            }
+            if (r.get("held_out_log_likelihood").get("chain_minus_single_per_month").asDouble() < 0) {
+                gaps.add(String.format("Through %s the chain explains the later months worse than a single regime (%.1f log-likelihood per month)",
+                        cut.getKey(), r.get("held_out_log_likelihood").get("chain_minus_single_per_month").asDouble()));
+            }
+        }
+        card.get("limitations").forEach(l -> gaps.add(l.asString()));
+        entries.add(new Entry("regime_hmm", "Macro regime", "Calm / stressed regime and its transition matrix, a driver of the survival model "
+                + "and of the regime forecast", 1, true, card.get("version").asString(), "hmm_regime.json", sha256(artifact), true,
+                card.get("validated_at").asString(), card.get("algorithm").asString(), headline, gaps));
+        cards.put("regime_hmm", card);
+    }
+
+    private void addEarlyWarning(ObjectMapper mapper) throws IOException {
+        JsonNode card = mapper.readTree(read("early_warning_card.json"));
+        byte[] artifact = read("early_warning_model.onnx");
+        verifyChecksum("early_warning_model.onnx", artifact, card.get("artifact_sha256").asString(), "early_warning_card.json");
+        verifyChecksum("early_warning_calibration.json", read("early_warning_calibration.json"), card.get("calibration_sha256").asString(),
+                "early_warning_card.json");
+        JsonNode validation = card.get("validation");
+        JsonNode natural = validation.get("out_of_time_natural_rate").get("refit_calibrated");
+        Map<String, Object> headline = new LinkedHashMap<>();
+        headline.put("outOfTimeAuc", validation.get("out_of_time_downsampled").get("roc_auc").asDouble());
+        headline.put("outOfTimeNaturalRateAuc", natural.get("roc_auc").asDouble());
+        headline.put("outOfTimePrAuc", natural.get("pr_auc").asDouble());
+        headline.put("baseRate", natural.get("base_rate").asDouble());
+        headline.put("predictedOverActual", natural.get("predicted_over_actual").asDouble());
+        List<String> gaps = new ArrayList<>();
+        double ratio = natural.get("predicted_over_actual").asDouble();
+        if (ratio > 1.25 || ratio < 0.8) {
+            gaps.add(String.format("Out of time, after calibration, predicted over actual is %.2f", ratio));
+        }
+        card.get("limitations").forEach(l -> gaps.add(l.asString()));
+        entries.add(new Entry("early_warning", "Early warning", "Flags performing loans drifting toward delinquency from their payment history",
+                2, true, card.get("version").asString(), "early_warning_model.onnx", sha256(artifact), true,
+                card.get("validated_at").asString(), card.get("algorithm").asString(), headline, gaps));
+        cards.put("early_warning", card);
     }
 
     public List<Entry> entries() {

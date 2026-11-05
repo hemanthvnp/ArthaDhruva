@@ -1030,3 +1030,14 @@ button.small { padding: 0.35rem 0.75rem; font-size: 0.82rem; min-height: 32px; }
 .notice { margin-top: 0.9rem; padding: 0.8rem 1rem; border-radius: var(--radius-sm); background: var(--ok-bg); color: var(--text); }
 .notice p { margin: 0 0 0.5rem; }
 .notice p:last-child { margin-bottom: 0; }
+
+/* ranges around lifetime figures (components/IntervalRange.tsx) */
+.interval { margin-top: 0.4rem; text-align: left; }
+.interval-text { font-size: 0.8rem; color: var(--text-muted); }
+.interval-range { font-weight: 600; color: var(--text); }
+.interval-track { position: relative; height: 6px; margin: 0.4rem 0 0.3rem; border-radius: 3px; background: var(--surface-2); border: 1px solid var(--border); }
+.interval-mark { position: absolute; top: -5px; width: 3px; height: 14px; margin-left: -1px; border-radius: 1px; background: var(--text); }
+.interval-method summary { cursor: pointer; font-size: 0.75rem; color: var(--text-muted); }
+.interval-method p { font-size: 0.78rem; line-height: 1.45; color: var(--text-muted); margin: 0.3rem 0 0; max-width: 60ch; }
+.field-error { font-size: 0.78rem; color: var(--danger); margin-top: 0.25rem; }
+.kpi .interval-range, .kpi .interval-text { color: inherit; }

@@ -1,0 +1,507 @@
+{
+  "model": "early_warning",
+  "version": "2026.11.03",
+  "validated_at": "2026-11-03T22:32:10+00:00",
+  "artifact": "early_warning_model.onnx",
+  "artifact_sha256": "fae4eb471cdf375c1c0b298e028a03470b5d81b3a898dd291173e0047c111923",
+  "calibration": "early_warning_calibration.json",
+  "calibration_sha256": "09b600cdd54aa4962b5f0d0629987219807b616e599bc319689c8df7266e502a",
+  "algorithm": "LightGBM (300 trees, 31 leaves) on loan-months, isotonic calibration fitted on a natural-rate holdout",
+  "target": "a currently performing loan (0 days past due, never delinquent before) goes 30+ days past due within the next 3 months",
+  "features_in_order": [
+    "credit_score",
+    "original_dti",
+    "original_upb",
+    "original_cltv",
+    "original_ltv",
+    "original_interest_rate",
+    "original_loan_term",
+    "number_of_borrowers",
+    "number_of_units",
+    "mi_percent",
+    "loan_age",
+    "eltv",
+    "current_interest_rate",
+    "upb_paydown_ratio",
+    "rate_lock_severity",
+    "eltv_change_3m",
+    "upb_paydown_change_3m",
+    "rate_lock_severity_change_3m",
+    "eltv_change_6m",
+    "upb_paydown_change_6m",
+    "rate_lock_severity_change_6m",
+    "occupancy_status",
+    "property_type",
+    "loan_purpose",
+    "channel",
+    "first_time_homebuyer_flag",
+    "property_state",
+    "hmm_regime",
+    "prior_assistance",
+    "prior_modification",
+    "prior_disaster",
+    "upb_stalled"
+  ],
+  "training": {
+    "rows": 5378615,
+    "months": [
+      "2017-01-01",
+      "2025-12-01"
+    ],
+    "target_rate_downsampled": 0.09090909090909091,
+    "case_control": "10:1 downsampled",
+    "calibration_holdout_rows": 1600000,
+    "calibration_holdout_base_rate": 0.01003875
+  },
+  "validation": {
+    "protocol": "the same specification refit on fitting loans' rows before 2023-01-01 (the export's 80% loan split), judged from 2023-01-01 on loans it never saw; the isotonic map refit on the natural-rate holdout before the cut and judged on the holdout from it",
+    "out_of_time_downsampled": {
+      "rows": 608153,
+      "base_rate": 0.07991574488656637,
+      "roc_auc": 0.6992047008826643,
+      "note": "target rate is the 10:1 downsampled one, so only the ranking (AUC) is meaningful here"
+    },
+    "out_of_time_natural_rate": {
+      "refit_raw": {
+        "rows": 1004752,
+        "base_rate": 0.00933862286414956,
+        "mean_predicted": 0.10291558406258691,
+        "predicted_over_actual": 11.020424056064407,
+        "roc_auc": 0.7080053772931644,
+        "pr_auc": 0.025636598852285145,
+        "deciles": [
+          {
+            "decile": 1,
+            "loans": 100476,
+            "predicted": 0.02418492689670159,
+            "actual": 0.0018810462199928342
+          },
+          {
+            "decile": 2,
+            "loans": 100476,
+            "predicted": 0.03543901869843704,
+            "actual": 0.0029758350252796686
+          },
+          {
+            "decile": 3,
+            "loans": 100475,
+            "predicted": 0.04469571338884873,
+            "actual": 0.0039014680268723563
+          },
+          {
+            "decile": 4,
+            "loans": 100475,
+            "predicted": 0.054582045016113835,
+            "actual": 0.004926598656382185
+          },
+          {
+            "decile": 5,
+            "loans": 100475,
+            "predicted": 0.06628634791658133,
+            "actual": 0.006041303806917144
+          },
+          {
+            "decile": 6,
+            "loans": 100475,
+            "predicted": 0.08108732231308623,
+            "actual": 0.0078626524010948
+          },
+          {
+            "decile": 7,
+            "loans": 100475,
+            "predicted": 0.10100325002109325,
+            "actual": 0.009455088330430456
+          },
+          {
+            "decile": 8,
+            "loans": 100475,
+            "predicted": 0.12984079906615453,
+            "actual": 0.012759392883801941
+          },
+          {
+            "decile": 9,
+            "loans": 100475,
+            "predicted": 0.17874486855638172,
+            "actual": 0.017327693456083603
+          },
+          {
+            "decile": 10,
+            "loans": 100475,
+            "predicted": 0.31329300391268516,
+            "actual": 0.02625528738492162
+          }
+        ]
+      },
+      "refit_calibrated": {
+        "rows": 1004752,
+        "base_rate": 0.00933862286414956,
+        "mean_predicted": 0.012973177067719178,
+        "predicted_over_actual": 1.3891959506708922,
+        "roc_auc": 0.7074267288522086,
+        "pr_auc": 0.024707365543890192,
+        "deciles": [
+          {
+            "decile": 1,
+            "loans": 100476,
+            "predicted": 0.002259093091456958,
+            "actual": 0.0018312830924797961
+          },
+          {
+            "decile": 2,
+            "loans": 100476,
+            "predicted": 0.0032037664808142706,
+            "actual": 0.0030056929017874914
+          },
+          {
+            "decile": 3,
+            "loans": 100475,
+            "predicted": 0.004536260267957832,
+            "actual": 0.003672555362030356
+          },
+          {
+            "decile": 4,
+            "loans": 100475,
+            "predicted": 0.00573543774255547,
+            "actual": 0.004976362279173924
+          },
+          {
+            "decile": 5,
+            "loans": 100475,
+            "predicted": 0.006666873773850193,
+            "actual": 0.006250311022642448
+          },
+          {
+            "decile": 6,
+            "loans": 100475,
+            "predicted": 0.008522931626177137,
+            "actual": 0.007882557850211495
+          },
+          {
+            "decile": 7,
+            "loans": 100475,
+            "predicted": 0.010679891100017515,
+            "actual": 0.009614331923364021
+          },
+          {
+            "decile": 8,
+            "loans": 100475,
+            "predicted": 0.013729768465926013,
+            "actual": 0.012510574769843245
+          },
+          {
+            "decile": 9,
+            "loans": 100475,
+            "predicted": 0.02152300154770574,
+            "actual": 0.017427220701667082
+          },
+          {
+            "decile": 10,
+            "loans": 100475,
+            "predicted": 0.05287495044731004,
+            "actual": 0.02621547648668823
+          }
+        ]
+      },
+      "calibration_fitted_on": 595248,
+      "judged_on": 1004752,
+      "months": [
+        "2023-01-01",
+        "2025-12-01"
+      ]
+    },
+    "shipped_artifact_on_natural_rate_holdout": {
+      "all_months": {
+        "raw": {
+          "rows": 1600000,
+          "base_rate": 0.01003875,
+          "mean_predicted": 0.08180211508691311,
+          "predicted_over_actual": 8.148635545950752,
+          "roc_auc": 0.7465958395587069,
+          "pr_auc": 0.05088747755752647,
+          "deciles": [
+            {
+              "decile": 1,
+              "loans": 160000,
+              "predicted": 0.01919860110245645,
+              "actual": 0.0016625
+            },
+            {
+              "decile": 2,
+              "loans": 160000,
+              "predicted": 0.02834247226640582,
+              "actual": 0.00264375
+            },
+            {
+              "decile": 3,
+              "loans": 160000,
+              "predicted": 0.03596331254020333,
+              "actual": 0.00338125
+            },
+            {
+              "decile": 4,
+              "loans": 160000,
+              "predicted": 0.04406106082685292,
+              "actual": 0.00465
+            },
+            {
+              "decile": 5,
+              "loans": 160000,
+              "predicted": 0.05355885380320251,
+              "actual": 0.00578125
+            },
+            {
+              "decile": 6,
+              "loans": 160000,
+              "predicted": 0.06553567934930325,
+              "actual": 0.00695625
+            },
+            {
+              "decile": 7,
+              "loans": 160000,
+              "predicted": 0.08165146934986114,
+              "actual": 0.00903125
+            },
+            {
+              "decile": 8,
+              "loans": 160000,
+              "predicted": 0.10486131795458496,
+              "actual": 0.0122125
+            },
+            {
+              "decile": 9,
+              "loans": 160000,
+              "predicted": 0.14219061999320984,
+              "actual": 0.01704375
+            },
+            {
+              "decile": 10,
+              "loans": 160000,
+              "predicted": 0.24265776368305086,
+              "actual": 0.037025
+            }
+          ]
+        },
+        "calibrated": {
+          "rows": 1600000,
+          "base_rate": 0.01003875,
+          "mean_predicted": 0.01010481265051376,
+          "predicted_over_actual": 1.0065807645885951,
+          "roc_auc": 0.7468451982944896,
+          "pr_auc": 0.04859878776661685,
+          "deciles": [
+            {
+              "decile": 1,
+              "loans": 160000,
+              "predicted": 0.0016578966543963959,
+              "actual": 0.0017
+            },
+            {
+              "decile": 2,
+              "loans": 160000,
+              "predicted": 0.0025605825108618425,
+              "actual": 0.00255625
+            },
+            {
+              "decile": 3,
+              "loans": 160000,
+              "predicted": 0.0034278897762875433,
+              "actual": 0.00339375
+            },
+            {
+              "decile": 4,
+              "loans": 160000,
+              "predicted": 0.00441341627925396,
+              "actual": 0.0047375
+            },
+            {
+              "decile": 5,
+              "loans": 160000,
+              "predicted": 0.005723964303634805,
+              "actual": 0.00550625
+            },
+            {
+              "decile": 6,
+              "loans": 160000,
+              "predicted": 0.007079321081651033,
+              "actual": 0.00706875
+            },
+            {
+              "decile": 7,
+              "loans": 160000,
+              "predicted": 0.008932402952190813,
+              "actual": 0.009325
+            },
+            {
+              "decile": 8,
+              "loans": 160000,
+              "predicted": 0.0119007321153709,
+              "actual": 0.01183125
+            },
+            {
+              "decile": 9,
+              "loans": 160000,
+              "predicted": 0.01748472305904491,
+              "actual": 0.0170125
+            },
+            {
+              "decile": 10,
+              "loans": 160000,
+              "predicted": 0.037867197772445405,
+              "actual": 0.03725625
+            }
+          ]
+        }
+      },
+      "from_2023_01": {
+        "raw": {
+          "rows": 1004752,
+          "base_rate": 0.00933862286414956,
+          "mean_predicted": 0.07547081493231943,
+          "predicted_over_actual": 8.081578625693043,
+          "roc_auc": 0.7473108152493224,
+          "pr_auc": 0.0385922453824918,
+          "deciles": [
+            {
+              "decile": 1,
+              "loans": 100476,
+              "predicted": 0.018028170343175085,
+              "actual": 0.0013933675703650622
+            },
+            {
+              "decile": 2,
+              "loans": 100476,
+              "predicted": 0.02621533917478564,
+              "actual": 0.0023587722441179983
+            },
+            {
+              "decile": 3,
+              "loans": 100475,
+              "predicted": 0.03295720205997525,
+              "actual": 0.002926101020154267
+            },
+            {
+              "decile": 4,
+              "loans": 100475,
+              "predicted": 0.04019085794398072,
+              "actual": 0.004130380691714357
+            },
+            {
+              "decile": 5,
+              "loans": 100475,
+              "predicted": 0.04886240467025024,
+              "actual": 0.005026125901965663
+            },
+            {
+              "decile": 6,
+              "loans": 100475,
+              "predicted": 0.059947635118390054,
+              "actual": 0.006887285394376711
+            },
+            {
+              "decile": 7,
+              "loans": 100475,
+              "predicted": 0.07503425720764885,
+              "actual": 0.0085493903956208
+            },
+            {
+              "decile": 8,
+              "loans": 100475,
+              "predicted": 0.09713594028563546,
+              "actual": 0.0120228912664842
+            },
+            {
+              "decile": 9,
+              "loans": 100475,
+              "predicted": 0.13361680008220744,
+              "actual": 0.01719830803682508
+            },
+            {
+              "decile": 10,
+              "loans": 100475,
+              "predicted": 0.22272060437414828,
+              "actual": 0.032893754665339635
+            }
+          ]
+        },
+        "calibrated": {
+          "rows": 1004752,
+          "base_rate": 0.00933862286414956,
+          "mean_predicted": 0.008967976324100046,
+          "predicted_over_actual": 0.9603103642323533,
+          "roc_auc": 0.7476691422519947,
+          "pr_auc": 0.03695970288687078,
+          "deciles": [
+            {
+              "decile": 1,
+              "loans": 100476,
+              "predicted": 0.0015469946315708855,
+              "actual": 0.0014928938253911382
+            },
+            {
+              "decile": 2,
+              "loans": 100476,
+              "predicted": 0.0022831517024506013,
+              "actual": 0.002149767108563239
+            },
+            {
+              "decile": 3,
+              "loans": 100475,
+              "predicted": 0.0031877575768529433,
+              "actual": 0.00300572281662105
+            },
+            {
+              "decile": 4,
+              "loans": 100475,
+              "predicted": 0.0037058715855383395,
+              "actual": 0.004040806170689226
+            },
+            {
+              "decile": 5,
+              "loans": 100475,
+              "predicted": 0.005156891694544675,
+              "actual": 0.005145558596665837
+            },
+            {
+              "decile": 6,
+              "loans": 100475,
+              "predicted": 0.00651247482124804,
+              "actual": 0.006708136352326449
+            },
+            {
+              "decile": 7,
+              "loans": 100475,
+              "predicted": 0.008022600857017443,
+              "actual": 0.00859915401841254
+            },
+            {
+              "decile": 8,
+              "loans": 100475,
+              "predicted": 0.011036353565673281,
+              "actual": 0.011903458571784025
+            },
+            {
+              "decile": 9,
+              "loans": 100475,
+              "predicted": 0.01614827062236135,
+              "actual": 0.01733764618064195
+            },
+            {
+              "decile": 10,
+              "loans": 100475,
+              "predicted": 0.032079536574947824,
+              "actual": 0.033003234635481465
+            }
+          ]
+        }
+      },
+      "note": "the natural-rate holdout's loans are in no fit, but the calibration map was fitted on half of this same holdout and the model's fitting rows run to 2025, so this is out of sample and not out of time"
+    }
+  },
+  "limitations": [
+    "The target counts the first 30+ day delinquency, and a large share of 2020 and 2021 events were pandemic forbearance, not a change in borrowers' ability to pay; the model learned that period too.",
+    "The training rows are downsampled 10:1 and the calibration map, fitted on a separate natural-rate holdout of four origination quarters, is what restores real-world rates; a portfolio with a different mix needs its own check.",
+    "Predicted over actual after calibration is shown by decile in this card; where the map is thin (the top decile) the rate is the least certain.",
+    "Not a decision model: it ranks performing loans for analyst attention and says nothing about the loan once it is late (the delinquency model projects that).",
+    "The property's state is a feature; geography can stand in for protected characteristics, and a lender using these scores in credit decisions must test for disparate impact on its own portfolio."
+  ]
+}

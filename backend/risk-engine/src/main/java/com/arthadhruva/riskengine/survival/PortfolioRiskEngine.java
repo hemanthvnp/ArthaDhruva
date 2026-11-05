@@ -6,6 +6,7 @@ import com.arthadhruva.riskengine.cvar.CvarResult;
 import com.arthadhruva.riskengine.cvar.LoanRiskProfile;
 import com.arthadhruva.riskengine.score.LoanFeatures;
 import com.arthadhruva.riskengine.score.LoanInputValidator;
+import com.arthadhruva.riskengine.score.PortfolioLoan;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -78,16 +79,23 @@ public class PortfolioRiskEngine {
     private static final int TOP_STATES = 12;
 
     private final TermStructureEngine engine;
+    private final MultiStateEngine multiState;
+    private final DelinquencyRouter router;
+    private final DelinquencyModel delinquency;
     private final SurvivalModel model;
     private final LoanInputValidator validator;
     private final CvarEngine lossEngine;
     private final ExecutorService workers;
     private final int maxLoans;
 
-    public PortfolioRiskEngine(TermStructureEngine engine, SurvivalModel model, LoanInputValidator validator,
+    public PortfolioRiskEngine(TermStructureEngine engine, MultiStateEngine multiState, DelinquencyRouter router,
+                               DelinquencyModel delinquency, SurvivalModel model, LoanInputValidator validator,
                                CvarEngine lossEngine, @Qualifier("riskComputeExecutor") ExecutorService workers,
                                @Value("${risk.portfolio.max-loans:5000}") int maxLoans) {
         this.engine = engine;
+        this.multiState = multiState;
+        this.router = router;
+        this.delinquency = delinquency;
         this.model = model;
         this.validator = validator;
         this.lossEngine = lossEngine;
@@ -133,6 +141,12 @@ public class PortfolioRiskEngine {
      * @param pd12m                    exposure-weighted 12-month PD
      * @param coverage                 IFRS 9 ECL as a share of exposure
      * @param extrapolatedLoans        loans whose path leaves the model's training range, per driver and direction
+     * @param modelLoans               loans projected by each model, by the model's id and version (the survival model for a
+     *                                 loan with no delinquency data, the delinquency model for one with status and history);
+     *                                 scaled like {@code loans} when the portfolio was sampled; null in a result stored
+     *                                 before the delinquency model could be used for a portfolio
+     * @param fallbackReasons          for the loans projected by the survival model, how many for each reason the
+     *                                 delinquency model was not used (no data supplied, history incomplete, ...)
      * @param eclRelativeStandardError sampling error of {@code eclLifetime}; null when every loan was projected
      * @param lossDistribution         the one-year loss distribution around the 12-month ECL (see
      *                                 {@link #lossRequest}); on the baseline scenario only, and null if the
@@ -142,7 +156,8 @@ public class PortfolioRiskEngine {
                                double pdLifetime, double ecl12m, double eclLifetime, double eclIfrs9, double eclCecl,
                                double coverage, List<StageBreakdown> stages, Series series, List<StateRisk> states,
                                List<LoanRisk> topLoans, Map<String, Integer> extrapolatedLoans,
-                               Double eclRelativeStandardError, CvarResult lossDistribution) {
+                               Double eclRelativeStandardError, CvarResult lossDistribution,
+                               Map<String, Integer> modelLoans, Map<String, Integer> fallbackReasons) {
     }
 
     /**
@@ -194,10 +209,20 @@ public class PortfolioRiskEngine {
      */
     public PortfolioRisk run(List<LoanFeatures> portfolio, List<Scenario> scenarios, long seed, IntConsumer progress,
                              Checkpoints checkpoints) {
+        return runPortfolio(PortfolioLoan.all(portfolio), scenarios, seed, progress, checkpoints);
+    }
+
+    /**
+     * As {@link #run(List, List, long, IntConsumer, Checkpoints)}, for loans that may carry where they stand now. A loan with
+     * its days past due and payment history is projected from there by the delinquency model; every other loan runs on the
+     * survival model exactly as a loan with no such fields always has, and the result says how many ran on each.
+     */
+    public PortfolioRisk runPortfolio(List<PortfolioLoan> portfolio, List<Scenario> scenarios, long seed, IntConsumer progress,
+                                      Checkpoints checkpoints) {
         // A fixed order first: the sample, and the order figures are summed in, must not depend on how
         // the caller happened to list the loans.
-        List<LoanFeatures> loans = new ArrayList<>(portfolio);
-        loans.sort(Comparator.comparing(LoanFeatures::loanId, Comparator.nullsLast(Comparator.naturalOrder())));
+        List<PortfolioLoan> loans = new ArrayList<>(portfolio);
+        loans.sort(Comparator.comparing(PortfolioLoan::loanId, Comparator.nullsLast(Comparator.naturalOrder())));
         if (loans.size() > maxLoans) {
             Collections.shuffle(loans, new Random(seed));
             loans = loans.subList(0, maxLoans);
@@ -211,7 +236,7 @@ public class PortfolioRiskEngine {
         String runKey = keep ? runKey(scenarios, baseline, scale) : null;
         List<Supplier<Future<Done>>> starts = new ArrayList<>();
         for (int from = 0; from < loans.size(); from += LOANS_PER_CHUNK) {
-            List<LoanFeatures> slice = loans.subList(from, Math.min(loans.size(), from + LOANS_PER_CHUNK));
+            List<PortfolioLoan> slice = loans.subList(from, Math.min(loans.size(), from + LOANS_PER_CHUNK));
             String key = keep ? sha256(runKey + slice) : null;
             Chunk found = key == null ? null : Chunk.read(stored.get(key), scenarios.size());
             starts.add(found != null ? () -> CompletableFuture.completedFuture(new Done(found, null))
@@ -255,7 +280,10 @@ public class PortfolioRiskEngine {
      * the projection starts from, the scenarios and their order, and the scale a sample is weighted by.
      */
     private String runKey(List<Scenario> scenarios, int baseline, double scale) {
-        return CHECKPOINT_FORMAT + "|" + modelKey() + "|" + scenarios + "|" + baseline + "|" + Double.doubleToLongBits(scale) + "|";
+        // the delinquency model too: a loan with a status is projected by it, and a chunk's key also covers each loan's status
+        // (the slice's text), so a different model or a different status is never answered from an older chunk
+        return CHECKPOINT_FORMAT + "|" + modelKey() + "|" + delinquency.version() + "|" + delinquency.artifactSha256() + "|"
+                + scenarios + "|" + baseline + "|" + Double.doubleToLongBits(scale) + "|";
     }
 
     /**
@@ -326,42 +354,103 @@ public class PortfolioRiskEngine {
         }
     }
 
-    private Chunk evaluate(List<LoanFeatures> loans, List<Scenario> scenarios, int baseline, double weight) {
+    /**
+     * One loan-scenario waiting to be projected: by the existing engine ({@code projection}) or, for a loan with a status and
+     * history, by the delinquency model ({@code prepared}). Exactly one of the two is set.
+     */
+    private record Slot(TermStructureEngine.Projection projection, MultiStateEngine.Prepared prepared,
+                        DelinquencyRouter.Route route) {
+    }
+
+    /** What a chunk adds up from one finished loan-scenario, whichever model projected it. */
+    private record LoanOutcome(LoanFeatures loan, TermStructureEngine.Summary summary, TermStructureEngine.Ecl ecl,
+                               double[] exposure, double[] survival, double[] marginalDefault, double[] marginalPrepay,
+                               double[] discountedLoss, List<TermStructureEngine.Extrapolation> extrapolations, String model,
+                               String fallbackReason) {
+        int months() {
+            return survival.length;
+        }
+    }
+
+    /**
+     * Where a loan's status sends it. Never throws: a status the upload would have refused (stored some other way, or before
+     * the rules changed) must not drop the loan from the allowance, so that loan runs on the existing engine and the result
+     * counts it under the reason.
+     */
+    private DelinquencyRouter.Route route(PortfolioLoan loan) {
+        try {
+            return router.route(loan.daysPastDue(), loan.history());
+        } catch (DelinquencyRouter.InvalidDelinquencyInputException e) {
+            return new DelinquencyRouter.Route(false, "delinquency data not usable (" + e.field() + "), existing engine used", 0,
+                    MultiStateEngine.NO_HISTORY);
+        }
+    }
+
+    private Chunk evaluate(List<PortfolioLoan> loans, List<Scenario> scenarios, int baseline, double weight) {
         Chunk chunk = new Chunk(scenarios.size());
-        List<TermStructureEngine.Projection> projections = new ArrayList<>(loans.size() * scenarios.size());
-        int rows = 0;
-        for (LoanFeatures raw : loans) {
-            int before = projections.size();
+        // loan by loan, scenario by scenario, which is the order the figures are added in whichever model projects them
+        List<Slot> slots = new ArrayList<>(loans.size() * scenarios.size());
+        int survivalRows = 0;
+        for (PortfolioLoan raw : loans) {
+            int before = slots.size();
             try {
-                LoanFeatures loan = raw.normalized();
+                LoanFeatures loan = raw.loan().normalized();
                 validator.check(loan);
+                DelinquencyRouter.Route route = route(raw);
                 for (Scenario scenario : scenarios) {
-                    projections.add(engine.prepare(new TermStructureEngine.Request(loan, scenario, null, null, null, null)));
+                    TermStructureEngine.Request base = new TermStructureEngine.Request(loan, scenario, null, null,
+                            raw.daysPastDue(), null);
+                    slots.add(route.useDelinquencyModel()
+                            ? new Slot(null, multiState.prepare(new MultiStateEngine.Request(base, route.startState(), route.history())), route)
+                            : new Slot(engine.prepare(base), null, route));
                 }
-                for (int i = before; i < projections.size(); i++) {
-                    rows += projections.get(i).rows();
+                for (int i = before; i < slots.size(); i++) {
+                    if (slots.get(i).projection() != null) {
+                        survivalRows += slots.get(i).projection().rows();
+                    }
                 }
                 chunk.projected++;
             } catch (LoanInputValidator.InvalidLoanException | TermStructureEngine.InvalidProjectionException e) {
-                projections.subList(before, projections.size()).clear();
+                slots.subList(before, slots.size()).clear();
                 chunk.excluded++;
             }
         }
-        float[] flat = new float[rows * engine.features()];
-        int[] firstRow = new int[projections.size()];
+        float[] flat = new float[survivalRows * engine.features()];
+        int[] firstRow = new int[slots.size()];
+        List<MultiStateEngine.Prepared> delinquent = new ArrayList<>();
         int at = 0;
-        for (int i = 0; i < projections.size(); i++) {
-            firstRow[i] = at;
-            projections.get(i).writeRows(flat, at);
-            at += projections.get(i).rows();
+        for (int i = 0; i < slots.size(); i++) {
+            Slot slot = slots.get(i);
+            if (slot.projection() != null) {
+                firstRow[i] = at;
+                slot.projection().writeRows(flat, at);
+                at += slot.projection().rows();
+            } else {
+                delinquent.add(slot.prepared());
+            }
         }
-        double[] hazards = engine.hazards(flat, rows);
-        for (int i = 0; i < projections.size(); i++) {
-            TermStructureEngine.Outcome outcome = engine.finish(projections.get(i), hazards, firstRow[i]);
+        // one batched call for each model; a chunk with no loan for one of them makes no call to it
+        double[] hazards = survivalRows == 0 && !delinquent.isEmpty() ? new double[0] : engine.hazards(flat, survivalRows);
+        List<MultiStateEngine.Outcome> projected = delinquent.isEmpty() ? List.of() : multiState.projectPrepared(delinquent);
+        int next = 0;
+        for (int i = 0; i < slots.size(); i++) {
+            Slot slot = slots.get(i);
+            LoanOutcome outcome;
+            if (slot.projection() != null) {
+                TermStructureEngine.Outcome o = engine.finish(slot.projection(), hazards, firstRow[i]);
+                outcome = new LoanOutcome(o.projection.request.loan(), o.summary(), o.ecl(), o.projection.main.exposure, o.survival,
+                        o.marginalDefault, o.marginalPrepay, o.discountedLoss, engine.extrapolations(o), model.version(),
+                        slot.route().reason());
+            } else {
+                MultiStateEngine.Outcome o = projected.get(next++);
+                outcome = new LoanOutcome(o.prepared().projection.request.loan(), o.summary(), o.ecl(),
+                        o.prepared().projection.main.exposure, o.curve().survival(), o.curve().marginalDefault(),
+                        o.curve().marginalPrepay(), o.discountedLoss(), multiState.extrapolations(o), delinquency.version(), null);
+            }
             int scenario = i % scenarios.size();
-            chunk.byScenario[scenario].add(outcome, engine.extrapolations(outcome));
+            chunk.byScenario[scenario].add(outcome);
             if (scenario == baseline) {
-                LoanFeatures loan = outcome.projection.request.loan();
+                LoanFeatures loan = outcome.loan();
                 TermStructureEngine.Ecl ecl = outcome.ecl();
                 chunk.baselineLoans.add(new LoanResult(loan.loanId(), loan.propertyState(), ecl.exposure(),
                         outcome.summary().pd12m(), outcome.summary().pdLifetime(), ecl.lgd(), ecl.ecl12m(), ecl.eclLifetime(),
@@ -451,7 +540,7 @@ public class PortfolioRiskEngine {
     }
 
     /** Changes whenever a chunk's stored form or what it depends on does, so an older checkpoint is not read. */
-    private static final int CHECKPOINT_FORMAT = 1;
+    private static final int CHECKPOINT_FORMAT = 2;
 
     private static void writeText(DataOutputStream out, String text) throws IOException {
         out.writeBoolean(text != null);
@@ -467,6 +556,20 @@ public class PortfolioRiskEngine {
     private static void writeAll(DataOutputStream out, double[] values) throws IOException {
         for (double value : values) {
             out.writeDouble(value);
+        }
+    }
+
+    private static void writeCounts(DataOutputStream out, Map<String, Integer> counts) throws IOException {
+        out.writeInt(counts.size());
+        for (Map.Entry<String, Integer> count : counts.entrySet()) {
+            out.writeUTF(count.getKey());
+            out.writeInt(count.getValue());
+        }
+    }
+
+    private static void readCounts(DataInputStream in, Map<String, Integer> counts) throws IOException {
+        for (int i = in.readInt(); i > 0; i--) {
+            counts.put(in.readUTF(), in.readInt());
         }
     }
 
@@ -488,13 +591,19 @@ public class PortfolioRiskEngine {
         final double[] expectedLoss = new double[SERIES_MONTHS];
         final Map<String, double[]> states = new HashMap<>();          // loans, exposure, eclLifetime, eclIfrs9
         final Map<String, Integer> extrapolated = new TreeMap<>();
+        final Map<String, Integer> models = new TreeMap<>();            // loans by the model that projected them
+        final Map<String, Integer> fallbacks = new TreeMap<>();         // loans on the survival model, by why not the other
         final PriorityQueue<LoanRisk> top = new PriorityQueue<>(Comparator.comparingDouble(LoanRisk::eclLifetime));
 
-        void add(TermStructureEngine.Outcome o, List<TermStructureEngine.Extrapolation> extrapolations) {
+        void add(LoanOutcome o) {
             TermStructureEngine.Summary summary = o.summary();
             TermStructureEngine.Ecl ecl = o.ecl();
-            LoanFeatures loan = o.projection.request.loan();
+            LoanFeatures loan = o.loan();
             loans++;
+            models.merge(o.model(), 1, Integer::sum);
+            if (o.fallbackReason() != null) {
+                fallbacks.merge(o.fallbackReason(), 1, Integer::sum);
+            }
             exposure += ecl.exposure();
             exposurePd12 += ecl.exposure() * summary.pd12m();
             exposurePdLifetime += ecl.exposure() * summary.pdLifetime();
@@ -507,20 +616,20 @@ public class PortfolioRiskEngine {
             stageExposure[ecl.stage() - 1] += ecl.exposure();
             stageEcl[ecl.stage() - 1] += ecl.eclIfrs9();
 
-            double[] balance = o.projection.main.exposure;
+            double[] balance = o.exposure();
             int months = Math.min(SERIES_MONTHS, o.months());
             for (int k = 0; k < months; k++) {
-                balanceAtRisk[k] += (k == 0 ? 1.0 : o.survival[k - 1]) * balance[k];
-                defaults[k] += o.marginalDefault[k] * balance[k];
-                prepayments[k] += o.marginalPrepay[k] * balance[k];
-                expectedLoss[k] += o.discountedLoss[k];
+                balanceAtRisk[k] += (k == 0 ? 1.0 : o.survival()[k - 1]) * balance[k];
+                defaults[k] += o.marginalDefault()[k] * balance[k];
+                prepayments[k] += o.marginalPrepay()[k] * balance[k];
+                expectedLoss[k] += o.discountedLoss()[k];
             }
             double[] state = states.computeIfAbsent(loan.propertyState(), s -> new double[4]);
             state[0]++;
             state[1] += ecl.exposure();
             state[2] += ecl.eclLifetime();
             state[3] += ecl.eclIfrs9();
-            for (TermStructureEngine.Extrapolation e : extrapolations) {
+            for (TermStructureEngine.Extrapolation e : o.extrapolations()) {
                 extrapolated.merge(e.driver() + ":" + e.direction(), 1, Integer::sum);
             }
             offer(new LoanRisk(loan.loanId(), loan.propertyState(), ecl.exposure(), summary.pd12m(), summary.pdLifetime(),
@@ -556,6 +665,8 @@ public class PortfolioRiskEngine {
                 out.writeUTF(driver.getKey());
                 out.writeInt(driver.getValue());
             }
+            writeCounts(out, models);
+            writeCounts(out, fallbacks);
             // In the queue's own order: added back in that order, the queue is the same heap, so a later
             // merge breaks ties between equal losses exactly as it would have.
             out.writeInt(top.size());
@@ -595,6 +706,8 @@ public class PortfolioRiskEngine {
             for (int i = in.readInt(); i > 0; i--) {
                 extrapolated.put(in.readUTF(), in.readInt());
             }
+            readCounts(in, models);
+            readCounts(in, fallbacks);
             for (int i = in.readInt(); i > 0; i--) {
                 top.add(new LoanRisk(readText(in), readText(in), in.readDouble(), in.readDouble(), in.readDouble(), in.readDouble(),
                         in.readInt()));
@@ -629,6 +742,8 @@ public class PortfolioRiskEngine {
                 }
             });
             other.extrapolated.forEach((key, count) -> extrapolated.merge(key, count, Integer::sum));
+            other.models.forEach((key, count) -> models.merge(key, count, Integer::sum));
+            other.fallbacks.forEach((key, count) -> fallbacks.merge(key, count, Integer::sum));
             other.top.forEach(this::offer);
         }
 
@@ -648,6 +763,10 @@ public class PortfolioRiskEngine {
                             Comparator.nullsLast(Comparator.naturalOrder()))).toList();
             Map<String, Integer> extrapolatedLoans = new TreeMap<>();
             extrapolated.forEach((key, count) -> extrapolatedLoans.put(key, scaled(count, scale)));
+            Map<String, Integer> modelLoans = new TreeMap<>();
+            models.forEach((key, count) -> modelLoans.put(key, scaled(count, scale)));
+            Map<String, Integer> fallbackReasons = new TreeMap<>();
+            fallbacks.forEach((key, count) -> fallbackReasons.put(key, scaled(count, scale)));
 
             Double relativeError = null;
             if (sampled && loans > 1 && eclLifetime > 0) {
@@ -662,7 +781,7 @@ public class PortfolioRiskEngine {
                     exposure > 0 ? eclIfrs9 / exposure : 0, stages,
                     new Series(months, times(balanceAtRisk, scale), times(defaults, scale), times(prepayments, scale),
                             times(expectedLoss, scale)),
-                    byState, topLoans, extrapolatedLoans, relativeError, lossDistribution);
+                    byState, topLoans, extrapolatedLoans, relativeError, lossDistribution, modelLoans, fallbackReasons);
         }
 
         private static int scaled(int count, double scale) {

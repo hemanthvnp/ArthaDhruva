@@ -30,7 +30,6 @@ const ANALYST_GROUPS: NavGroup[] = [
       { to: '/lifetime-risk', label: 'Lifetime Risk', icon: 'curve' },
       { to: '/expected-loss', label: 'Expected Loss', icon: 'loss' },
       { to: '/early-warning', label: 'Early Warning', icon: 'warning' },
-      { to: '/trajectory', label: 'Trajectory', icon: 'trajectory' },
     ],
   },
   {

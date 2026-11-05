@@ -4,8 +4,10 @@ import com.arthadhruva.riskengine.tenant.TenantContext;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Loading a tenant's own loan portfolio, two ways to the same service: an admin uploads it (under
@@ -22,7 +24,12 @@ public class PortfolioController {
         this.service = service;
     }
 
-    public record BatchRequest(List<LoanFeatures> loans) {
+    /**
+     * @param loans    the loans' origination features
+     * @param statuses where some of them stand now, by loan id (optional): days past due and recent payment history. A
+     *                 portfolio run projects such a loan from where it is. A loan with no entry is stored without a status.
+     */
+    public record BatchRequest(List<LoanFeatures> loans, Map<String, LoanStatus> statuses) {
     }
 
     public record BatchResponse(int accepted, int rejected, List<TenantLoanService.ItemResult> results) {
@@ -42,8 +49,21 @@ public class PortfolioController {
         if (request == null || request.loans() == null || request.loans().isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "loans must be a non-empty array"));
         }
+        Map<String, LoanStatus> statuses = request.statuses() == null ? Map.of() : request.statuses();
+        Set<String> batchIds = new HashSet<>();
+        request.loans().forEach(l -> {
+            if (l != null && l.loanId() != null) {
+                batchIds.add(l.loanId().trim());
+            }
+        });
+        List<String> unknown = statuses.keySet().stream().filter(id -> id == null || !batchIds.contains(id.trim())).sorted(
+                java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())).limit(5).toList();
+        if (!unknown.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error",
+                    "statuses names loans that are not in this request: " + unknown + ". A status goes with the loan it describes"));
+        }
         try {
-            List<TenantLoanService.ItemResult> results = service.upsertAll(TenantContext.get(), request.loans());
+            List<TenantLoanService.ItemResult> results = service.upsertAll(TenantContext.get(), request.loans(), statuses);
             int ok = (int) results.stream().filter(TenantLoanService.ItemResult::ok).count();
             return ResponseEntity.ok(new BatchResponse(ok, results.size() - ok, results));
         } catch (IllegalArgumentException e) {

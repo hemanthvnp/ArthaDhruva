@@ -1,0 +1,303 @@
+[
+  {
+    "id": "portfolio-ecl",
+    "question": "What is our portfolio expected credit loss under the baseline scenario?",
+    "expectedTools": [
+      "portfolio_summary"
+    ],
+    "firstTool": "portfolio_summary"
+  },
+  {
+    "id": "portfolio-size",
+    "question": "How many loans are in the portfolio and what is the total exposure?",
+    "expectedTools": [
+      "portfolio_summary"
+    ],
+    "firstTool": "portfolio_summary"
+  },
+  {
+    "id": "top-loans",
+    "question": "Which five loans carry the highest lifetime expected loss?",
+    "expectedTools": [
+      "portfolio_loans"
+    ],
+    "firstTool": "portfolio_loans",
+    "allowedTools": [
+      "get_loan",
+      "portfolio_summary"
+    ]
+  },
+  {
+    "id": "stage-two",
+    "question": "List the loans that are in IFRS 9 stage 2.",
+    "expectedTools": [
+      "portfolio_loans"
+    ],
+    "firstTool": "portfolio_loans",
+    "allowedTools": [
+      "portfolio_summary"
+    ]
+  },
+  {
+    "id": "tail-loss",
+    "question": "What does the one-year tail loss of the portfolio look like?",
+    "expectedTools": [
+      "loss_distribution"
+    ],
+    "firstTool": "loss_distribution",
+    "allowedTools": [
+      "portfolio_summary"
+    ]
+  },
+  {
+    "id": "var-999",
+    "question": "What is the 99.9% value at risk of the current book?",
+    "expectedTools": [
+      "loss_distribution"
+    ],
+    "firstTool": "loss_distribution",
+    "allowedTools": [
+      "portfolio_summary"
+    ]
+  },
+  {
+    "id": "scenarios",
+    "question": "Which stress scenarios can I run?",
+    "expectedTools": [
+      "list_scenarios"
+    ],
+    "firstTool": "list_scenarios"
+  },
+  {
+    "id": "regime",
+    "question": "What is the macro regime forecast for the next few months?",
+    "expectedTools": [
+      "regime_forecast"
+    ],
+    "firstTool": "regime_forecast"
+  },
+  {
+    "id": "model-inventory",
+    "question": "Which models are in the inventory and which of them are validated?",
+    "expectedTools": [
+      "list_models"
+    ],
+    "firstTool": "list_models"
+  },
+  {
+    "id": "survival-gaps",
+    "question": "What are the known gaps of the survival model?",
+    "expectedTools": [
+      "model_detail"
+    ],
+    "firstTool": "model_detail",
+    "allowedTools": [
+      "list_models"
+    ],
+    "mustMention": [
+      "gap|limit|not"
+    ]
+  },
+  {
+    "id": "latest-run",
+    "question": "What is the state of the latest portfolio run?",
+    "expectedTools": [
+      "portfolio_summary"
+    ],
+    "firstTool": "portfolio_summary",
+    "allowedTools": [
+      "run_list",
+      "portfolio_run_status"
+    ]
+  },
+  {
+    "id": "worst-loan-detail",
+    "question": "Take the loan with the highest expected loss and explain its default risk.",
+    "expectedTools": [
+      "portfolio_loans"
+    ],
+    "firstTool": "portfolio_loans",
+    "allowedTools": [
+      "get_loan",
+      "explain_loan",
+      "score_loan",
+      "term_structure",
+      "expected_loss"
+    ]
+  },
+  {
+    "id": "stuck-run",
+    "question": "Is any portfolio run stuck right now?",
+    "expectedTools": [
+      "run_list"
+    ],
+    "firstTool": "run_list",
+    "allowedTools": [
+      "run_detail"
+    ]
+  },
+  {
+    "id": "failed-run",
+    "question": "Why did our last portfolio run fail?",
+    "expectedTools": [
+      "run_list"
+    ],
+    "firstTool": "run_list",
+    "allowedTools": [
+      "run_detail"
+    ]
+  },
+  {
+    "id": "webhooks-ok",
+    "question": "Are our webhooks being delivered?",
+    "expectedTools": [
+      "webhook_outbox"
+    ],
+    "firstTool": "webhook_outbox"
+  },
+  {
+    "id": "webhooks-failed",
+    "question": "Which webhook deliveries have failed?",
+    "expectedTools": [
+      "webhook_outbox"
+    ],
+    "firstTool": "webhook_outbox"
+  },
+  {
+    "id": "who-scores",
+    "question": "Who has been calling the scoring API recently?",
+    "expectedTools": [
+      "audit_query"
+    ],
+    "firstTool": "audit_query"
+  },
+  {
+    "id": "failed-calls",
+    "question": "Show me the API calls that failed recently.",
+    "expectedTools": [
+      "audit_query"
+    ],
+    "firstTool": "audit_query"
+  },
+  {
+    "id": "plan",
+    "question": "What plan are we on and how many seats do we use?",
+    "expectedTools": [
+      "usage"
+    ],
+    "firstTool": "usage"
+  },
+  {
+    "id": "metered",
+    "question": "How much of our metered usage have we consumed this period?",
+    "expectedTools": [
+      "usage"
+    ],
+    "firstTool": "usage"
+  },
+  {
+    "id": "artifacts",
+    "question": "Do the model artifacts still match their model cards?",
+    "expectedTools": [
+      "verify_artifacts"
+    ],
+    "firstTool": "verify_artifacts",
+    "mustMention": [
+      "match"
+    ],
+    "operator": true
+  },
+  {
+    "id": "rerun",
+    "question": "Has any export script changed so that a golden fixture needs to be re-run?",
+    "expectedTools": [
+      "rerun_advisory"
+    ],
+    "firstTool": "rerun_advisory",
+    "operator": true
+  },
+  {
+    "id": "drift",
+    "question": "Is the PD model drifting?",
+    "expectedTools": [
+      "drift_report"
+    ],
+    "firstTool": "drift_report",
+    "operator": true
+  },
+  {
+    "id": "backtest",
+    "question": "How did the survival model do in its backtest?",
+    "expectedTools": [
+      "survival_backtest"
+    ],
+    "firstTool": "survival_backtest",
+    "operator": true
+  },
+  {
+    "id": "health",
+    "question": "Is the deployment healthy?",
+    "expectedTools": [
+      "health"
+    ],
+    "firstTool": "health",
+    "allowedTools": [
+      "alert_state"
+    ],
+    "operator": true
+  },
+  {
+    "id": "asleep",
+    "question": "Is the VM asleep right now?",
+    "expectedTools": [
+      "health"
+    ],
+    "firstTool": "health",
+    "operator": true
+  },
+  {
+    "id": "alerts",
+    "question": "Are any alerts firing?",
+    "expectedTools": [
+      "alert_state"
+    ],
+    "firstTool": "alert_state",
+    "allowedTools": [
+      "health"
+    ],
+    "operator": true
+  },
+  {
+    "id": "error-ratio",
+    "question": "What share of API requests are failing with a 5xx right now?",
+    "expectedTools": [
+      "metric_query"
+    ],
+    "firstTool": "metric_query",
+    "allowedTools": [
+      "health"
+    ],
+    "operator": true
+  },
+  {
+    "id": "score-latency",
+    "question": "What is the p95 latency of the scoring endpoint?",
+    "expectedTools": [
+      "metric_query"
+    ],
+    "firstTool": "metric_query",
+    "operator": true
+  },
+  {
+    "id": "ci-time",
+    "question": "How long does CI typically take?",
+    "expectedTools": [
+      "typical_time"
+    ],
+    "firstTool": "typical_time",
+    "allowedTools": [
+      "job_model"
+    ],
+    "operator": true
+  }
+]

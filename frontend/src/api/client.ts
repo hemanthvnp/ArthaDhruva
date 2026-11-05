@@ -41,6 +41,8 @@ import type {
   ScenarioComparison,
   SessionRotated,
   SurvivalBacktest,
+  RealizedOverview,
+  RealizedReport,
   TermStructureResponse,
   UsageView,
   WeightedPortfolio,
@@ -74,12 +76,10 @@ import type {
   RecentNoteView,
   RegimeForecast,
   ScoreResponse,
+  SegmentGraph,
   SegmentNeighbor,
   TotpSetupResponse,
   TotpStatusResponse,
-  TrajectoryCatalogEntry,
-  TrajectoryRequest,
-  TrajectoryScoreResponse,
   UserStatusResponse,
   UserSummary,
 } from './types';
@@ -317,10 +317,6 @@ export function expectedLoss(loan: LoanFeatures): Promise<ExpectedLossResponse> 
   return request('/expected-loss', { method: 'POST', body: JSON.stringify(loan) });
 }
 
-export function trajectoryScore(req: TrajectoryRequest): Promise<TrajectoryScoreResponse> {
-  return request('/trajectory-score', { method: 'POST', body: JSON.stringify(req) });
-}
-
 // ---- lifetime risk ---------------------------------------------------------------------------
 
 export function listScenarios(): Promise<Scenario[]> {
@@ -334,7 +330,9 @@ export function termStructure(input: LifetimeRiskInput, scenario: string): Promi
 
 /** The same loan under every built-in scenario, in one call. */
 export function compareScenarios(input: LifetimeRiskInput): Promise<ScenarioComparison> {
-  return request('/risk/term-structure/compare', { method: 'POST', body: JSON.stringify(input) });
+  // the scenario comparison runs the existing engine: the delinquency fields belong to the single-scenario projection
+  const { delinquency: _history, intervals: _intervals, ...rest } = input;
+  return request('/risk/term-structure/compare', { method: 'POST', body: JSON.stringify(rest) });
 }
 
 // ---- portfolio risk --------------------------------------------------------------------------
@@ -403,6 +401,16 @@ export function survivalBacktest(): Promise<SurvivalBacktest> {
   return request('/models/survival/backtest');
 }
 
+/** The counts and the latest comparison of the PD model's stored scores with the outcomes recorded for the loans. */
+export function realizedOutcomes(): Promise<RealizedOverview> {
+  return request('/models/pd_24m/realized');
+}
+
+/** Queues a comparison now (administrators); it runs on a compute thread and the answer is polled with {@link realizedOutcomes}. */
+export function runRealizedComparison(): Promise<RealizedReport> {
+  return request('/admin/models/pd_24m/realized', { method: 'POST' });
+}
+
 export function pdDrift(): Promise<DriftReport> {
   return request('/models/pd_24m/drift');
 }
@@ -446,13 +454,8 @@ export function listEarlyWarningCatalog(): Promise<EarlyWarningCatalogEntry[]> {
   return request('/early-warning-loans');
 }
 
-/** Real loans' actual observed first-up-to-12-months trajectories (backend/export_trajectory_catalog.py). */
-export function listTrajectoryCatalog(): Promise<TrajectoryCatalogEntry[]> {
-  return request('/trajectory-loans');
-}
-
 /** Every state and every correlation edge (each once), in one request. */
-export function segmentGraph(): Promise<{ states: string[]; edges: [string, string][] }> {
+export function segmentGraph(): Promise<SegmentGraph> {
   return request('/segments/graph');
 }
 
@@ -817,8 +820,12 @@ export interface PortfolioUploadResult {
   results: { index: number; loanId: string | null; ok: boolean; error: string | null }[];
 }
 
-export function uploadPortfolio(loans: unknown[]): Promise<PortfolioUploadResult> {
-  return request('/admin/portfolio', { method: 'POST', body: JSON.stringify({ loans }) });
+/**
+ * `statuses` is optional: where some of the loans stand now, by loan id (`{ daysPastDue, history }`). A loan with one is
+ * projected from where it is in a portfolio run; the rest are projected as before.
+ */
+export function uploadPortfolio(loans: unknown[], statuses?: unknown): Promise<PortfolioUploadResult> {
+  return request('/admin/portfolio', { method: 'POST', body: JSON.stringify(statuses ? { loans, statuses } : { loans }) });
 }
 
 export function clearPortfolio(): Promise<{ removed: number }> {

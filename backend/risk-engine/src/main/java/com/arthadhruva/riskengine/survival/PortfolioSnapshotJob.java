@@ -56,7 +56,7 @@ class PortfolioSnapshotJob {
                 TenantContext.set(tenantId);
                 try {
                     if (loans.hasPortfolio(tenantId) && !service.hasSnapshotSince(tenantId, monthStart)) {
-                        service.start(tenantId, REQUESTED_BY, loans.all(tenantId), SCENARIOS, null, true);
+                        service.startPortfolio(tenantId, REQUESTED_BY, loans.allWithStatus(tenantId), SCENARIOS, null, true);
                         queued++;
                     }
                 } catch (PortfolioRiskService.RunInProgressException e) {

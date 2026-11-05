@@ -225,14 +225,18 @@ mkdir -p ~/backups
 ( crontab -l 2>/dev/null; echo '0 3 * * * bash /home/ubuntu/ArthaDhruva/deploy/backup.sh >> /home/ubuntu/backups/backup.log 2>&1' ) | crontab -
 bash deploy/backup.sh            # run once now to confirm
 ```
-Each night this writes two files and keeps the newest 7 of each: the database
-(`arthadhruva-<time>.sql.gz`) and the uploaded loan documents (`arthadhruva-<time>.files.tar.gz`).
-Redis is a cache and Neo4j is reloaded at startup, so neither needs one.
+Each night this writes three files and keeps the newest 7 of each: a dump of the database
+(`arthadhruva-<time>.sql.gz`), the uploaded loan documents (`arthadhruva-<time>.files.tar.gz`) and a
+physical base backup of Postgres (`arthadhruva-<time>.base.tar.gz`, `deploy/basebackup.sh`). Postgres
+also archives its write-ahead log, gzipped, to the `wal_archive` volume as it goes, at most 15 minutes
+behind, and the script deletes archived WAL that no kept base backup needs. Redis is a cache and Neo4j
+is reloaded at startup, so neither needs one.
 
 Two things the script cannot do for you:
 
-- **Copy the files off the server.** A backup on the same disk does not survive losing the VM (free
-  options: `rclone` to a cloud bucket, or a periodic `scp` to your laptop).
+- **Copy the files off the server**, the WAL archive with them (`docker volume inspect
+  arthadhruva_wal_archive` shows where it is). A backup on the same disk does not survive losing the VM
+  (free options: `rclone` to a cloud bucket, or a periodic `scp` to your laptop).
 - **Keep a private copy of `secrets/`**, once; it does not change. It holds the key that the stored
   2FA, SSO and webhook secrets are encrypted with. Restore a database without that key and nobody
   with two-factor sign-in can get in.
@@ -247,6 +251,18 @@ bash deploy/deploy.sh
 backend's two database roles are created by migrations that a restored database records as already
 run, so they would be missing and every grant in the dump would fail without stopping the load. The
 script creates them first and loads the dump as one transaction that stops at the first error.
+
+**Point-in-time restore**, to undo a mistake on the running server (a bad bulk update, a dropped table):
+pick the base backup from before it and the moment just before it, then
+```bash
+CONFIRM_RESTORE=yes bash deploy/restore-pitr.sh ~/backups/arthadhruva-<time>.base.tar.gz '2026-10-15 09:41:00+00'
+bash deploy/deploy.sh
+```
+It stops the backend, saves the current data directory as `pgdata-before-restore-<time>.tar.gz` (so a
+restore to the wrong moment can itself be undone), lays down the base backup and replays the archived
+WAL up to that moment. Without a time it replays everything archived. The restored server carries on
+archiving on a new timeline. CI runs the whole loop on every push (`scripts/pitr-test.sh`): rows written
+after the base backup, then deleted, come back from the WAL.
 
 ### 12. Keep the free VM from being reclaimed
 Oracle may reclaim Always Free compute instances it judges idle. A commonly used safeguard is
@@ -299,7 +315,7 @@ unit tests (`node --test deploy/azure/wake.test.js`, run by CI).
 | Task | Command |
 |---|---|
 | Update to the latest `prod` | `bash deploy/deploy.sh` |
-| Roll back | push a revert commit to `prod`; CI plus the deploy job apply it |
+| Roll back | automatic when a release never reports healthy: `deploy.sh` restarts the previous commit, backend image and frontend build, and still fails the deploy. To undo a release that is healthy but wrong, push a revert commit to `prod`; CI plus the deploy job apply it. Rolling back past the learned segment graph (#40) also needs `MATCH (n) WHERE n:State OR n:SegmentGraph DETACH DELETE n` in Neo4j and a backend restart: the older loader only adds edges and would leave the learned links next to its own |
 | Status | `docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.deploy.yml ps` |
 | Backend log | same prefix, then `logs -f backend` |
 | Scale the backend | add `--scale backend=2` to the `up` line in `deploy.sh` (one shared JWT secret is already in use) |

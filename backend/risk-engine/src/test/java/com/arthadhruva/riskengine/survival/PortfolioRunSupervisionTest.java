@@ -3,6 +3,7 @@ package com.arthadhruva.riskengine.survival;
 import com.arthadhruva.riskengine.AbstractIntegrationTest;
 import com.arthadhruva.riskengine.score.LoanCatalogService;
 import com.arthadhruva.riskengine.score.LoanFeatures;
+import com.arthadhruva.riskengine.score.PortfolioLoan;
 import com.arthadhruva.riskengine.tenant.Organization;
 import com.arthadhruva.riskengine.tenant.OrganizationService;
 import com.arthadhruva.riskengine.tenant.TenantContext;
@@ -47,6 +48,10 @@ class PortfolioRunSupervisionTest extends AbstractIntegrationTest {
         return organizations.create(name + "-" + UUID.randomUUID().toString().substring(0, 8), name, false, null, null);
     }
 
+    private List<PortfolioLoan> portfolioOf() {
+        return PortfolioLoan.all(loans());
+    }
+
     private List<LoanFeatures> loans() {
         return catalog.demoLoans().subList(0, 5);
     }
@@ -86,7 +91,7 @@ class PortfolioRunSupervisionTest extends AbstractIntegrationTest {
      * Looks at the queue, as every replica does, until this run has been taken. Another class's run may still
      * be finishing on the shared workers, and a pass takes only as many runs as there are free ones.
      */
-    private boolean taken(UUID id, Supplier<List<LoanFeatures>> portfolio, boolean mayStartDeferred) throws InterruptedException {
+    private boolean taken(UUID id, Supplier<List<PortfolioLoan>> portfolio, boolean mayStartDeferred) throws InterruptedException {
         for (int i = 0; i < 240; i++) {
             if (service.claimQueued(portfolio, mayStartDeferred).contains(id)) {
                 return true;
@@ -115,8 +120,8 @@ class PortfolioRunSupervisionTest extends AbstractIntegrationTest {
         service.requeueStale();
         assertEquals(1, read(org, id).attempt(), "and the supervisor does not count it as a failed attempt");
 
-        assertTrue(taken(id, this::loans, false));
-        assertFalse(service.claimQueued(this::loans, true).contains(id), "a run is taken once");
+        assertTrue(taken(id, this::portfolioOf, false));
+        assertFalse(service.claimQueued(this::portfolioOf, true).contains(id), "a run is taken once");
         PortfolioRiskService.Run done = finished(org, id);
         assertEquals(PortfolioRiskService.Status.COMPLETED, done.status());
         assertEquals(1, done.attempt());
@@ -135,11 +140,11 @@ class PortfolioRunSupervisionTest extends AbstractIntegrationTest {
         inTenant(org, () -> jdbc.update("UPDATE portfolio_risk_run SET heartbeat_at = now() - interval '10 minutes' WHERE id = ?", queued.id()));
         assertEquals(PortfolioRiskService.Status.QUEUED, read(org, queued.id()).status());
         service.requeueStale();
-        assertFalse(service.claimQueued(this::loans, false).contains(queued.id()), "outside the off-peak window nothing starts");
+        assertFalse(service.claimQueued(this::portfolioOf, false).contains(queued.id()), "outside the off-peak window nothing starts");
         assertTrue(read(org, queued.id()).deferred());
         assertEquals(1, read(org, queued.id()).attempt());
 
-        assertTrue(taken(queued.id(), this::loans, true));
+        assertTrue(taken(queued.id(), this::portfolioOf, true));
         PortfolioRiskService.Run done = finished(org, queued.id());
         assertEquals(PortfolioRiskService.Status.COMPLETED, done.status());
         assertFalse(done.deferred());
@@ -158,7 +163,7 @@ class PortfolioRunSupervisionTest extends AbstractIntegrationTest {
         assertEquals(PortfolioRiskService.Status.QUEUED, requeued.status());
         assertEquals(2, requeued.attempt());
 
-        assertTrue(taken(id, this::loans, false));
+        assertTrue(taken(id, this::portfolioOf, false));
         PortfolioRiskService.Run done = finished(org, id);
         assertEquals(PortfolioRiskService.Status.COMPLETED, done.status());
         assertEquals(2, done.attempt());
@@ -207,7 +212,7 @@ class PortfolioRunSupervisionTest extends AbstractIntegrationTest {
 
         double resumedBefore = meters.counter("risk.portfolio.run.chunks.resumed").count();
         service.requeueStale();
-        assertTrue(taken(id, this::twentyLoans, false));
+        assertTrue(taken(id, () -> PortfolioLoan.all(twentyLoans()), false));
         PortfolioRiskService.Run done = finished(org, id);
         assertEquals(PortfolioRiskService.Status.COMPLETED, done.status());
         assertEquals(2, done.attempt());
@@ -279,7 +284,7 @@ class PortfolioRunSupervisionTest extends AbstractIntegrationTest {
         assertEquals(PortfolioRiskService.Status.QUEUED, released.status(), "back in the queue, not left to go stale");
         assertEquals(2, released.attempt());
 
-        assertTrue(taken(id, () -> portfolio, false));
+        assertTrue(taken(id, () -> PortfolioLoan.all(portfolio), false));
         PortfolioRiskService.Run done = finished(org, id);
         assertEquals(PortfolioRiskService.Status.COMPLETED, done.status());
         assertEquals(2, done.attempt());

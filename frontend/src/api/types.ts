@@ -296,6 +296,42 @@ export interface Decision {
   method: string;
 }
 
+/** A loan's recent payment history. With `daysPastDue` it selects the delinquency model; incomplete, the existing engine runs. */
+export interface DelinquencyHistory {
+  /** months of the last 12 the status is known for */
+  monthsObserved?: number;
+  /** separate spells of 30+ days past due that began in that window */
+  episodes30Plus?: number;
+  /** months since the loan last returned to current; omitted when it has not within the window */
+  monthsSinceCure?: number;
+  /** the worst status in the window; a loan that reached 90 days has defaulted */
+  maxStatus12m?: 'CURRENT' | 'D30' | 'D60';
+}
+
+export interface Interval {
+  lower: number;
+  point: number;
+  upper: number;
+}
+
+/** Ranges around the lifetime figures: regime uncertainty plus historical calibration error, not a statistical confidence interval. */
+export interface Intervals {
+  method: string;
+  draws: number | null;
+  resampled: string;
+  bandSource: string | null;
+  bandSigma: number | null;
+  bandVintages: number | null;
+  bandHorizon: number | null;
+  capApplied: boolean;
+  /** why there is no interval, when there is none: the point estimate stands */
+  reason: string | null;
+  pd12m: Interval | null;
+  pdLifetime: Interval | null;
+  ecl12m: Interval | null;
+  eclLifetime: Interval | null;
+}
+
 export interface LifetimeRiskInput {
   loan: LoanFeatures;
   monthsOnBook?: number;
@@ -304,6 +340,9 @@ export interface LifetimeRiskInput {
   originationPd12m?: number;
   months?: number;
   decision?: DecisionRequest;
+  delinquency?: DelinquencyHistory;
+  /** asks for ranges around the lifetime figures; `draws` defaults to the server's setting */
+  intervals?: { draws?: number };
   /** probability of each compared scenario, as fractions summing to 1; adds `weighted` to a comparison */
   weights?: Record<string, number>;
 }
@@ -344,6 +383,11 @@ export interface TermStructureResponse {
   termStructure: TermStructure;
   warnings: string[];
   decision?: Decision;
+  /** the id and version of the model that produced the figures */
+  modelUsed: string;
+  /** why the existing engine ran when delinquency data was supplied or implied */
+  fallbackReason?: string;
+  intervals?: Intervals;
 }
 
 export interface ScenarioCurve {
@@ -436,6 +480,10 @@ export interface ScenarioRisk {
   states: StateRisk[];
   topLoans: LoanRisk[];
   extrapolatedLoans: Record<string, number>;
+  /** Loans projected by each model, by the model's id and version; absent in a result stored before portfolios could use the delinquency model. */
+  modelLoans?: Record<string, number> | null;
+  /** For the loans on the survival model, how many for each reason the delinquency model was not used. */
+  fallbackReasons?: Record<string, number> | null;
   eclRelativeStandardError: number | null;
   /** The one-year loss distribution around the 12-month ECL; on the baseline only, null if it could not be simulated. */
   lossDistribution: CvarResult | null;
@@ -569,7 +617,7 @@ export interface ModelEntry {
   checksumVerified: boolean | null;
   trainedAt: string | null;
   algorithm: string | null;
-  headline: Record<string, number | string>;
+  headline: Record<string, number | string | boolean>;
   gaps: string[];
 }
 
@@ -748,30 +796,56 @@ export interface SurvivalCard extends ModelCard {
   };
 }
 
-export interface MonthlyRecord {
-  currentLoanDelinquencyStatus: string;
-  currentActualUpb: number;
-  modificationFlag: string;
-}
-
-export interface TrajectoryRequest {
-  originalUpb: number;
-  months: MonthlyRecord[];
-}
-
-export interface TrajectoryScoreResponse {
-  probability: number;
-}
-
-/** One entry in the real-trajectory catalog (GET /trajectory-loans). */
-export interface TrajectoryCatalogEntry {
-  label: string;
-  request: TrajectoryRequest;
-}
-
 export interface SegmentNeighbor {
   state: string;
   hops: number;
+}
+
+/** A state of the learned segment graph; `region` is null for a state in no region. */
+export interface SegmentState {
+  code: string;
+  name: string;
+  region: string | null;
+}
+
+/** A moves-with link (a partial correlation), each pair once with the smaller code first. */
+export interface SegmentLink {
+  a: string;
+  b: string;
+  weight: number;
+  confidence: number | null;
+  basis: string[];
+}
+
+export interface SegmentRegion {
+  id: string;
+  label: string;
+  states: string[];
+  stability: number;
+}
+
+/** The out-of-time validation figures from the graph's model card. Null where a figure is not available. */
+export interface SegmentValidation {
+  learnedThrough: string;
+  testedOn: string;
+  linkedMinusUnlinked: number | null;
+  pAgainstRandomGraphs: number | null;
+  linkedMinusSameDivision: number | null;
+  pAgainstSameDivision: number | null;
+  robustAgainstRandomGraphs: boolean | null;
+  robustAgainstSameDivision: boolean | null;
+  leadsShipped: boolean;
+  leadsNote: string | null;
+}
+
+/** GET /segments/graph (SegmentGraphService.Graph). */
+export interface SegmentGraph {
+  version: string;
+  asOf: string;
+  states: SegmentState[];
+  links: SegmentLink[];
+  regions: SegmentRegion[];
+  validation: SegmentValidation;
 }
 
 /** A currently-current loan's monthly snapshot (early_warning_delinquency.ipynb v3 features).
@@ -1236,4 +1310,54 @@ export interface BorrowerSegment {
   size: number;
   definingTraits: { feature: string; direction: string; zScore: number }[];
   averages: Record<string, number>;
+}
+
+// ---- stored scores against realized outcomes ------------------------------------------------
+
+export interface RealizedDecile {
+  decile: number;
+  loans: number;
+  predicted: number;
+  realized: number;
+}
+
+/** The body of a finished comparison of the PD model's stored scores with the outcomes an organization recorded. */
+export interface RealizedReportBody {
+  asOf: string;
+  /** the thread that did the arithmetic: a compute thread, never the request or scheduler thread */
+  computedOn: string;
+  horizonMonths: number;
+  loansScored: number;
+  outcomesRecorded: number;
+  matchedToAScore: number;
+  resolved: number;
+  defaults: number;
+  unresolvedDefaultedOrPrepaidBeforeScored: number;
+  unresolvedNotObservedThroughHorizon: number;
+  meanPredicted: number;
+  realizedRate: number;
+  predictedOverRealized: number | null;
+  auc: number | null;
+  deciles: RealizedDecile[];
+  note: string | null;
+  method: string;
+  caveat: string;
+}
+
+export interface RealizedReport {
+  id: string;
+  status: 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+  requestedBy: string;
+  horizonMonths: number;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  error: string | null;
+  report: RealizedReportBody | null;
+}
+
+export interface RealizedOverview {
+  scored: number;
+  recorded: number;
+  latest: RealizedReport | null;
 }

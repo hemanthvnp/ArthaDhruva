@@ -77,7 +77,6 @@ class Artifacts:
     def __init__(self) -> None:
         self.meta = json.loads((RESOURCES / "survival_model.json").read_text())
         self.mappings = json.loads((RESOURCES / "category_mappings.json").read_text())
-        self.lgd = json.loads((RESOURCES / "lgd_model.json").read_text())
         rates = json.loads((RESOURCES / "market_rates.json").read_text())
         months = sorted(ym(k) for k in rates["monthly"])
         self.rate_first, self.rate_as_of = months[0], ym(rates["as_of_month"])
@@ -162,12 +161,13 @@ def hpi_factor(s: dict, k: int) -> float:
     return math.exp(trough + growth * (k - s["hpiShockMonths"]))
 
 
+# The fixed floor under the collateral-based LGD: the mean realized loss over the 2,746 defaulted loans with a recorded loss
+# (backend/experiments/retired/lgd). It replaced a Beta regression that was no better than this constant out of time.
+HISTORICAL_LGD = 0.0076
+
+
 def fitted_lgd(a: Artifacts, l: dict) -> float:
-    c = a.lgd["coefficients"]
-    linear = (a.lgd["const"] + c["credit_score"] * l["creditScore"] + c["original_dti"] * l["originalDti"]
-              + c["original_upb"] * l["originalUpb"] + c["original_cltv"] * l["originalCltv"]
-              + c["original_interest_rate"] * l["originalInterestRate"])
-    return max(0.0, min(1.0, 1.0 / (1.0 + math.exp(-linear))))
+    return HISTORICAL_LGD
 
 
 def plan(a: Artifacts, l: dict, s: dict, path_origin: int, first_k: int, months: int, age_at_origin: int,

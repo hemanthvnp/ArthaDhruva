@@ -178,7 +178,7 @@ export function tools(rawApi: RiskApi, limits: Limits): AnyTool[] {
     }),
     defineTool({
       name: 'model_detail', title: 'Model card',
-      description: 'The full model card of a validated model (pd_24m, survival, trajectory_lstm): training window, validation, limitations, checksum.',
+      description: 'The full model card of a validated model (pd_24m, survival, delinquency): training window, validation, limitations, checksum.',
       input: { id: z.string().min(1).max(40) },
       output: { id: z.string(), card: z.record(z.string(), z.unknown()) },
       annotations: READ, uses: ['get'],

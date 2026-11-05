@@ -49,3 +49,9 @@ secrets/
 
 # Server-side deployment settings (see DEPLOY.md); the committed template is deploy/.env.example
 .env
+
+# Written by the k6 capacity and soak tests (loadtest/capacity.js, soak.js)
+loadtest/*-summary.json
+
+# Local run traces of the analyst agent (tools/mcp/agent); live eval reports in tools/mcp/agent/evals/reports ARE committed
+.agent-traces/

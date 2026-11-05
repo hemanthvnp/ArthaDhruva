@@ -13,6 +13,14 @@ datasources:
     access: proxy
     uid: loki
     url: http://loki:3100
+    # A log line written inside a traced request carries its traceId (logback-spring.xml); this turns it
+    # into a link to that trace in Jaeger, so an error in the logs opens the request it happened in.
+    jsonData:
+      derivedFields:
+        - name: traceId
+          matcherRegex: '"traceId":"([0-9a-f]+)"'
+          url: '$${__value.raw}'
+          datasourceUid: jaeger
 
   - name: Jaeger
     type: jaeger

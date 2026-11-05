@@ -81,16 +81,16 @@ Additive. Ship in four steps: (1) the classifier, generator and Python golden; (
 
    | Figure and scenario | band ±10% / ±3 mo | ±20% / 0 | **±20% / ±3 (default)** | ±20% / ±6 | ±30% / ±3 |
    |---|---|---|---|---|---|
-   | Prime, ADVERSE, lifetime PD | 3.7% | 7.6% | **7.1%** | 7.6% | 10.8% |
-   | Prime, ADVERSE, 12-month PD | 18.9% | 16.2% | **24.6%** | 34.5% | 29.8% |
-   | Prime, SEVERELY_ADVERSE, lifetime PD | 11.7% | 22.5% | **21.5%** | 22.8% | 31.8% |
-   | Prime, SEVERELY_ADVERSE, 12-month PD | 33.9% | 26.3% | **42.5%** | 59.8% | 54.4% |
-   | Weak, ADVERSE, lifetime PD | 1.7% | 3.3% | **3.4%** | 3.5% | 5.0% |
-   | Weak, ADVERSE, 12-month PD | 10.9% | 8.2% | **12.6%** | 17.0% | 13.6% |
-   | Weak, SEVERELY_ADVERSE, lifetime PD | 1.3% | 2.2% | **2.2%** | 2.6% | 3.4% |
-   | Weak, SEVERELY_ADVERSE, 12-month PD | 5.9% | 5.9% | **8.3%** | 13.1% | 11.6% |
+   | Prime, ADVERSE, lifetime PD | 5.5% | 5.1% | **7.8%** | 10.6% | 11.0% |
+   | Prime, ADVERSE, 12-month PD | 9.1% | 7.1% | **12.0%** | 17.7% | 13.3% |
+   | Prime, SEVERELY_ADVERSE, lifetime PD | 7.7% | 14.9% | **15.8%** | 16.8% | 24.9% |
+   | Prime, SEVERELY_ADVERSE, 12-month PD | 15.7% | 14.2% | **23.8%** | 25.9% | 30.3% |
+   | Weak, ADVERSE, lifetime PD | 4.1% | 4.2% | **5.4%** | 6.8% | 6.9% |
+   | Weak, ADVERSE, 12-month PD | 10.3% | 7.2% | **12.1%** | 19.1% | 13.9% |
+   | Weak, SEVERELY_ADVERSE, lifetime PD | 2.3% | 2.8% | **3.6%** | 4.8% | 5.6% |
+   | Weak, SEVERELY_ADVERSE, 12-month PD | 5.4% | 6.8% | **7.9%** | 8.9% | 12.8% |
 
-   Two readings. Timing barely moves a lifetime figure but moves a 12-month figure a lot (the shock lands inside or outside the first year), so the timing band matters most for `PD_12M`. And the same band gives a wider boundary the harsher the scenario and the lower the loan's own PD, so a fixed threshold sits on the boundary for a different share of loans in each scenario. The weak loan's lifetime PD (57%) is high enough that stress variants barely move it. The first run was stopped part-way because it was slower than estimated; the missing weak-loan rows were run afterwards, so all 72 rows (2 loans x 2 scenarios x 9 band pairs x 2 figures) now exist.
+   *Re-measured 2026-11-03 on the survival model of 2026-10-13* (card `2026.10.13-0616`); the first table, taken on a survival model from before the re-export of 2026-10-13, had wider 12-month rows for the prime loan (42.5% at the default under SEVERELY_ADVERSE against 23.8% now). All 72 rows were run again in one pass with `-Dmeasure.boundary=<file>` (about five minutes). Three readings. Timing matters most for `PD_12M`, because the shock lands inside or outside the first year: going from 0 to 3 months takes the prime loan's SEVERELY_ADVERSE 12-month figure from 14.2% to 23.8% while its lifetime figure goes from 14.9% to 15.8%. Under ADVERSE the lifetime figure moves too (5.1% to 7.8% to 10.6% at 0, 3 and 6 months). Next, the boundary is wider for the loan with the lower PD (at the default, in three of four comparisons of the weak loan with the prime one, and level in the fourth: 12.1% against 12.0%), and for the prime loan wider under the harsher scenario, so a fixed threshold sits on the boundary for a different share of loans in each scenario. Last, the weak loan's PD saturates (lifetime 77% under ADVERSE and 88% under SEVERELY_ADVERSE), so its boundary narrows as the scenario gets harsher, the opposite of the prime loan.
 2. Resolved: portfolio aggregates are stored in the snapshot's `detail` JSON, and per-loan regions as nullable columns on `portfolio_risk_loan` (one forward-only migration; that table already carries RLS).
 3. Whether `ECL_LIFETIME_RATE` should use `eclLifetime` or the IFRS 9 / CECL figure for its default (proposed: `eclLifetime`, with the others selectable later).
 4. Whether the `SCENARIO_SET` granule should be offered on the portfolio path in this change or only on single loans.

@@ -14,10 +14,8 @@ import {
   getLoanClients,
   listAttachments,
   listEarlyWarningCatalog,
-  listTrajectoryCatalog,
   regimeForecast,
   score,
-  trajectoryScore,
   updateLoanCase,
   uploadAttachment,
 } from '../api/client';
@@ -35,7 +33,6 @@ import type {
   LoanCaseStatus,
   LoanCaseView,
   ScoreResponse,
-  TrajectoryScoreResponse,
 } from '../api/types';
 
 function formatBytes(bytes: number): string {
@@ -86,14 +83,12 @@ function LoanDetail({ loanId }: { loanId: string }) {
   const clients = useQuery({ queryKey: ['loan-clients', loanId], queryFn: () => getLoanClients(loanId) });
   const regime = useQuery({ queryKey: ['regime-forecast', 12], queryFn: () => regimeForecast(12) });
   const earlyWarningCatalog = useQuery({ queryKey: ['early-warning-catalog'], queryFn: listEarlyWarningCatalog, staleTime: Infinity });
-  const trajectoryCatalog = useQuery({ queryKey: ['trajectory-catalog'], queryFn: listTrajectoryCatalog, staleTime: Infinity });
   const caseQuery = useQuery({ queryKey: ['loan-case', loanId], queryFn: () => getLoanCase(loanId) });
   const attachments = useQuery({ queryKey: ['attachments', loanId], queryFn: () => listAttachments(loanId) });
 
   const [pdResult, setPdResult] = useState<ScoreResponse | null>(null);
   const [elResult, setElResult] = useState<ExpectedLossResponse | null>(null);
   const [ewResult, setEwResult] = useState<EarlyWarningResponse | null>(null);
-  const [trajResult, setTrajResult] = useState<TrajectoryScoreResponse | null>(null);
   const [actionError, setActionError] = useState<unknown>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -131,7 +126,6 @@ function LoanDetail({ loanId }: { loanId: string }) {
   };
   const features = loan.data ?? null;
   const ewEntry = earlyWarningCatalog.data?.find((e) => e.label.startsWith(`${loanId} `)) ?? null;
-  const trajEntry = trajectoryCatalog.data?.find((t) => t.label.startsWith(`${loanId} `)) ?? null;
   const pd = pdResult?.calibratedProbability ?? recorded.data?.score.calibratedProbability;
 
   const run = async (key: string, action: () => Promise<void>) => {
@@ -157,9 +151,6 @@ function LoanDetail({ loanId }: { loanId: string }) {
   });
   const computeEw = () => run('ew', async () => {
     if (ewEntry) setEwResult(await earlyWarningScore(ewEntry.features));
-  });
-  const computeTraj = () => run('traj', async () => {
-    if (trajEntry) setTrajResult(await trajectoryScore(trajEntry.request));
   });
 
   const assignee = assignedTo.trim() || null;
@@ -395,22 +386,6 @@ function LoanDetail({ loanId }: { loanId: string }) {
             </p>
           ) : (
             <div className="skeleton" />
-          )}
-          {trajEntry && (
-            <>
-              <div className="section-label" style={{ marginTop: '1rem' }}>Payment trajectory</div>
-              <p className="page-subtitle">An observed payment history exists for this loan ({trajEntry.request.months.length} months).</p>
-              <button className="secondary" onClick={computeTraj} disabled={busy === 'traj'}>{busy === 'traj' ? 'Scoring...' : 'Score the trajectory'}</button>
-              {trajResult && (
-                <div className="result-grid">
-                  <div className="stat">
-                    <div className="label">Trajectory score</div>
-                    <div className="value">{pct(trajResult.probability, 1)}</div>
-                    <div className="sub">ranks histories; not a calibrated probability</div>
-                  </div>
-                </div>
-              )}
-            </>
           )}
         </div>
       </div>

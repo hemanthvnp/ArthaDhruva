@@ -137,6 +137,13 @@
 			<groupId>io.micrometer</groupId>
 			<artifactId>micrometer-registry-prometheus</artifactId>
 		</dependency>
+		<!-- The API's OpenAPI description, generated from the controllers and records (no UI). The committed copy,
+		     openapi.json, is held to it by OpenApiContractTest, and the frontend's types to the copy (npm run api:types, then tsc -b). -->
+		<dependency>
+			<groupId>org.springdoc</groupId>
+			<artifactId>springdoc-openapi-starter-webmvc-api</artifactId>
+			<version>3.1.0</version>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-micrometer-tracing-opentelemetry</artifactId>
