@@ -236,7 +236,7 @@ services:
 
   loki:
     <<: *hardening
-    image: grafana/loki:3.7.8
+    image: grafana/loki:3.7.10
     profiles: ["observability"]
     networks: [observability]
     ports:
@@ -266,7 +266,7 @@ services:
   # it answers GET requests about containers and networks and refuses everything else.
   docker-socket-proxy:
     <<: *hardening
-    image: tecnativa/docker-socket-proxy:v0.5.0
+    image: tecnativa/docker-socket-proxy:3.4
     profiles: ["observability"]
     networks: [dockerapi]
     environment:
@@ -293,7 +293,7 @@ services:
   # reaches the backend. Opt-in like the observability stack; ports overridable via env.
   nginx:
     <<: *hardening
-    image: nginx:1.29
+    image: nginx:1.31
     profiles: ["edge"]
     networks: [edge]
     cap_add: [CHOWN, SETUID, SETGID, NET_BIND_SERVICE]
